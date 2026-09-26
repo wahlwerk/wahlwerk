@@ -4,9 +4,8 @@ Three settings, each load-bearing:
 
 ``frozen=True``
     State is inert. Only events produce new state, and a model that could be mutated
-    in place would make an :class:`~wahlwerk.events.base.BodyState` history a lie.
-    It also makes models hashable, which is what lets a
-    :class:`~wahlwerk.ballots.TallyKey` be a dictionary key.
+    in place would make a history of states a lie. It also makes models hashable, which
+    is what lets them be dictionary keys in a tally.
 
 ``extra="forbid"``
     A misspelled field in a source file or a fixture is a hard error, not a silently
@@ -21,9 +20,10 @@ Note what pydantic does *not* freeze: a ``dict`` or ``list`` field is still muta
 place. Fields therefore use ``tuple`` and ``frozenset`` wherever the value is meant to
 be part of the model's identity.
 
-Numeric validation is deliberate throughout: vote counts are
-:data:`~pydantic.NonNegativeInt`, shares are exact :class:`~fractions.Fraction` bounded
-to ``[0, 1]`` -- never ``float``. See :mod:`wahlwerk.apportionment.base` for why.
+Numeric validation is deliberate throughout: vote and seat counts are non-negative
+``int``, shares are exact :class:`~fractions.Fraction` bounded to ``[0, 1]``, never
+``float``. Apportionment methods are only reproducible against official results under
+exact rational arithmetic.
 """
 
 from __future__ import annotations
@@ -33,13 +33,17 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
-__all__ = ["Count", "Model", "Seats", "Share", "SlotModel"]
+__all__ = ["Count", "Model", "Seats", "Share"]
 
 Count = Annotated[int, Field(ge=0)]
 """An absolute number of votes. Never negative."""
 
 Seats = Annotated[int, Field(ge=0)]
 """An absolute number of seats. Never negative."""
+
+Share = Annotated[Fraction, Field(ge=0, le=1)]
+"""An exact proportion in ``[0, 1]``. Never ``float``."""
+
 
 class Model(BaseModel):
     """Frozen, validated, no unknown fields."""
@@ -48,5 +52,4 @@ class Model(BaseModel):
         frozen=True,
         extra="forbid",
         validate_default=True,
-        use_attribute_docstrings=True,
     )

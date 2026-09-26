@@ -6,6 +6,46 @@ against real historical votes.
 
 Scope covers all legislative levels, plus the derived bodies.
 
+## Approach
+
+The long-term aim is to represent most systems of government: parliamentary,
+presidential, semi-presidential, directorial, and the mixtures in between. The engine
+gets there by composition, not by classification.
+
+- **Small, general building blocks.** Each block models one kind of standing thing and
+  nothing else, knows nothing about the system it sits in, and is reused unchanged in
+  every system that has it. A system is a composition of blocks, never a subclass.
+- **State, protocols, events and processes, kept apart.**
+  - *State* is inert: what exists at a point in time. It is never edited, only
+    replaced.
+  - A *protocol* is data: an ordered tuple of *steps*, each a small frozen model that
+    says one thing (how something is filled, who can end it, which parties form one
+    caucus). The constitution and electoral law in force are protocols, referenced by
+    the date they apply to, so an election is evaluated under the law of its day.
+  - An *event* is a dated fact from history: an election with its votes, a member
+    leaving a caucus. Events are inputs, never logic.
+  - A *process* is the only way state changes: it applies a protocol, step by step in
+    order, and returns new state. An *internal* process changes one unit
+    (`chamber.form_caucuses(protocol)`); an *external* process spans several units or
+    forms a new one (forming a chamber after an election).
+  - A counterfactual is the same event under a different protocol.
+- **Steps are objects, not functions.** A step can be printed, compared, hashed and
+  validated when it is written, and a protocol can be stored as part of a law. Two
+  protocols that differ in one step show exactly that difference.
+- **Folders by role, dependencies one way.** Foundation (`model`, `ids`, `log`) <-
+  entities (`party`) <- state (`state`: term, chamber, caucus, mandate) <- processes
+  (`process`); readers (`io`) feed entities and state.
+- **Relations, not labels.** What separates one system of government from another is
+  a handful of relations: who selects whom, who can remove whom, who can end whose
+  term. The engine models these relations directly. A system type is *derived* from
+  them, never declared, because real constitutions mix them and a counterfactual
+  changes one relation at a time.
+- **One rule at a time.** Because rules are small and separate, replacing one rule and
+  replaying history is the basic operation. That is the whole point of rules-as-code.
+- **Partial history is normal.** Every block tolerates missing facts, modelled as
+  absent, so a record known only as a seat table and one known seat by seat use the
+  same types.
+
 ## Repositories
 
 Three, split along the lines that actually differ — licence, size and change cadence:
@@ -104,10 +144,17 @@ and mypy still refuses to pass a `PartyId` where a `UnitId` belongs.
 | Type | Shape | Examples |
 |---|---|---|
 | `BodyId` | dotted | `de.bund.bundestag`, `de.by.landtag` |
+| `CandidateId` | dotted | `max-mustermann` |
 | `LawId` | dotted, `+slot` for variants | `de.bund.bwahlg.2023`, `de.bund.bwahlg.2023+apportionment` |
 | `UnitId` | dotted | `de.bund.land.01`, `de.bund.wk.001` |
-| `PartyId` | dotted | `cdu`, `gruene`, `team-todenhoefer` |
+| `PartyId` | single segment | `cdu`, `gruene`, `team-todenhoefer` |
+| `CaucusId` | single segment, unique within a chamber | `spd`, `cdu-csu` |
+| `MandateId` | dotted, unique within a chamber | `spd.001`, later `wk.001` |
 | `LevelName` | single segment | `wahlkreis`, `land`, `bund` |
+
+`BodyId`, `CandidateId`, `PartyId`, `CaucusId` and `MandateId` exist so far; each of the
+others is added with the first field that needs it. A `MandateId` names the seat, not
+its holder, so it survives Nachrücken.
 
 **Bodies** are named by jurisdiction then institution. `de.bund` is the federation;
 the sixteen Länder use their official two-letter code:
@@ -161,7 +208,10 @@ as data rather than as strings.
 - **No bulk data in the repository.** Vote data lives in `wahlwerk-data`, which records
   each source's URL, retrieval date and SHA-256 so a bundle is reproducible without
   committing the multi-megabyte original. Fixtures committed here stay small and clearly
-  sourced. What *is* shipped is reference data — the party registry, ~40 rows.
+  sourced. Reference data lives there too: the party registry is
+  `wahlwerk-data/parties/de/de.bund.json`, loaded with `PartyRegistry.from_json(path)`.
+  The engine knows what a party *is* and how the file *looks*, never which parties
+  exist.
 
 
 ## Model fields
@@ -183,15 +233,16 @@ Rules, in order of preference:
    `description`. Never a bare `= 0` or an undocumented field.
 2. **Reach for a shared alias for the type.** `model.py` exports `Count` (≥ 0),
    `Seats` (≥ 0) and `Share` (exact `Fraction`, 0–1); `ids.py` exports `Slug`,
-   `DottedKey`, `LawId`. The alias carries the constraint; `Field` only adds the default
+   `DottedKey` and the id types. The alias carries the constraint; `Field` only adds the default
    and description. If the same constraint appears three times, it wants an alias, not
    three `Field(ge=0, ...)`.
 3. **Put a local constraint in the same `Field`** only when the type cannot carry it:
    `ge`, `gt`, `min_length`, `pattern`, `discriminator`.
    `votes_per_voter: int = Field(default=1, ge=1, description=...)` is right; the
    constraint is local and does not recur.
-4. **Defaults are immutable**: `default=()`, `default=frozenset()`, never a `list` or
-   `dict`. Pydantic copies defaults anyway, so `default_factory` is noise.
+4. **Empty container defaults use `default_factory`** with an immutable type:
+   `Field(default_factory=tuple, ...)`, `Field(default_factory=frozenset, ...)`, never a
+   `list` or `dict`. Scalars and `None` keep `default=`.
 5. **Never `Field(alias=...)` on a domain model.** Source column names (`Gruppe`,
    `Anzahl`, `Stimmart`) are mapped in the reader in `io/`, not smuggled into the model.
    Otherwise the domain vocabulary silently becomes whichever Landeswahlleiter was
@@ -202,19 +253,86 @@ Rules, in order of preference:
 7. **Prefer a validator over a comment.** If a description says "must be", make it must
    be.
 
+## General conventions
 
-  ## Build order
+- **Paths are `pathlib.Path`, everywhere.** A function that takes a path accepts
+  `str | Path` and converts on its first line:
 
-  empty
+  ```python
+  def read_parties(file_path: str | Path) -> tuple[Party, ...]:
+      file_path = Path(file_path)
+  ```
 
-  ## Development
+- **`.get()` always returns something and never raises**: the value, or `default`
+  (`None` unless given), like `dict.get`. Indexing is the lookup that raises:
+
+  ```python
+  registry.get("bsw")         # None
+  registry.get("bsw", other)  # other
+  registry["bsw"]             # KeyError: "no party 'bsw' in registry"
+  ```
+
+- **Booleans start with `is_` or `has_`** (strongly preferred), or `are_` / `have_`
+  where the subject is plural; fields and properties alike: `Mandate.is_vacant`,
+  `Chamber.is_empty`, `Chamber.has_caucuses`.
+
+- **Missing facts are absent, not faked.** An unknown value is `None`, never a
+  placeholder like `"unknown-party-id"` or `"???"`, which would pass validation and be
+  counted as real.
+
+
+## Build order
+
+Built one small step at a time; each step leaves the package importable.
+
+**Done**
+
+- `Model` base and the `Count`, `Seats`, `Share` aliases
+- Identifiers: `Slug`, `DottedKey`, `BodyId`, `CandidateId`, `PartyId`
+- `Mandate` (party that won it, origin) with `MandateOrigin` and `MandateSource`, in
+  `state/` since it is what a chamber is made of
+- Standing state: `Term` (with its date-order invariant), `Chamber` (mandates as the
+  source of truth for seats, caucuses stored beside them and validated against them;
+  `size`, `is_empty`, `seats_by_party`, vacant and filled seats, `minimum_mandates`
+  with `is_below_minimum` / `is_at_minimum` / `is_above_minimum`), `Caucus` (`id`
+  and `mandates` as mandate ids; names stay on the parties)
+- `Mandate.id`: every seat has an id unique within its chamber (`spd.001`), which
+  caucuses refer to
+- `Mandate.is_vacant`: a seat that exists but nobody holds, distinct from a seat whose
+  party is not on record
+- The first process: `Chamber.form_caucuses(protocol)` clears and re-forms caucuses
+  from a protocol of `CaucusStep`s (`CaucusPerParty`, `GroupParties`) in
+  `wahlwerk.process`
+- Non-attached seats (fraktionslos in the Bundestag): the seat-table key
+  `"non-attached"` (or `None`), `Chamber.non_attached_seats`, and the imaginary caucus
+  `non-attached` in `seats_by_caucus` and `get_caucuses`
+- Opt-in logging: `wahlwerk.log.setup_logger()` / `disable_logging()`, one logger per
+  module, silent by default
+- `Party` and `PartyRegistry` (`[id]`, `.get()`, `.from_json()`), with the reader for
+  wahlwerk-data's party files in `wahlwerk.io`
+- Tests under `tests/`, mirroring `src/wahlwerk/`
+
+**Next**
+
+- A trace of how a result was derived: one helper that applies a protocol and records
+  each step (`before`, step, `after`) when a `record()` context is active, so every
+  process is traced the same way; kept off the state so equality is unaffected
+- Move pytest, mypy and ruff from runtime to dev dependencies
+- `Caucus.parties` and `Caucus.is_gemeinschaft`, derived from the seats a caucus
+  groups (CDU/CSU is formed by `GroupParties`)
+- `Caucus.declared_size` for aggregate-only records, validated against `mandates` when
+  both are present
+- Mandate ids from how the seat was won (`wk.001`, list seats) once origins exist
+- `Mandate.unit`, `Mandate.level` with `UnitId` and `LevelName`
+- `find_archive()`, once there is more than one file to find in wahlwerk-data
+
+## Development
 
 ```bash
 uv sync
-uv run pytest        # tests
-uv run mypy          # strict, src and tests
-uv run ruff check .  # lint
-uv run ruff format . # format
+uv run pytest -q             # tests
+uv run mypy --strict src     # types
+uv run ruff check src tests  # lint
 ```
 
 ## Non-goals

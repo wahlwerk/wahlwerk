@@ -1,10 +1,15 @@
 [project]
 name = "wahlwerk"
 version = "0.1.0"
-description = "Add your description here"
+description = "Electoral and parliamentary systems as rules-as-code"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "pydantic>=2.13.5",
+]
+
+[project.optional-dependencies]
+ui = ["wahlwerk-ui"]
 
 
 [build-system]
@@ -13,3 +18,14 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/wahlwerk"]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+    "wahlwerk-ui",
+]
+
+[tool.uv.sources]
+wahlwerk-ui = { path = "../wahlwerk-ui", editable = true }

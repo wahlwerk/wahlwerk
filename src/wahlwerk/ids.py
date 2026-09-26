@@ -1,22 +1,55 @@
+"""Identifiers: lowercase ASCII strings, never objects.
+
+Every id is a ``NewType`` over a pattern-constrained string, so a malformed key fails
+validation where it is written and a type checker refuses a ``CandidateId`` where a
+``BodyId`` belongs.
+"""
+
 from __future__ import annotations
 
-from enum import Enum
-from functools import cached_property
 from typing import Annotated, NewType
 
-from pydantic import StringConstraints, model_validator
+from pydantic import StringConstraints
 
-from wahlwerk.model import Model
+__all__ = ["BodyId", "CandidateId", "CaucusId", "DottedKey", "MandateId", "PartyId", "Slug"]
 
 SLUG = r"[a-z0-9]+(?:[-_][a-z0-9]+)*"
 """One segment: lowercase ASCII, inner hyphens or underscores, no leading separator."""
 
-Slug = Annotated[str, StringConstraints(pattern=rf"^{SLUG}$")]
+SINGLE = StringConstraints(pattern=rf"^{SLUG}$")
+"""The constraint behind :data:`Slug` and single-segment id types."""
+
+Slug = Annotated[str, SINGLE]
 """A single-segment key: ``wahlkreis``, ``zweitstimme``, ``cdu-csu``."""
 
-DottedKey = Annotated[str, StringConstraints(pattern=rf"^{SLUG}(?:\.{SLUG})*$")]
+DOTTED = StringConstraints(pattern=rf"^{SLUG}(?:\.{SLUG})*$")
+"""The constraint behind :data:`DottedKey` and dotted id types."""
+
+DottedKey = Annotated[str, DOTTED]
 """A dotted path, narrowest scope last: ``de.bund.wk.001``."""
 
+# NewType needs a real class as its base, so each id is a NewType over ``str``
+# wrapped in the constraint itself (``SINGLE`` or ``DOTTED``). Never wrap it in
+# ``Slug`` or ``DottedKey``: pydantic silently ignores an Annotated alias used as
+# metadata, and the pattern is not checked.
 
-BodyId = NewType("BodyId", DottedKey)
+_BodyId = NewType("_BodyId", str)
+BodyId = Annotated[_BodyId, DOTTED]
 """Stable key of an institution, e.g. ``"de.bund.bundestag"``, ``"de.by.landtag"``."""
+
+_CandidateId = NewType("_CandidateId", str)
+CandidateId = Annotated[_CandidateId, DOTTED]
+"""Stable key of a person who stands for or holds a mandate."""
+
+_PartyId = NewType("_PartyId", str)
+PartyId = Annotated[_PartyId, SINGLE]
+"""Stable key of a party, e.g. ``"cdu"``."""
+
+_CaucusId = NewType("_CaucusId", str)
+CaucusId = Annotated[_CaucusId, SINGLE]
+"""Key of a caucus, unique within its chamber, e.g. ``"cdu-csu"``."""
+
+_MandateId = NewType("_MandateId", str)
+MandateId = Annotated[_MandateId, DOTTED]
+"""Key of a seat, unique within its chamber, e.g. ``"spd.001"``; later from how the seat
+was won (``"wk.001"``). Identifies the seat, not its holder, so it survives Nachrücken."""
