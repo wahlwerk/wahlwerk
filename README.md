@@ -34,7 +34,8 @@ gets there by composition, not by classification.
   protocols that differ in one step show exactly that difference.
 - **Folders by role, dependencies one way.** Foundation (`model`, `ids`, `log`) <-
   entities (`party`) <- state (`state`: term, chamber, caucus, mandate) <- processes
-  (`process`); readers (`io`) feed entities and state.
+  (`process`); readers (`io`) feed entities and state. What a vote recorded (`vote`)
+  is input, not state: it depends only on the foundation and processes read it.
 - **Relations, not labels.** What separates one system of government from another is
   a handful of relations: who selects whom, who can remove whom, who can end whose
   term. The engine models these relations directly. A system type is *derived* from
@@ -324,6 +325,9 @@ Built one small step at a time; each step leaves the package importable.
   both are present
 - Mandate ids from how the seat was won (`wk.001`, list seats) once origins exist
 - `Mandate.unit`, `Mandate.level` with `UnitId` and `LevelName`
+- Chamber votes in `vote/chamber/`: votes cast by the members of a body, secret
+  (Bundeskanzlerwahl, as counts) or named (namentliche Abstimmung, one row per member
+  `MandateId` and choice); tallies stay popular-vote only
 - `find_archive()`, once there is more than one file to find in wahlwerk-data
 
 ## Development

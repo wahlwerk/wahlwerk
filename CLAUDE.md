@@ -15,14 +15,15 @@ The package imports cleanly (`uv run python -c "import wahlwerk"`). What exists:
 | Module | Contents |
 |---|---|
 | `model.py` | `Model` base; aliases `Count`, `Seats`, `Share` |
-| `ids.py` | `Slug`, `DottedKey`; ids `BodyId`, `CandidateId`, `PartyId`, `CaucusId`, `MandateId` |
+| `ids.py` | `Slug`, `DottedKey`; ids `BodyId`, `CandidateId`, `PartyId`, `CaucusId`, `MandateId`, `UnitId`, `LevelName` |
 | `log.py` | `setup_logger(file_path=None, *, level, console)` (file only when given), `disable_logging`, `LOGGER_NAME`; the root adds a `NullHandler` |
 | `party/` | `Party` (`id`, `name`, `short_name`), `PartyRegistry` (`[id]`, `.get()`, `.from_json()`) |
 | `io/` | `read_parties`: reads a party registry file from wahlwerk-data |
 | `state/` | `Mandate` (`id`, `party`, `origin`, `is_vacant`; derived `has_party`; `from_party(party, id)`), `MandateOrigin` (`source`), `MandateSource` enum; `Term` (with `_check_order`; derived `is_ended`, `is_ended_early`), `Caucus` (`id`, `mandates`: mandate ids; `size`; no names) with `NON_ATTACHED`, `Chamber` (`term`, `mandates`, `caucuses`, `minimum_mandates`, `are_caucuses_recorded`; validates mandate ids unique and caucuses against mandates; derived `body`, `size`, `is_empty`, `has_caucuses`, `seats_without_caucus`, `non_attached_seats`, `seats_by_caucus`, `get_caucuses(include_non_attached=False)`, `vacant_seats`, `filled_seats`, `is_below_minimum`/`is_at_minimum`/`is_above_minimum`, `seats_by_party`; `from_seats`, `with_caucuses`; processes `clear_caucuses`, `form_caucuses`; display `__repr__`, `_repr_html_`, `fancy_html`) |
+| `vote/` | `popular/`: `TallyRow` (`unit`, `level`, `kind`, `section`, `channel`, `party`, `candidate`, `option`, `count`; `_check_kind`), `TallyKind` enum (`VOTES`, `INVALID`, `ELIGIBLE`, `VOTERS`); `chamber/`: empty |
 | `process/` | `CaucusStep` (abstract, callable), `CaucusProtocol` (tuple of steps), `CaucusPerParty`, `GroupParties` (`parties`, `id`; warns on missing parties), `ProtocolWarning` |
 
-**There is no law implementation.** There are no events, ballots, tallies, apportionment, or archive discovery (`find_archive`) yet. The README describes
+**There is no law implementation.** There are no events, ballots, chamber votes, tally containers (only single rows), apportionment, or archive discovery (`find_archive`) yet. The README describes
 the target system; where it names something (`LawId`, `Tie`, `tests/golden/`), check this
 table before assuming it exists.
 
@@ -126,6 +127,7 @@ Folders are sorted by role; each answers one question.
 | `model.py`, `ids.py`, `log.py` | foundation | the base model, identifiers, logging; top-level modules, no folder |
 | `party/` | entities | things with a stable identity that everything refers to by id; not state. Later siblings: a person/candidate and a body model, then possibly one `entity/` folder |
 | `state/` | state | what exists at a point in time, inert, replaced only by processes: `Term`, `Chamber`, `Caucus`, `Mandate` |
+| `vote/` | votes | what a vote recorded, split by who votes: `vote/popular/` (`TallyRow`, one row type for votes and the people eligible and voting) and `vote/chamber/` (empty so far); input, never replaced by a process; not state |
 | `process/` | processes | steps, protocols, and the processes that apply them |
 | `io/` | readers | the only place that knows source file formats |
 | `event/`, `law/` | later | dated facts; protocols in force per date |
@@ -135,9 +137,19 @@ way, and a module imports only from layers to its left:
 
 ```
 foundation  <-  entities  <-  state  <-  process
-                   ^            ^
-                   io ----------+
+     ^             ^            ^          |
+     |             io ----------+          |
+     +---------  vote  <-------------------+
 ```
+
+`vote` imports only the foundation (ids, not `Party` objects); `process` reads it,
+`state` never imports it. Votes are told apart by who votes, and each case has its own subpackage: a
+**popular vote** (`vote/popular/`) is cast by the electorate and recorded as `TallyRow`
+counts per unit (votes, invalid votes, Wahlberechtigte and Wähler alike, told apart by
+`TallyKind`), which are aggregated into larger units; a **chamber vote**
+(`vote/chamber/`) is cast by the members of a body (a chamber or a committee), secret
+like the Bundeskanzlerwahl or named like a namentliche Abstimmung, and is not modelled
+yet. A chamber vote is not a tally. Never call either case a "ballot" or a "roll call".
 
 `state` never imports `process` at load time (only under `TYPE_CHECKING`, or inside a
 method with a comment saying why).

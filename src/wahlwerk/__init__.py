@@ -28,6 +28,7 @@ from wahlwerk.state import (
     MandateSource,
     Term,
 )
+from wahlwerk.vote import TallyKind, TallyRow
 
 __version__ = "0.1.0"
 
@@ -52,6 +53,8 @@ __all__ = [
     "ProtocolWarning",
     "Seats",
     "Share",
+    "TallyKind",
+    "TallyRow",
     "Term",
     "disable_logging",
     "ids",

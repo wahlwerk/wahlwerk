@@ -11,7 +11,17 @@ from typing import Annotated, NewType
 
 from pydantic import StringConstraints
 
-__all__ = ["BodyId", "CandidateId", "CaucusId", "DottedKey", "MandateId", "PartyId", "Slug"]
+__all__ = [
+    "BodyId",
+    "CandidateId",
+    "CaucusId",
+    "DottedKey",
+    "LevelName",
+    "MandateId",
+    "PartyId",
+    "Slug",
+    "UnitId",
+]
 
 SLUG = r"[a-z0-9]+(?:[-_][a-z0-9]+)*"
 """One segment: lowercase ASCII, inner hyphens or underscores, no leading separator."""
@@ -53,3 +63,11 @@ _MandateId = NewType("_MandateId", str)
 MandateId = Annotated[_MandateId, DOTTED]
 """Key of a seat, unique within its chamber, e.g. ``"spd.001"``; later from how the seat
 was won (``"wk.001"``). Identifies the seat, not its holder, so it survives Nachrücken."""
+
+_UnitId = NewType("_UnitId", str)
+UnitId = Annotated[_UnitId, DOTTED]
+"""Key of a unit votes are counted in, e.g. ``"de.st.wk.001"``."""
+
+_LevelName = NewType("_LevelName", str)
+LevelName = Annotated[_LevelName, SINGLE]
+"""Kind of unit, e.g. ``"wahlkreis"``, ``"kreis"``, ``"land"``."""
