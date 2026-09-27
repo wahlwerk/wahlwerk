@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from wahlwerk.law.base import Law, LawRegistry
+from wahlwerk.law.de.mv.lkwg import LKWG_2011
 from wahlwerk.law.de.st.lwg import LWG_2021
 from wahlwerk.law.registry import LAWS
 from wahlwerk.process.allocation.chamber import FormChamber
@@ -32,6 +33,18 @@ def test_lwg_2021_is_registered():
 def test_lwg_2021_governs_the_elections_of_2021_and_2026():
     assert LAWS.in_force("de.st.landtag", date(2021, 6, 6)) is LWG_2021
     assert LAWS.in_force("de.st.landtag", date(2026, 9, 6)) is LWG_2021
+
+
+def test_lkwg_2011_is_registered():
+    assert LAWS["de.mv.lkwg.2011"] is LKWG_2011
+    assert LKWG_2011.body == "de.mv.landtag"
+
+
+def test_lkwg_2011_governs_the_elections_from_2011():
+    for elected_on in (date(2011, 9, 4), date(2016, 9, 4), date(2021, 9, 26), date(2026, 9, 20)):
+        assert LAWS.in_force("de.mv.landtag", elected_on) is LKWG_2011
+    with pytest.raises(KeyError, match="no law for 'de.mv.landtag'"):
+        LAWS.in_force("de.mv.landtag", date(2006, 9, 17))
 
 
 def test_a_misordered_law_fails_when_created():

@@ -1,0 +1,14 @@
+schema = 2
+
+[source]
+publisher = "Landesamt für innere Verwaltung Mecklenburg-Vorpommern"
+title = "Wahl zum Landtag von Mecklenburg-Vorpommern am 4. September 2011: endgültiges Ergebnis der Wahlbezirke (20.09.2011, 10:28 Uhr)"
+url = "https://www.laiv-mv.de/static/LAIV/Wahlen/2-Landtagswahlen/2011/Ergebnisse/L_Wahlbezirke.csv"
+licence = "keine Lizenz angegeben"
+attribution = "Landesamt für innere Verwaltung Mecklenburg-Vorpommern; Datensatz: https://www.laiv-mv.de/static/LAIV/Wahlen/2-Landtagswahlen/2011/Ergebnisse/L_Wahlbezirke.csv; die Daten wurden geändert (in eine lange Tabelle umgeformt und je Wahlkreis über Urnen- und Briefwahl summiert)."
+retrieved = 2026-09-27
+sha256 = "964f6036a0bbf9e0cf4461e97595fca76932f604896bcb3d8b24c6a4ad6029ad"
+
+[levels]
+land = 2
+wahlkreis = 4

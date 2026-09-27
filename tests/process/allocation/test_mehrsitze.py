@@ -1,5 +1,6 @@
 """The Mehrsitze loop of Sec. 35 (8), (8a) LWG LSA on constructed tallies: 2021 balances
-within the full rounds, so the rounds after them are only reached here."""
+within the full rounds, so the rounds after them are only reached here. Then the
+Ausgleich of Sec. 58 (6) LKWG M-V."""
 
 from fractions import Fraction
 
@@ -14,7 +15,11 @@ from wahlwerk.process.allocation.eligibility import (
     SetHouse,
     SetSeatTotal,
 )
-from wahlwerk.process.allocation.mehrsitze import FraktionSize, RepeatForMehrsitze
+from wahlwerk.process.allocation.mehrsitze import (
+    FraktionSize,
+    RaiseForAusgleich,
+    RepeatForMehrsitze,
+)
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductDistrictSeats
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
@@ -120,3 +125,76 @@ def test_fraktion_size_counts_a_fictitious_five_percent_party():
 def test_loop_declares_what_it_reads_and_writes():
     assert {"house", "overhang", "districts", "eligible", "total:land"} <= LOOP.reads
     assert {"house", "seat_total", "entitlement", "list_seats", "overhang"} <= LOOP.writes
+
+
+# Sec. 58 (6) LKWG M-V: Ausgleich for Überhang, capped, and a raised house made odd.
+# The 2021 Landtag balances well within the cap, so the cap and a returning Überhang are
+# only reached here. Hare on 10 seats among afd, cdu, linke gives linke 2 against its 3
+# Wahlkreise: one seat of Überhang; linke first gets its third seat in a house of 14.
+
+LINKE = ["linke"] * 3
+
+
+def raise_for_ausgleich(**fields):
+    return RaiseForAusgleich(protocol=ALLOCATE_HOUSE, **fields)
+
+
+def test_without_a_limit_the_house_rises_until_the_ueberhang_is_balanced():
+    result = run(law(10, raise_for_ausgleich()), LINKE, ZWEIT)
+    assert result.house == 14
+    assert result.overhang == ()
+    assert result.entitlement.as_dict() == {"afd": 7, "cdu": 4, "linke": 3}
+    assert result.chamber.size == 14
+
+
+def test_the_limit_caps_the_ausgleichsmandate_and_keeps_the_ueberhang():
+    # The chamber before Ausgleich is 10 + 1. Twice the Überhang allows a chamber of 13:
+    # house 12 with the Überhang kept; house 13 would need 3 Ausgleichsmandate.
+    result = run(law(10, raise_for_ausgleich(limit=2)), LINKE, ZWEIT)
+    assert result.house == 12
+    assert dict(result.overhang) == {"linke": 1}
+    assert result.chamber.size == 13
+    assert result.chamber.seats_by_party == {"afd": 6, "cdu": 4, "linke": 3}
+
+
+def test_a_limit_of_zero_keeps_the_ueberhang_unbalanced():
+    result = run(law(10, raise_for_ausgleich(limit=0)), LINKE, ZWEIT)
+    assert result.house == 10
+    assert result.chamber.size == 11
+
+
+def test_an_even_raised_chamber_gains_one_seat():
+    zweit = {"afd": 520, "cdu": 300, "linke": 180}
+    even = run(law(11, raise_for_ausgleich()), LINKE, zweit)
+    odd = run(law(11, raise_for_ausgleich(has_odd_house=True)), LINKE, zweit)
+    assert even.chamber.size == 14
+    assert odd.house == 15
+    assert odd.overhang == ()
+    assert odd.entitlement.as_dict() == {"afd": 8, "cdu": 4, "linke": 3}
+
+
+def test_the_odd_seat_is_added_under_the_cap_too():
+    # limit 1: house 11, Überhang kept, chamber 12; the odd seat makes house 12, chamber 13.
+    result = run(law(10, raise_for_ausgleich(limit=1, has_odd_house=True)), LINKE, ZWEIT)
+    assert result.house == 12
+    assert result.chamber.size == 13
+
+
+def test_an_ueberhang_brought_back_by_the_odd_seat_is_kept():
+    # Balanced at 14; on 15 Hare gives linke 2 again, so its Überhang returns.
+    result = run(law(10, raise_for_ausgleich(has_odd_house=True)), LINKE, ZWEIT)
+    assert result.house == 15
+    assert dict(result.overhang) == {"linke": 1}
+    assert result.chamber.size == 16
+
+
+def test_no_ueberhang_leaves_the_house_even_if_odd_is_required():
+    result = run(law(10, raise_for_ausgleich(limit=2, has_odd_house=True)), ["afd"], ZWEIT)
+    assert result.house == 10
+    assert result.chamber.size == 10
+
+
+def test_step_declares_what_it_reads_and_writes():
+    step = raise_for_ausgleich(limit=2, has_odd_house=True)
+    assert {"house", "overhang", "districts", "eligible", "total:land"} <= step.reads
+    assert {"house", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes

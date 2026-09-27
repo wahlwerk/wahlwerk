@@ -1,5 +1,6 @@
 """Mehrsitze: raising the house when parties win more Wahlkreise than their entitlement
-(e.g. Sec. 35 (8), (8a) LWG LSA)."""
+(e.g. Sec. 35 (8), (8a) LWG LSA; the Überhang- and Ausgleichsmandate of Sec. 58 (6)
+LKWG M-V)."""
 
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ from wahlwerk.ids import LevelName, Slug
 from wahlwerk.model import Model, Share
 from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
 
-__all__ = ["FraktionSize", "RepeatForMehrsitze"]
+__all__ = ["FraktionSize", "RaiseForAusgleich", "RepeatForMehrsitze"]
 
 
 class FraktionSize(Model):
@@ -108,3 +109,74 @@ class RepeatForMehrsitze(AllocationStep):
                 allocation = step.apply(allocation)
             rounds += 1
         return allocation
+
+
+class RaiseForAusgleich(AllocationStep):
+    """While a party holds Überhang (``overhang``), raise the ``house`` one seat at a
+    time and allocate again with ``protocol``, until every party's entitlement covers
+    its Wahlkreis seats: the other parties get Ausgleichsmandate.
+
+    As in Sec. 58 (6) LKWG M-V. The Ausgleichsmandate are the seats the chamber gains
+    beyond the house plus the Überhang of the first allocation; with ``limit`` set, the
+    house is not raised past the point where they would exceed ``limit`` times that
+    Überhang, and Überhang left then is kept. With ``has_odd_house``, a raised chamber
+    of an even number of seats gains one more, and the house is allocated again.
+
+    The law does not say what happens when the odd seat brings back an Überhang, which
+    Hare/Niemeyer can do, since it is not house-monotone; read here, the Überhang is
+    then kept and the house is not raised again.
+    """
+
+    protocol: tuple[SerializeAsAny[AllocationStep], ...] = Field(
+        min_length=1,
+        description="The steps repeated for the raised house, e.g. seat total, apportionment, deduction.",
+    )
+    limit: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "The Ausgleichsmandate allowed per seat of Überhang, e.g. 2; ``None`` for no limit."
+        ),
+    )
+    has_odd_house: bool = Field(
+        default=False,
+        description="Whether a raised chamber of an even number of seats gains one more.",
+    )
+
+    @property
+    def reads(self) -> frozenset[str]:
+        inner = frozenset().union(*(step.reads for step in self.protocol))
+        return frozenset({"house", "overhang"}) | inner
+
+    @property
+    def writes(self) -> frozenset[str]:
+        return frozenset({"house"}).union(*(step.writes for step in self.protocol))
+
+    def _apply(self, allocation: Allocation) -> Allocation:
+        first = _overhang(allocation)
+        if not first:
+            return allocation
+        base = (allocation.house or 0) + first
+        cap = None if self.limit is None else self.limit * first
+        while _overhang(allocation):
+            raised = self._allocate(allocation, (allocation.house or 0) + 1)
+            if cap is not None and _chamber_size(raised) - base > cap:
+                break
+            allocation = raised
+        if self.has_odd_house and _chamber_size(allocation) % 2 == 0:
+            allocation = self._allocate(allocation, (allocation.house or 0) + 1)
+        return allocation
+
+    def _allocate(self, allocation: Allocation, house: int) -> Allocation:
+        allocation = allocation.with_values(house=house)
+        for step in self.protocol:
+            allocation = step.apply(allocation)
+        return allocation
+
+
+def _overhang(allocation: Allocation) -> int:
+    return sum(n for _, n in allocation.overhang or ())
+
+
+def _chamber_size(allocation: Allocation) -> int:
+    return (allocation.house or 0) + _overhang(allocation)

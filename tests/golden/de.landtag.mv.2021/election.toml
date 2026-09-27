@@ -1,0 +1,14 @@
+schema = 2
+
+[source]
+publisher = "Die Landeswahlleiterin Mecklenburg-Vorpommern"
+title = "Wahl zum Landtag von Mecklenburg-Vorpommern am 26. September 2021: endgültiges Ergebnis der Wahlbezirke (04.10.2021, 14:19:48 Uhr)"
+url = "https://www.laiv-mv.de/static/LAIV/Wahlen/2-Landtagswahlen/2021/Ergebnisse/l_wahlbezirke.csv"
+licence = "keine Lizenz angegeben"
+attribution = "(c) Die Landeswahlleiterin Mecklenburg-Vorpommern; Datensatz: https://www.laiv-mv.de/static/LAIV/Wahlen/2-Landtagswahlen/2021/Ergebnisse/l_wahlbezirke.csv; die Daten wurden geändert (in eine lange Tabelle umgeformt und je Wahlkreis über Urnen- und Briefwahl summiert)."
+retrieved = 2026-09-27
+sha256 = "dc4db0acbd78fc750c8c5b553f6848af12622b99a60aa2fc3471d1d9cef1e23c"
+
+[levels]
+land = 2
+wahlkreis = 4

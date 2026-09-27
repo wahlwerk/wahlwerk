@@ -1,0 +1,14 @@
+schema = 2
+
+[source]
+publisher = "Landesamt für innere Verwaltung Mecklenburg-Vorpommern"
+title = "Wahl zum Landtag von Mecklenburg-Vorpommern am 4. September 2016: endgültiges Ergebnis der Wahlbezirke (09.09.2016, 10:44:53 Uhr)"
+url = "https://www.laiv-mv.de/static/LAIV/Wahlen/2-Landtagswahlen/2016/Ergebnisseite/L_Wahlbezirke.csv"
+licence = "keine Lizenz angegeben"
+attribution = "Landesamt für innere Verwaltung Mecklenburg-Vorpommern; Datensatz: https://www.laiv-mv.de/static/LAIV/Wahlen/2-Landtagswahlen/2016/Ergebnisseite/L_Wahlbezirke.csv; die Daten wurden geändert (in eine lange Tabelle umgeformt und je Wahlkreis über Urnen- und Briefwahl summiert)."
+retrieved = 2026-09-27
+sha256 = "e0abd1b86ca2b8539691387ae081529521692417f5d334492a72f4dd8db6b13c"
+
+[levels]
+land = 2
+wahlkreis = 4

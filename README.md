@@ -344,15 +344,18 @@ Built one small step at a time; each step leaves the package importable.
 - The allocation, `wahlwerk.process.allocation`: a law is a protocol of steps (count,
   Wahlkreis winners, threshold, seat total, entitlement, list seats, chamber) checked
   for order before it runs; `allocate(vote, protocol)` returns the `Chamber`
-- The Mehrsitze loop of Sec. 35 (8), (8a) LWG LSA (`RepeatForMehrsitze`, `FraktionSize`)
+- The Mehrsitze loop of Sec. 35 (8), (8a) LWG LSA (`RepeatForMehrsitze`, `FraktionSize`),
+  and the capped Ausgleich of Sec. 58 (6) LKWG M-V with its odd house (`RaiseForAusgleich`)
 - `law/`: electoral laws as versioned protocols by jurisdiction, with a registry by body
-  and date; the first is `law/de/st/lwg.py`. Beside it, the caucus protocol of the
+  and date: `law/de/st/lwg.py` and `law/de/mv/lkwg.py`. Beside it, the caucus protocol of the
   Bundestag's Geschäftsordnung, `law/de/bund/gobt.py` (CDU and CSU form the `union`),
   passed to `Chamber.from_seats(..., caucus_protocol=...)`
 - Golden tests: the Landtag Sachsen-Anhalt 2021 (97 seats, raised from 83 for
   Mehrsitze) and 2026 (83), each derived from the votes under the law in force on
   election day, equal the official Sitzverteilung exactly, party by party, Wahlkreis and
-  list seats; fixtures and sources in `tests/golden/`
+  list seats; and the Landtag Mecklenburg-Vorpommern 2011, 2016 (71 each) and 2021 (79,
+  with Überhang and Ausgleich), equal to the official Mandate der Parteien Wahlkreis by
+  Wahlkreis; fixtures and sources in `tests/golden/`
 - Measures of disproportionality in `wahlwerk.measure.proportionality`, exact, after
   votelib
 
@@ -363,8 +366,10 @@ The path from a popular vote to a chamber, and how it was built, is in
 
 - A lot inside an allocation, so a tied Wahlkreis or entitlement can be decided as
   recorded instead of stopping the run
-- The LWG of 2016 and earlier (87 seats, 43 Wahlkreise), and Mecklenburg-Vorpommern,
-  whose bundles are being prepared in wahlwerk-data
+- The LWG of 2016 and earlier (87 seats, 43 Wahlkreise), and the Landeswahlgesetz
+  M-V under which the Landtag was elected from 1994 to 2006 (bundles are in
+  wahlwerk-data; the law's text is still to be obtained); Mecklenburg-Vorpommern 2026
+  as a golden test once its final result is published
 
 Alongside:
 

@@ -3,6 +3,6 @@ two-letter code (``st`` for Sachsen-Anhalt), as in :data:`~wahlwerk.ids.BodyId`.
 
 from __future__ import annotations
 
-from wahlwerk.law.de import bund, st
+from wahlwerk.law.de import bund, mv, st
 
-__all__ = ["bund", "st"]
+__all__ = ["bund", "mv", "st"]
