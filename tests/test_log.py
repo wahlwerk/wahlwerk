@@ -30,7 +30,6 @@ def test_package_is_silent_by_default():
 
 def test_setup_logger_is_exported_from_the_root():
     assert wahlwerk.setup_logger is setup_logger
-    assert wahlwerk.disable_logging is disable_logging
 
 
 def test_setup_logger_writes_a_file_only_when_asked(tmp_path):

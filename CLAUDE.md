@@ -14,21 +14,27 @@ The package imports cleanly (`uv run python -c "import wahlwerk"`). What exists:
 
 | Module | Contents |
 |---|---|
-| `model.py` | `Model` base; aliases `Count`, `Seats`, `Share` |
-| `ids.py` | `Slug`, `DottedKey`; ids `BodyId`, `CandidateId`, `PartyId`, `CaucusId`, `MandateId`, `UnitId`, `LevelName` |
+| `model.py` | `Model` base (with a type-checking-only blank `__init__`, see below); aliases `Count`, `Seats`, `Share` |
+| `ids.py` | `Slug`, `DottedKey`; ids `BodyId`, `CandidateId`, `PartyId`, `CaucusId`, `MandateId`, `UnitId`, `LevelName`, `LawId` |
 | `log.py` | `setup_logger(file_path=None, *, level, console)` (file only when given), `disable_logging`, `LOGGER_NAME`; the root adds a `NullHandler` |
 | `party/` | `Party` (`id`, `name`, `short_name`), `PartyRegistry` (`[id]`, `.get()`, `.from_json()`) |
-| `io/` | `read_parties`: reads a party registry file from wahlwerk-data |
-| `state/` | `Mandate` (`id`, `party`, `origin`, `is_vacant`; derived `has_party`; `from_party(party, id)`), `MandateOrigin` (`source`), `MandateSource` enum; `Term` (with `_check_order`; derived `is_ended`, `is_ended_early`), `Caucus` (`id`, `mandates`: mandate ids; `size`; no names) with `NON_ATTACHED`, `Chamber` (`term`, `mandates`, `caucuses`, `minimum_mandates`, `are_caucuses_recorded`; validates mandate ids unique and caucuses against mandates; derived `body`, `size`, `is_empty`, `has_caucuses`, `seats_without_caucus`, `non_attached_seats`, `seats_by_caucus`, `get_caucuses(include_non_attached=False)`, `vacant_seats`, `filled_seats`, `is_below_minimum`/`is_at_minimum`/`is_above_minimum`, `seats_by_party`; `from_seats`, `with_caucuses`; processes `clear_caucuses`, `form_caucuses`; display `__repr__`, `_repr_html_`, `fancy_html`) |
-| `vote/` | `popular/`: `TallyRow` (`unit`, `level`, `kind`, `section`, `channel`, `party`, `candidate`, `option`, `count`; `_check_kind`), `TallyKind` enum (`VOTES`, `INVALID`, `ELIGIBLE`, `VOTERS`); `chamber/`: empty |
-| `process/` | `CaucusStep` (abstract, callable), `CaucusProtocol` (tuple of steps), `CaucusPerParty`, `GroupParties` (`parties`, `id`; warns on missing parties), `ProtocolWarning` |
+| `io/` | `read_parties`: reads a party registry file from wahlwerk-data; `read_bundle(dir_path, election_file_name, tally_file_name)`: reads a bundle directory into a `PopularVote` (file names optional, default `election.toml` with `schema` (1 or 2; `SCHEMA = 2` is written; checked here, not stored on the model), `[source]`, and in schema 2 a required `[levels]` table (main hierarchy) and optional `[hierarchies.<name>]` tables, each read from `<name>.csv` (`HIERARCHY_COLUMNS`: `unit,level,parent`), `tally.csv` with the `TallyRow` columns; blank cells are `None`; duplicate rows rejected); `resolve_election_dir(data_dir, key)`: a bundle key to its directory in wahlwerk-data (`de.landtag.st.2026` is `elections/de/landtag/st/2026/`) |
+| `state/` | `Mandate` (`id`, `party`, `origin`, `is_vacant`; derived `has_party`; `from_party(party, id)`), `MandateOrigin` (`source`), `MandateSource` enum; `Term` (with `_check_order`; derived `is_ended`, `is_ended_early`), `Caucus` (`id`, `mandates`: mandate ids; `size`; no names) with `NON_ATTACHED`, `Chamber` (`term`, `mandates`, `caucuses`, `minimum_mandates`, `are_caucuses_recorded`; validates mandate ids unique and caucuses against mandates; derived `body`, `size`, `is_empty`, `has_caucuses`, `seats_without_caucus`, `non_attached_seats`, `seats_by_caucus`, `get_caucuses(include_non_attached=False)`, `vacant_seats`, `filled_seats`, `is_below_minimum`/`is_at_minimum`/`is_above_minimum`, `seats_by_party`; `from_seats(seats, *, term, minimum_mandates, caucus_protocol)`, `with_caucuses`; processes `clear_caucuses`, `form_caucuses`; display `__repr__`, `_repr_html_`, `fancy_html`) |
+| `vote/` | `popular/`: `TallyRow` (`unit`, `level`, `kind`, `section`, `channel`, `party`, `candidate`, `option`, `count`; `_check_kind`), `TallyKind` enum (`VOTES`, `INVALID`, `ELIGIBLE`, `VOTERS`); `Level` (`name`, `depth`: dotted segments of its unit ids; the main hierarchy); `Hierarchy` (`name`, `levels`, `units`: `HierarchyUnit` `unit`/`level`/`parent`; `_check_tree`; `units_at(level)`), an alternative hierarchy such as the administrative one; `Tally` (`rows`, `levels`; `_check_unique`, `_check_levels`; `filter(**criteria)`, `sum_to(level, depth=None, *, hierarchy=None)` by unit-id prefix with depth from `levels`, or along a `Hierarchy`, `sum_by(*fields)`, `total()`); `PopularVote` (`source`, `tally`, `hierarchies`, each covering every counted unit; `hierarchy(name)`; `from_dir` via `read_bundle`, `from_key(key, data_dir)` via `resolve_election_dir` and `from_dir`) and `Source` (`publisher`, `title`, `url`, `licence`, `attribution`, `retrieved`, `sha256`); `chamber/`: empty |
+| `measure/` | `proportionality`: `loosemore_hanby`, `rose`, `gallagher_squared`, `rae`, `lijphart`, `sainte_lague`, `d_hondt`, `regression`, each `(votes, seats) -> Fraction` over plain mappings (after votelib's `crit.proportionality`) |
+| `apportionment/` | law-free; exposes its modules, not their names (`ww.apportionment.divisor.SainteLague`): `method`: `ApportionmentMethod.apportion(weights, seats) -> Apportionment` over opaque str keys and int/`Fraction` weights (floats a `TypeError`); `divisor`: `DivisorMethod` (`divisor(index)`; `DHondt`, `SainteLague`, `LinearDivisor(first, step)`); `remainder`: `LargestRemainder` (`quota(total, seats)`; `HareNiemeyer`); `majority`: `MajorityFirst(method)` (Sec. 35 (6) LWG LSA); `result`: `Apportionment` (`seats` as (key, seats) pairs in input order, `tie`; `[key]`, `.get()`, `as_dict()`, `total`, `is_decided`, `with_lot(winners)`); `tie`: `Tie` (`candidates`, `seats`); `threshold`: `Threshold.select(weights, won=None) -> frozenset` and `uses_won` (`RelativeThreshold(share, accept_equal)`, `AbsoluteThreshold`, `SeatThreshold(seats)`, `Exempt(keys)`, `AlternativeThresholds(thresholds)`, an "or"); `ausgleich`: `overhang(apportionment, minimum)`, `Ausgleich(method, limit).apportion(weights, seats, minimum)` (grow the house until every minimum is covered) |
+| `law/` | modules only: `base`: `Law` (`id`, `title`, `citation`, `body`, `source`, `in_force_from`/`until`, `protocol`; checked on creation, must form a chamber; `is_in_force(on)`), `LawRegistry` (`[id]`, `.get()`, `in_force(body, on)`); `registry`: `LAWS`; `de/st/lwg.py`: `LWG_2021`; `de/bund/gobt.py`: `CAUCUS_PROTOCOL` (Sec. 10 (1) GO-BT: CDU and CSU form the caucus `union`, every other party its own; a `CaucusProtocol`, not a `Law`) |
+| `process/` | `allocation/` (modules only; design and plan in its `README.md`): `base`: `Allocation` (`tally`, `totals` per level, and the optional facts `districts`, `eligible`, `house`, `seat_total`, `entitlement`, `list_seats`, `overhang`; `facts`, `total(level)`, `votes_by_party(level, section)`, `district_wins()`, `with_values`), `DistrictResult` (`unit`, `nominee`, `party`, `candidate`, `votes`, `tie`), `AllocationStep` (abstract `reads`/`writes`/`_apply`; `apply` checks both), `AllocationProtocol`, `check_protocol(protocol)`; `count`: `SumVotes(level)`; `district`: `ElectDistricts(section, level)` (plurality, `Tie` on equal votes); `eligibility`: `ApplyThreshold(threshold, section, level)` (reads `districts` if `threshold.uses_won`), `SetHouse(seats)` (the `house` fact, the legal minimum), `SetSeatTotal()` (the house less Wahlkreise won by Einzelbewerber and ineligible parties); `mehrsitze`: `RepeatForMehrsitze(protocol, factor, full_rounds, fraktion)` (raise the house and allocate again), `FraktionSize(share, section, level)` (Sec. 35 (8a), its reading documented); `seats`: `ApportionSeats(method, section, level)`, `DeductDistrictSeats()` (list seats and overhang); `chamber`: `FormChamber(minimum_mandates)` (mandates `wk.001`, `list.afd.001`, origin `ELECTION`, no caucuses); `allocate`: `allocate(vote, protocol, *, term=None) -> Chamber`, `derive(vote, protocol) -> Allocation`; `caucus`: `CaucusStep` (abstract, callable), `CaucusProtocol` (tuple of steps), `CaucusPerParty`, `CaucusOfParties` (`parties`, `id`; warns on missing parties), `ProtocolWarning` |
 
-**There is no law implementation.** There are no events, ballots, chamber votes, tally containers (only single rows), apportionment, or archive discovery (`find_archive`) yet. The README describes
-the target system; where it names something (`LawId`, `Tie`, `tests/golden/`), check this
+**One electoral law is implemented:** `law/de/st/lwg.py` (`LWG_2021`, the Wahlgesetz of Sachsen-Anhalt as it governed the Landtag elections of 2021 and 2026), and one caucus protocol, `law/de/bund/gobt.py` (Sec. 10 (1) GO-BT). Golden tests (`tests/golden/test_de_landtag_st.py`, fixtures beside it) reproduce both official results exactly, 97 and 83 seats. There is no lot inside an allocation (a tie stops the next step), no Sec. 32 S. 2, and there are no events, ballots, chamber votes, or archive discovery (`find_archive`) yet. The README describes
+the target system; where it names something (`LawId`, `find_archive`), check this
 table before assuming it exists.
 
 Tests live in `tests/`, mirroring `src/wahlwerk/`. Tests that read files write their own
-small fixture to `tmp_path`; they never read wahlwerk-data.
+small fixture to `tmp_path`; they never read wahlwerk-data. Golden tests are the exception to
+`tmp_path`: their fixtures are committed under `tests/golden/<bundle key>/`, small (reduced to what the
+allocation reads), with every source, licence and SHA-256 in a README beside them; they never skip
+or xfail.
 
 ## Commands
 
@@ -49,6 +55,10 @@ uv run mypy --strict src
 uv run ruff check src tests
 ```
 
+mypy runs with pydantic's plugin (`[tool.mypy]` in `pyproject.toml`), so model
+constructors take field input as pydantic does: `SumVotes(level="land")` type-checks, and
+pydantic validates the id at runtime.
+
 pytest, mypy and ruff are currently listed under runtime `dependencies` in
 `pyproject.toml`; they belong in the dev group (`uv add --dev`).
 
@@ -63,14 +73,16 @@ extra when it is missing. Never import `wahlwerk_ui` at module level.
 
 ## Sibling repositories
 
-Four repos, cloned side by side:
+Five repos, cloned side by side:
 
 ```
 CODE/wahlwerk_/
-  wahlwerk/          the engine       Apache-2.0     <- you are here
-  wahlwerk-data/     the archive      dl-de/by-2-0
-  wahlwerk-execute/  notebooks        depends on both
-  wahlwerk-ui/       charts           no dependencies; optional extra of the engine
+  wahlwerk/                  the engine       Apache-2.0     <- you are here
+  wahlwerk-data/             the archive      GPL-3.0; data: its source's licence
+  wahlwerk-data-processing/  bundle makers    reads the sources, writes wahlwerk-data bundles
+                                              with the engine's reader, checks published sums
+  wahlwerk-execute/          notebooks        depends on the engine and the archive
+  wahlwerk-ui/               charts           no dependencies; optional extra of the engine
 ```
 
 ## Language policy
@@ -92,6 +104,10 @@ load-bearing and its docstring is the authoritative explanation; the short versi
 - `extra="forbid"`: a misspelled column in a source file from one of sixteen
   Landeswahlleiter is a hard error, not a silently dropped field.
 - `validate_default=True`: defaults cannot dodge invariants.
+- Under `TYPE_CHECKING` only, `Model` declares a blank-docstring `__init__`: Pylance
+  documents a constructor call with the nearest `__init__` docstring, which would be
+  pydantic's generic one; it never falls back to the class docstring there, so a call
+  shows the fields alone, and the class docstring shows on the class name elsewhere.
 
 pydantic does not deep-freeze containers. Use `tuple` and `frozenset` for any field that
 is part of a model's identity, never `list` or `dict`.
@@ -128,22 +144,28 @@ Folders are sorted by role; each answers one question.
 | `party/` | entities | things with a stable identity that everything refers to by id; not state. Later siblings: a person/candidate and a body model, then possibly one `entity/` folder |
 | `state/` | state | what exists at a point in time, inert, replaced only by processes: `Term`, `Chamber`, `Caucus`, `Mandate` |
 | `vote/` | votes | what a vote recorded, split by who votes: `vote/popular/` (`TallyRow`, one row type for votes and the people eligible and voting) and `vote/chamber/` (empty so far); input, never replaced by a process; not state |
-| `process/` | processes | steps, protocols, and the processes that apply them |
+| `apportionment/` | methods | how seats are divided among keys, free of any law: apportionment methods, thresholds, majority clauses, Überhang and Ausgleich, `Tie`; imports only the foundation |
+| `process/` | processes | steps, protocols, and the processes that apply them: caucus formation (`caucus`) and the allocation from a popular vote to a chamber (`allocation/`); they use `apportionment/` |
+| `measure/` | measures | numbers computed from results for analysis, never input to a law: `proportionality` (Loosemore-Hanby, Gallagher squared, Sainte-Laguë and D'Hondt indices, ...); imports only the foundation |
 | `io/` | readers | the only place that knows source file formats |
-| `event/`, `law/` | later | dated facts; protocols in force per date |
+| `law/` | laws | rules as protocols, by jurisdiction: electoral laws, one version per `Law` object (`law/de/st/lwg.py`), with a registry by id and by body and date; caucus protocols from a Geschäftsordnung (`law/de/bund/gobt.py`); rules, not data, so here and not in wahlwerk-data |
+| `event/` | later | dated facts |
 
 No grab-bag folders (`basics/`, `core/`, `common/`, `utils/`). Dependencies point one
 way, and a module imports only from layers to its left:
 
 ```
 foundation  <-  entities  <-  state  <-  process
-     ^             ^            ^          |
-     |             io ----------+          |
-     +---------  vote  <-------------------+
+     ^             ^            ^          |  |
+     |             io ----------+          |  |
+     +---------  vote  <-------------------+  |
+     +---------  apportionment  <-------------+
+     +---------  measure                      |
+                                     law  ----+  (uses process and apportionment)
 ```
 
 `vote` imports only the foundation (ids, not `Party` objects); `process` reads it,
-`state` never imports it. Votes are told apart by who votes, and each case has its own subpackage: a
+`state` never imports it. `apportionment` and `measure` import only the foundation; `process` uses `apportionment`, nothing uses `measure`. Votes are told apart by who votes, and each case has its own subpackage: a
 **popular vote** (`vote/popular/`) is cast by the electorate and recorded as `TallyRow`
 counts per unit (votes, invalid votes, Wahlberechtigte and Wähler alike, told apart by
 `TallyKind`), which are aggregated into larger units; a **chamber vote**
@@ -168,13 +190,13 @@ because who sits in which caucus (CDU/CSU spanning two parties, a member who lea
 cannot be derived from the seats. Every `Mandate` has an `id` (`MandateId`, dotted,
 unique within its chamber) that names the seat, not its holder, so it survives
 Nachrücken; `from_seats` numbers them per party (`spd.001`, `non-attached.001`,
-`vacant.001`), and ids from real results will come from how the seat was won
-(`wk.001`). A `Caucus` has an `id` (`CaucusId`, a slug unique within its chamber) and
+`vacant.001`), while an allocation names them by how the seat was won
+(`wk.001`, `list.afd.001`, as `FormChamber` does). A `Caucus` has an `id` (`CaucusId`, a slug unique within its chamber) and
 **no names**: names belong to `Party`, and parties stay separate from caucuses, so a
 caucus never copies or combines party names. It holds `mandates`, the ids of its seats, and
 `Chamber._check_caucuses` keeps the two from disagreeing: no caucus is empty, every
 mandate id exists in the chamber, is filled, and sits in at most one caucus.
-`GroupParties` accepts `Party` objects or ids and names the caucus by the party ids
+`CaucusOfParties` accepts `Party` objects or ids and names the caucus by the party ids
 joined with `-` (`cdu-csu`) unless `id` is given. Caucus membership is **never** a field
 on `Mandate`: it belongs to the holder, not the seat. Three facts about a seat are kept
 apart and never conflated: **vacant** (`Mandate.is_vacant`: the seat exists, nobody
@@ -215,12 +237,13 @@ Four terms, kept apart (full text in the README, "Approach"):
 - **Protocol**: an ordered tuple of **steps**. Each step is a frozen `Model` with
   `apply(state) -> state` and a `__call__` that forwards to it. Steps are **objects,
   never functions or lambdas**, so a protocol can be printed, compared, hashed,
-  validated and later stored as part of a law. Parameters are fields with
+  validated and stored as part of a law (`law/`). Parameters are fields with
   descriptions like any other model. `Protocol` is not used as a class name
   (`typing.Protocol`); protocols are type aliases such as `CaucusProtocol`.
 - **Process**: applying a protocol step by step. *Internal* processes change one unit
   and are methods on it (`Chamber.form_caucuses(protocol)`: clear, then apply each
-  step); *external* processes span several units or form a new one.
+  step); *external* processes span several units or form a new one
+  (`allocate(vote, protocol)`, forming a chamber from a popular vote).
 - A counterfactual is the same event under a different protocol.
 
 Processes depend on state, never the reverse: `wahlwerk.process` imports from
@@ -241,8 +264,19 @@ duplicate JSON keys (which `json` would otherwise silently collapse) and unknown
 ### Imports
 
 Import from the defining module (`wahlwerk.model`, `wahlwerk.state.term`), never from
-the package root or a sibling package's `__init__`, inside `src/wahlwerk`. The root
-`__init__` imports everything, so importing from it re-enters package initialisation.
+the package root or a sibling package's `__init__`, inside `src/wahlwerk`.
+
+What each `__init__` exposes to users: **a package re-exports only its own modules, never
+its subpackages' contents.** `wahlwerk.state.Chamber`, `wahlwerk.vote.popular.TallyRow`;
+`process/`, `vote/` and `apportionment/` expose their modules or subpackages but not their names
+(`wahlwerk.process.caucus.CaucusPerParty`), so the popular/chamber split stays visible.
+The root exposes only the packages `apportionment`, `io`, `law`, `measure`, `party`, `process`, `state`, `vote` and
+`setup_logger`, for `import wahlwerk as ww`: `ww.state.Chamber`, `ww.io.read_bundle`,
+`ww.process.caucus.CaucusOfParties`. No model is flattened into the root;
+`tests/test_root.py` pins it. Every caucus step's name starts with `Caucus`.
+When a module in a lower layer needs a reader or process at call time
+(`PartyRegistry.from_json`, `PopularVote.from_dir`), it imports it inside the method with a
+comment saying why, so no two modules import each other at load time.
 
 ### General conventions
 

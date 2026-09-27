@@ -2,33 +2,18 @@
 
 A deterministic engine parameterised by an electoral law, so that small changes to the
 law can be evaluated against real historical votes.
+
+The root exposes the packages for interactive use (``import wahlwerk as ww``), plus
+``setup_logger``: ``ww.state.Chamber``, ``ww.vote.popular.TallyRow``, ``ww.io.read_*``,
+``ww.process.caucus.Caucus*``, ``ww.measure.proportionality.*``, ``ww.apportionment.divisor.SainteLague``. No model is flattened into the root.
 """
 
 from __future__ import annotations
 
 import logging
 
-from wahlwerk import ids
-from wahlwerk.log import LOGGER_NAME, disable_logging, setup_logger
-from wahlwerk.model import Count, Model, Seats, Share
-from wahlwerk.party import Party, PartyRegistry
-from wahlwerk.process import (
-    CaucusPerParty,
-    CaucusProtocol,
-    CaucusStep,
-    GroupParties,
-    ProtocolWarning,
-)
-from wahlwerk.state import (
-    NON_ATTACHED,
-    Caucus,
-    Chamber,
-    Mandate,
-    MandateOrigin,
-    MandateSource,
-    Term,
-)
-from wahlwerk.vote import TallyKind, TallyRow
+from wahlwerk import apportionment, io, law, measure, party, process, state, vote
+from wahlwerk.log import LOGGER_NAME, setup_logger
 
 __version__ = "0.1.0"
 
@@ -36,27 +21,13 @@ __version__ = "0.1.0"
 logging.getLogger(LOGGER_NAME).addHandler(logging.NullHandler())
 
 __all__ = [
-    "NON_ATTACHED",
-    "Caucus",
-    "CaucusPerParty",
-    "CaucusProtocol",
-    "CaucusStep",
-    "Chamber",
-    "Count",
-    "GroupParties",
-    "Mandate",
-    "MandateOrigin",
-    "MandateSource",
-    "Model",
-    "Party",
-    "PartyRegistry",
-    "ProtocolWarning",
-    "Seats",
-    "Share",
-    "TallyKind",
-    "TallyRow",
-    "Term",
-    "disable_logging",
-    "ids",
+    "apportionment",
+    "io",
+    "law",
+    "measure",
+    "party",
+    "process",
     "setup_logger",
+    "state",
+    "vote",
 ]

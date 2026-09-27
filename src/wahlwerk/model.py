@@ -29,7 +29,7 @@ exact rational arithmetic.
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -53,3 +53,13 @@ class Model(BaseModel):
         extra="forbid",
         validate_default=True,
     )
+
+    if TYPE_CHECKING:
+        # For editors only: Pylance (pyright) documents a constructor call with the
+        # nearest ``__init__`` docstring up the class tree, which would be pydantic's
+        # generic "Create a new model by parsing and validating input data ...". This
+        # blank one stops that search. Pyright never falls back to the class docstring
+        # at a call, so a call shows the signature (the fields) alone; hovering the class
+        # name anywhere else shows its docstring. Not defined at runtime.
+        def __init__(self, /, **data: Any) -> None:
+            """ """

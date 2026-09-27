@@ -187,7 +187,7 @@ class Chamber(Model):
         """The chamber with its caucuses formed anew: the old ones are cleared, then
         each step of ``protocol`` is applied in order.
 
-        ``chamber.form_caucuses((CaucusPerParty(), GroupParties(parties=("cdu", "csu"))))``
+        ``chamber.form_caucuses((CaucusPerParty(), CaucusOfParties(parties=("cdu", "csu"))))``
         """
         chamber = self.clear_caucuses()
         for step in protocol:

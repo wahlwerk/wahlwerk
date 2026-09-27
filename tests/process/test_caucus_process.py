@@ -4,10 +4,15 @@ import pytest
 from pydantic import ValidationError
 
 from wahlwerk.party import Party
-from wahlwerk.process import CaucusPerParty, CaucusStep, GroupParties, ProtocolWarning
+from wahlwerk.process.caucus import (
+    CaucusOfParties,
+    CaucusPerParty,
+    CaucusStep,
+    ProtocolWarning,
+)
 from wahlwerk.state import Caucus, Chamber, Mandate
 
-CDU_CSU = GroupParties(parties=("cdu", "csu"))
+CDU_CSU = CaucusOfParties(parties=("cdu", "csu"))
 CDU = Party(id="cdu", name="Christlich Demokratische Union Deutschlands", short_name="CDU")
 CSU = Party(id="csu", name="Christlich-Soziale Union in Bayern", short_name="CSU")
 
@@ -57,8 +62,8 @@ def test_from_seats_uses_caucus_per_party():
 
 def test_protocol_is_data():
     """Steps compare, hash and print by their parameters, so protocols can be diffed."""
-    assert (CaucusPerParty(), CDU_CSU) == (CaucusPerParty(), GroupParties(parties=["cdu", "csu"]))
-    assert hash(CDU_CSU) == hash(GroupParties(parties=("cdu", "csu")))
+    assert (CaucusPerParty(), CDU_CSU) == (CaucusPerParty(), CaucusOfParties(parties=["cdu", "csu"]))
+    assert hash(CDU_CSU) == hash(CaucusOfParties(parties=("cdu", "csu")))
     assert "cdu" in repr(CDU_CSU)
 
 
@@ -104,7 +109,7 @@ def test_caucus_per_party_keeps_seats_already_in_a_caucus():
 
 
 # ===========================================================
-# GroupParties
+# CaucusOfParties
 # ===========================================================
 def test_group_parties_takes_seats_from_other_caucuses():
     chamber = CDU_CSU(Chamber.from_seats({"cdu": 2, "spd": 1, "csu": 1}))
@@ -112,14 +117,14 @@ def test_group_parties_takes_seats_from_other_caucuses():
 
 
 def test_group_parties_accepts_party_objects_for_their_ids():
-    step = GroupParties(parties=(CDU, "csu"))
+    step = CaucusOfParties(parties=(CDU, "csu"))
     assert step.parties == ("cdu", "csu")
     assert step.id == "cdu-csu"
     assert step == CDU_CSU
 
 
 def test_group_parties_with_explicit_id():
-    step = GroupParties(parties=("cdu", "csu"), id="union")
+    step = CaucusOfParties(parties=("cdu", "csu"), id="union")
     (caucus,) = step(_union()).caucuses
     assert (caucus.id, caucus.mandates) == ("union", UNION)
 
@@ -129,7 +134,7 @@ def test_group_parties_without_seats_changes_nothing_and_warns():
     with pytest.warns(
         ProtocolWarning, match=r"only \[\] of \['cdu', 'csu'\] have filled seats; no caucus formed"
     ):
-        assert GroupParties(parties=("cdu", "csu"))(chamber) == chamber
+        assert CaucusOfParties(parties=("cdu", "csu"))(chamber) == chamber
 
 
 def test_group_parties_with_one_party_present_changes_nothing_and_warns():
@@ -142,7 +147,7 @@ def test_group_parties_with_one_party_present_changes_nothing_and_warns():
 
 
 def test_group_parties_with_a_party_missing_still_forms_and_warns():
-    step = GroupParties(parties=("cdu", "csu", "fdp"))
+    step = CaucusOfParties(parties=("cdu", "csu", "fdp"))
     with pytest.warns(
         ProtocolWarning,
         match=r"\['fdp'\] have no filled seats; forming 'cdu-csu-fdp' from \['cdu', 'csu'\] only",
@@ -197,7 +202,7 @@ def test_party_with_only_vacant_seats_counts_as_missing():
 )
 def test_group_parties_rejects_bad_parameters(bad):
     with pytest.raises(ValidationError):
-        GroupParties(**bad)
+        CaucusOfParties(**bad)
 
 
 def test_with_caucuses_validates_against_the_seats():

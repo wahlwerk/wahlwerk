@@ -16,6 +16,7 @@ __all__ = [
     "CandidateId",
     "CaucusId",
     "DottedKey",
+    "LawId",
     "LevelName",
     "MandateId",
     "PartyId",
@@ -67,6 +68,10 @@ was won (``"wk.001"``). Identifies the seat, not its holder, so it survives Nach
 _UnitId = NewType("_UnitId", str)
 UnitId = Annotated[_UnitId, DOTTED]
 """Key of a unit votes are counted in, e.g. ``"de.st.wk.001"``."""
+
+_LawId = NewType("_LawId", str)
+LawId = Annotated[_LawId, DOTTED]
+"""Stable key of one version of a law, jurisdiction first, e.g. ``"de.st.lwg.2021"``."""
 
 _LevelName = NewType("_LevelName", str)
 LevelName = Annotated[_LevelName, SINGLE]

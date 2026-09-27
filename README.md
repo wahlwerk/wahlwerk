@@ -34,8 +34,10 @@ gets there by composition, not by classification.
   protocols that differ in one step show exactly that difference.
 - **Folders by role, dependencies one way.** Foundation (`model`, `ids`, `log`) <-
   entities (`party`) <- state (`state`: term, chamber, caucus, mandate) <- processes
-  (`process`); readers (`io`) feed entities and state. What a vote recorded (`vote`)
-  is input, not state: it depends only on the foundation and processes read it.
+  (`process`) <- laws (`law`); readers (`io`) feed entities and state. What a vote
+  recorded (`vote`) is input, not state: it depends only on the foundation and processes
+  read it. The arithmetic of dividing seats (`apportionment`) and the measures of a
+  result (`measure`) depend only on the foundation and know no law.
 - **Relations, not labels.** What separates one system of government from another is
   a handful of relations: who selects whom, who can remove whom, who can end whose
   term. The engine models these relations directly. A system type is *derived* from
@@ -49,19 +51,23 @@ gets there by composition, not by classification.
 
 ## Repositories
 
-Three, split along the lines that actually differ — licence, size and change cadence:
+Five, split along the lines that actually differ: licence, size and change cadence.
 
 | Repo | Holds | Why separate |
 |---|---|---|
 | [**wahlwerk**](https://github.com/wahlwerk/wahlwerk) | the engine | Apache-2.0, small, `pip install`-able |
-| [**wahlwerk-data**](https://github.com/wahlwerk/wahlwerk-data) | normalised election bundles | dl-de/by-2-0, grows per election, must never bloat the engine's clone |
-| [**wahlwerk-execute**](https://github.com/wahlwerk/wahlwerk-execute) | notebooks and analyses | depends on both; its output is figures, not a library |
+| [**wahlwerk-data**](https://github.com/wahlwerk/wahlwerk-data) | normalised election bundles | GPL-3.0, data under its source's licence (usually dl-de/by-2-0), grows per election, must never bloat the engine's clone |
+| **wahlwerk-data-processing** | one script per source, writing the bundles | reads the original files (xlsx, csv), which never enter the archive; checks every published sum |
+| [**wahlwerk-execute**](https://github.com/wahlwerk/wahlwerk-execute) | notebooks and analyses | depends on the engine and the archive; its output is figures, not a library |
+| **wahlwerk-ui** | charts | no dependencies; the engine's optional extra `wahlwerk[ui]` |
 
 The engine does **not** depend on the data repo, and its test suite passes with the
 archive absent — anything that reads a bundle builds a synthetic one in a `tmp_path`, and
-the real archive is exercised on the other side, in wahlwerk-data's own tests. When golden
-tests arrive at M1 their fixtures will be committed here under `tests/golden/`, small and
-gzipped, so **CI runs offline and a golden test never fails for network reasons**.
+the real archive is checked on the other side, where each bundle is generated and compared
+with every sum the source publishes. Golden tests keep their fixtures here, under
+`tests/golden/`: reduced to what the allocation reads (votes per Wahlkreis), with every
+source and SHA-256 beside them, so **CI runs offline and a golden test never fails for
+network reasons**.
 
 `wahlwerk-data` is the *archive*: every Bundestagswahl since 1949, sixteen Länder,
 kommunal. To use it, clone it and let the engine find it:
@@ -146,16 +152,17 @@ and mypy still refuses to pass a `PartyId` where a `UnitId` belongs.
 |---|---|---|
 | `BodyId` | dotted | `de.bund.bundestag`, `de.by.landtag` |
 | `CandidateId` | dotted | `max-mustermann` |
-| `LawId` | dotted, `+slot` for variants | `de.bund.bwahlg.2023`, `de.bund.bwahlg.2023+apportionment` |
-| `UnitId` | dotted | `de.bund.land.01`, `de.bund.wk.001` |
+| `LawId` | dotted, jurisdiction first | `de.st.lwg.2021`, later `de.bund.bwahlg.2023` |
+| `UnitId` | dotted | `de.st.wk.001`, `de.st.wk.035.gem.15002000.wbz.000001` |
 | `PartyId` | single segment | `cdu`, `gruene`, `team-todenhoefer` |
 | `CaucusId` | single segment, unique within a chamber | `spd`, `cdu-csu` |
-| `MandateId` | dotted, unique within a chamber | `spd.001`, later `wk.001` |
+| `MandateId` | dotted, unique within a chamber | `wk.001`, `list.afd.001`, `spd.001` |
 | `LevelName` | single segment | `wahlkreis`, `land`, `bund` |
 
-`BodyId`, `CandidateId`, `PartyId`, `CaucusId` and `MandateId` exist so far; each of the
-others is added with the first field that needs it. A `MandateId` names the seat, not
-its holder, so it survives Nachrücken.
+All of these exist; a new id type is added with the first field that needs it. A
+`MandateId` names the seat, not its holder, so it survives Nachrücken: an allocation
+names it by how the seat was won (`wk.001` for a Wahlkreis, `list.afd.001` for a list
+seat), a seat table by party (`spd.001`).
 
 **Bodies** are named by jurisdiction then institution. `de.bund` is the federation;
 the sixteen Länder use their official two-letter code:
@@ -191,21 +198,22 @@ as data rather than as strings.
   Unknown columns are a hard error (`extra="forbid"`); vote counts cannot be negative;
   a ballot section cannot let a voter pile five marks when they only have three.
   Every field is declared with `Field(default=..., description=...)`; see
-  [Model fields](#model-fields).
-  See [`model.py`](src/wahlwerk/model.py) and [`tests/test_validation.py`](tests/test_validation.py).
+  [Model fields](#model-fields) and [`model.py`](src/wahlwerk/model.py).
 - **Exact arithmetic.** Divisor comparisons use `fractions.Fraction` or scaled integers,
   never floats. Float rounding both hides real ties and manufactures fake ones.
 - **Ties are a result, not an error.** Where the law prescribes lots (Losentscheid), the
-  engine returns an explicit [`Tie`](src/wahlwerk/ties.py) rather than letting sort order
-  decide. `RecordedLot` replays a draw that actually happened.
-- **One long table for all vote data.** A tally is a flat sequence of rows —
-  `unit, section, party, candidate, count`. Cumulation is a bigger count; panachage is
+  engine returns an explicit [`Tie`](src/wahlwerk/apportionment/tie.py) rather than
+  letting sort order decide, and `Apportionment.with_lot(winners)` applies a draw that
+  actually happened. Inside an allocation a tie stops the next step, until a lot can be
+  applied there too.
+- **One long table for all vote data.** A tally is a flat sequence of rows:
+  `unit, level, kind, section, channel, party, candidate, option, count`. Cumulation is a bigger count; panachage is
   more rows; a new Land quirk is new rows, never new columns. That table is also
   literally one CSV file, which is what makes the archive format and the in-memory
   format the same thing.
 - **Golden tests are the product.** Every historical election under every implemented law
-  becomes a test asserting the official seat distribution exactly — party by party, Land
-  list by Land list.
+  becomes a test asserting the official seat distribution exactly: party by party,
+  Wahlkreis and list seats alike (`tests/golden/`).
 - **No bulk data in the repository.** Vote data lives in `wahlwerk-data`, which records
   each source's URL, retrieval date and SHA-256 so a bundle is reproducible without
   committing the multi-megabyte original. Fixtures committed here stay small and clearly
@@ -289,7 +297,8 @@ Built one small step at a time; each step leaves the package importable.
 **Done**
 
 - `Model` base and the `Count`, `Seats`, `Share` aliases
-- Identifiers: `Slug`, `DottedKey`, `BodyId`, `CandidateId`, `PartyId`
+- Identifiers: `Slug`, `DottedKey`, `BodyId`, `CandidateId`, `PartyId`, `CaucusId`,
+  `MandateId`, `UnitId`, `LevelName`, `LawId`
 - `Mandate` (party that won it, origin) with `MandateOrigin` and `MandateSource`, in
   `state/` since it is what a chamber is made of
 - Standing state: `Term` (with its date-order invariant), `Chamber` (mandates as the
@@ -302,7 +311,7 @@ Built one small step at a time; each step leaves the package importable.
 - `Mandate.is_vacant`: a seat that exists but nobody holds, distinct from a seat whose
   party is not on record
 - The first process: `Chamber.form_caucuses(protocol)` clears and re-forms caucuses
-  from a protocol of `CaucusStep`s (`CaucusPerParty`, `GroupParties`) in
+  from a protocol of `CaucusStep`s (`CaucusPerParty`, `CaucusOfParties`) in
   `wahlwerk.process`
 - Non-attached seats (fraktionslos in the Bundestag): the seat-table key
   `"non-attached"` (or `None`), `Chamber.non_attached_seats`, and the imaginary caucus
@@ -312,18 +321,61 @@ Built one small step at a time; each step leaves the package importable.
 - `Party` and `PartyRegistry` (`[id]`, `.get()`, `.from_json()`), with the reader for
   wahlwerk-data's party files in `wahlwerk.io`
 - Tests under `tests/`, mirroring `src/wahlwerk/`
+- `TallyRow`, one long-table row for votes, invalid votes, Wahlberechtigte and Wähler
+- `PopularVote` and `Source`, and `read_bundle` for the bundle directory wahlwerk-data
+  stores it in (`election.toml`, `tally.csv`); "bundle" names the files, not the model
+- `Tally`, the long table of rows: `filter`, `sum_to` (roll up units by id prefix),
+  `sum_by`, `total`; two rows counting the same thing are rejected
+- The level structure: `Level` and `Tally.levels`, from the `[levels]` table of a
+  schema-2 bundle, for the main (electoral) hierarchy the unit ids follow; every row is
+  checked against it, and `sum_to("wahlkreis")` takes the depth from it
+- Alternative hierarchies beside it, for analysis: `Hierarchy` in
+  `PopularVote.hierarchies`, from `[hierarchies.<name>]` and `<name>.csv`;
+  `sum_to("gemeinde", hierarchy=...)` (the administrative one: Land, Kreis, Gemeinde)
+- Apportionment methods in `wahlwerk.apportionment`, free of any law: divisor
+  methods (`DHondt`, `SainteLague`, `LinearDivisor`) and largest remainder
+  (`HareNiemeyer`), exact, with a `Tie` as a result where claims are equal and
+  `with_lot` to apply the lot actually drawn; `MajorityFirst`, the majority clause of
+  Sec. 35 (6) LWG LSA, around any largest remainder method
+- Thresholds (relative, absolute, seats won, exempt keys, and "or" over them) and
+  Überhang/Ausgleich, in the same package
+  (`overhang`, `Ausgleich`: the smallest house covering every key's seats), after
+  votelib
+- The allocation, `wahlwerk.process.allocation`: a law is a protocol of steps (count,
+  Wahlkreis winners, threshold, seat total, entitlement, list seats, chamber) checked
+  for order before it runs; `allocate(vote, protocol)` returns the `Chamber`
+- The Mehrsitze loop of Sec. 35 (8), (8a) LWG LSA (`RepeatForMehrsitze`, `FraktionSize`)
+- `law/`: electoral laws as versioned protocols by jurisdiction, with a registry by body
+  and date; the first is `law/de/st/lwg.py`. Beside it, the caucus protocol of the
+  Bundestag's Geschäftsordnung, `law/de/bund/gobt.py` (CDU and CSU form the `union`),
+  passed to `Chamber.from_seats(..., caucus_protocol=...)`
+- Golden tests: the Landtag Sachsen-Anhalt 2021 (97 seats, raised from 83 for
+  Mehrsitze) and 2026 (83), each derived from the votes under the law in force on
+  election day, equal the official Sitzverteilung exactly, party by party, Wahlkreis and
+  list seats; fixtures and sources in `tests/golden/`
+- Measures of disproportionality in `wahlwerk.measure.proportionality`, exact, after
+  votelib
 
 **Next**
+
+The path from a popular vote to a chamber, and how it was built, is in
+[`src/wahlwerk/process/allocation/README.md`](src/wahlwerk/process/allocation/README.md). In order:
+
+- A lot inside an allocation, so a tied Wahlkreis or entitlement can be decided as
+  recorded instead of stopping the run
+- The LWG of 2016 and earlier (87 seats, 43 Wahlkreise), and Mecklenburg-Vorpommern,
+  whose bundles are being prepared in wahlwerk-data
+
+Alongside:
 
 - A trace of how a result was derived: one helper that applies a protocol and records
   each step (`before`, step, `after`) when a `record()` context is active, so every
   process is traced the same way; kept off the state so equality is unaffected
 - Move pytest, mypy and ruff from runtime to dev dependencies
 - `Caucus.parties` and `Caucus.is_gemeinschaft`, derived from the seats a caucus
-  groups (CDU/CSU is formed by `GroupParties`)
+  groups (CDU/CSU is formed by `CaucusOfParties`)
 - `Caucus.declared_size` for aggregate-only records, validated against `mandates` when
   both are present
-- Mandate ids from how the seat was won (`wk.001`, list seats) once origins exist
 - `Mandate.unit`, `Mandate.level` with `UnitId` and `LevelName`
 - Chamber votes in `vote/chamber/`: votes cast by the members of a body, secret
   (Bundeskanzlerwahl, as counts) or named (namentliche Abstimmung, one row per member
@@ -335,7 +387,7 @@ Built one small step at a time; each step leaves the package importable.
 ```bash
 uv sync
 uv run pytest -q             # tests
-uv run mypy --strict src     # types
+uv run mypy --strict src     # types (with pydantic's mypy plugin)
 uv run ruff check src tests  # lint
 ```
 
@@ -349,11 +401,13 @@ uv run ruff check src tests  # lint
 
 ## Data and attribution
 
-No election data is committed here.
+No election data is committed here, except the golden test fixtures: small, reduced to
+the votes per Wahlkreis and the official seat table, each with its sources, licence and
+SHA-256 in a README beside it.
 
 Results are generally published under Datenlizenz Deutschland (dl-de/by-2-0), which
 requires attribution. Every bundle in `wahlwerk-data` carries its publisher, title, URL,
-licence and attribution in `election.toml`, and `Bundle.source` keeps them — so the
+licence and attribution in `election.toml`, and `PopularVote.source` keeps them — so the
 attribution travels with anything republished from it rather than being left behind at the
 read. Planned sources: `bundeswahlleiterin.de`, the sixteen Landeswahlleiter,
 `dip.bundestag.de`, and `wahlrecht.de` as an independent check on the allocation

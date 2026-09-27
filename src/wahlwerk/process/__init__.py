@@ -1,13 +1,11 @@
-"""Processes: applying a protocol, an ordered tuple of steps, to turn state into new state."""
+"""Processes: applying a protocol, an ordered tuple of steps, to turn state into new state.
+
+Each kind of process is its own module, reached through this package but never
+flattened into it: ``wahlwerk.process.caucus.CaucusPerParty``.
+"""
 
 from __future__ import annotations
 
-from wahlwerk.process.caucus import (
-    CaucusPerParty,
-    CaucusProtocol,
-    CaucusStep,
-    GroupParties,
-    ProtocolWarning,
-)
+from wahlwerk.process import allocation, caucus
 
-__all__ = ["CaucusPerParty", "CaucusProtocol", "CaucusStep", "GroupParties", "ProtocolWarning"]
+__all__ = ["allocation", "caucus"]

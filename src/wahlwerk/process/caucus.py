@@ -21,7 +21,13 @@ from wahlwerk.state.caucus import Caucus
 if TYPE_CHECKING:
     from wahlwerk.state.chamber import Chamber
 
-__all__ = ["CaucusPerParty", "CaucusProtocol", "CaucusStep", "GroupParties", "ProtocolWarning"]
+__all__ = [
+    "CaucusOfParties",
+    "CaucusPerParty",
+    "CaucusProtocol",
+    "CaucusStep",
+    "ProtocolWarning",
+]
 
 
 class ProtocolWarning(UserWarning):
@@ -69,7 +75,7 @@ class CaucusPerParty(CaucusStep):
         return chamber.with_caucuses((*chamber.caucuses, *formed))
 
 
-class GroupParties(CaucusStep):
+class CaucusOfParties(CaucusStep):
     """The filled seats of several parties form one caucus, e.g. CDU and CSU.
 
     Their seats leave whatever caucus they were in, and a caucus left empty is dropped.
@@ -102,7 +108,7 @@ class GroupParties(CaucusStep):
         return data
 
     @model_validator(mode="after")
-    def _check_distinct(self) -> GroupParties:
+    def _check_distinct(self) -> CaucusOfParties:
         if len(set(self.parties)) != len(self.parties):
             raise ValueError(f"parties {self.parties} name a party more than once")
         return self
@@ -115,7 +121,7 @@ class GroupParties(CaucusStep):
         missing = [party for party in self.parties if party not in has_seats]
         if len(present) < 2:
             warnings.warn(
-                f"GroupParties {self.id!r}: only {present} of {list(self.parties)} "
+                f"CaucusOfParties {self.id!r}: only {present} of {list(self.parties)} "
                 "have filled seats; no caucus formed",
                 ProtocolWarning,
                 stacklevel=2,
@@ -123,7 +129,7 @@ class GroupParties(CaucusStep):
             return chamber
         if missing:
             warnings.warn(
-                f"GroupParties {self.id!r}: {missing} have no filled seats; forming "
+                f"CaucusOfParties {self.id!r}: {missing} have no filled seats; forming "
                 f"{self.id!r} from {present} only",
                 ProtocolWarning,
                 stacklevel=2,

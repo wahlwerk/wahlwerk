@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.13.5",
+    "tomli>=2 ; python_full_version < '3.11'",
+    "votelib>=0.4.0",
 ]
 
 [project.optional-dependencies]
@@ -29,3 +31,8 @@ dev = [
 
 [tool.uv.sources]
 wahlwerk-ui = { path = "../wahlwerk-ui", editable = true }
+
+[tool.mypy]
+# pydantic validates constructor arguments at runtime (ids against their patterns),
+# so mypy takes them as pydantic does: a literal "land" is a valid LevelName.
+plugins = ["pydantic.mypy"]

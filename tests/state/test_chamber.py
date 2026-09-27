@@ -435,11 +435,11 @@ def test_empty_protocol_forms_no_caucuses():
 
 
 def test_explicit_protocol_is_used():
-    from wahlwerk.process import CaucusPerParty, GroupParties
+    from wahlwerk.process.caucus import CaucusOfParties, CaucusPerParty
 
     chamber = Chamber.from_seats(
         {"cdu": 2, "csu": 1},
-        caucus_protocol=(CaucusPerParty(), GroupParties(parties=("cdu", "csu"))),
+        caucus_protocol=(CaucusPerParty(), CaucusOfParties(parties=("cdu", "csu"))),
     )
     assert chamber.seats_by_caucus == {"cdu-csu": 3}
 

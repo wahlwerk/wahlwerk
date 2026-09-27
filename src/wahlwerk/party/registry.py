@@ -9,7 +9,6 @@ from types import MappingProxyType
 
 from pydantic import Field, model_validator
 
-from wahlwerk.io.parties import read_parties
 from wahlwerk.model import Model
 from wahlwerk.party.party import Party
 
@@ -66,6 +65,10 @@ class PartyRegistry(Model):
 
         The format is read by :func:`wahlwerk.io.parties.read_parties`.
         """
+        # wahlwerk.io.parties imports wahlwerk.party at load time; importing it here
+        # instead avoids a circular import.
+        from wahlwerk.io.parties import read_parties
+
         return cls(parties=read_parties(Path(file_path)))
 
     # ===========================================================

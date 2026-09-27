@@ -1,0 +1,14 @@
+schema = 2
+
+[source]
+publisher = "Statistisches Landesamt Sachsen-Anhalt"
+title = "Wahl des 8. Landtages von Sachsen-Anhalt am 6. Juni 2021: endgültiges Wahlergebnis"
+url = "https://wahlergebnisse.sachsen-anhalt.de/wahlen/lt21/erg/csv/LT2021_WBZ.xlsx"
+licence = "dl-de/by-2-0"
+attribution = "Statistisches Landesamt Sachsen-Anhalt, Halle (Saale) 2021, eigene Berechnung; Datenlizenz Deutschland Namensnennung Version 2.0 (dl-de/by-2-0), www.govdata.de/dl-de/by-2-0; Datensatz: https://wahlergebnisse.sachsen-anhalt.de/wahlen/lt21/erg/csv/LT2021_WBZ.xlsx; die Daten wurden geändert (in eine lange Tabelle umgeformt und je Wahlkreis über Urnen- und Briefwahl summiert)."
+retrieved = 2026-09-27
+sha256 = "cf077394b91e75c7c867ccaccc41c81bd001df3496364a3e8522679aa5b90a14"
+
+[levels]
+land = 2
+wahlkreis = 4

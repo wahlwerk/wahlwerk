@@ -1,0 +1,14 @@
+schema = 2
+
+[source]
+publisher = "Statistisches Landesamt Sachsen-Anhalt"
+title = "Landtagswahl in Sachsen-Anhalt am 6. September 2026: endgültige Ergebnisse"
+url = "https://wahlergebnisse.sachsen-anhalt.de/wahlen/lt26/downloads/Ergebnisse_LT_2026.xlsx"
+licence = "dl-de/by-2-0"
+attribution = "Statistisches Landesamt Sachsen-Anhalt, Halle (Saale) 2026, eigene Berechnung; Datenlizenz Deutschland Namensnennung Version 2.0 (dl-de/by-2-0), www.govdata.de/dl-de/by-2-0; Datensatz: https://wahlergebnisse.sachsen-anhalt.de/wahlen/lt26/downloads/Ergebnisse_LT_2026.xlsx; die Daten wurden geändert (in eine lange Tabelle umgeformt und je Wahlkreis über Urnen- und Briefwahl summiert)."
+retrieved = 2026-09-26
+sha256 = "ba5e697b00316cfb70e6af740d4623100c9e4c540f3037cd4a8195d76fd9f2b0"
+
+[levels]
+land = 2
+wahlkreis = 4
