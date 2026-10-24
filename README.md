@@ -382,7 +382,8 @@ Alongside:
 - `Caucus.declared_size` for aggregate-only records, validated against `mandates` when
   both are present
 - `Mandate.unit`, `Mandate.level` with `UnitId` and `LevelName`
-- Chamber votes in `vote/chamber/`: votes cast by the members of a body, secret
+- Chamber votes in `vote/chamber/`: votes cast by the members of a body, on anything a
+  popular vote can be on (a motion, a person, x out of y, an order), secret
   (Bundeskanzlerwahl, as counts) or named (namentliche Abstimmung, one row per member
   `MandateId` and choice); tallies stay popular-vote only
 - `find_archive()`, once there is more than one file to find in wahlwerk-data
