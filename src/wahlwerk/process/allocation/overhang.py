@@ -2,17 +2,20 @@
 entitlement, and allocating again. Two ways a law does it: by a multiple of the overhang
 for a few rounds (:class:`RaiseByOverhang`; the Mehrsitze of Sec. 35 (8), (8a) LWG LSA),
 or a seat at a time until it is balanced (:class:`RaiseUntilBalanced`; the Überhang- and
-Ausgleichsmandate of Sec. 58 (6) LKWG M-V). :class:`SetCaucusSize` is a step for the
-block the first repeats: it measures the yardstick for whether another round is due."""
+Ausgleichsmandate of Sec. 58 (6) LKWG M-V). :class:`SetCaucusSize` (and Sec. 35 (8a)
+LWG LSA's :class:`SetCaucusSizeFromAllVotes`) is a step for the block the first repeats:
+it measures the yardstick for whether another round is due."""
 
 from __future__ import annotations
 
+from fractions import Fraction
+
 from pydantic import Field, SerializeAsAny
 
+from wahlwerk.apportionment.fictitious import FictitiousParty
 from wahlwerk.apportionment.increment import Increment
 from wahlwerk.apportionment.quota import Quota
 from wahlwerk.ids import LevelName, Slug
-from wahlwerk.model import Share
 from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationProtocol,
@@ -23,26 +26,31 @@ from wahlwerk.process.allocation.base import (
     written_by,
 )
 
-__all__ = ["RaiseByOverhang", "RaiseChamberSize", "RaiseUntilBalanced", "SetCaucusSize"]
+__all__ = [
+    "RaiseByOverhang",
+    "RaiseChamberSize",
+    "RaiseUntilBalanced",
+    "SetCaucusSize",
+    "SetCaucusSizeFromAllVotes",
+]
 
 
 class SetCaucusSize(AllocationStep):
     """Set ``caucus_size``: the seats a party needs for a caucus (a Fraktion), measured as
-    the seats a fictitious party would at least win with ``share`` of all valid votes in
-    ``section``, at this stage of the allocation (Sec. 35 (8a) LWG LSA). Put in the block
-    a :class:`RaiseByOverhang` repeats, it is measured again each round, and the loop
-    asks for another round only while the overhang left exceeds half of it.
+    the seats a ``fictitious`` party would at least win at this stage of the allocation,
+    with its share of the votes the seats are divided by (the ``by`` table). Put in the
+    block a :class:`RaiseByOverhang` repeats, it is measured again each round, and the
+    loop asks for another round only while the overhang left exceeds half of it.
 
-    How: the fictitious party joins the eligible parties with ``share`` of all valid
-    votes; ``quota`` gives the votes one of the ``seats_to_apportion`` seats is worth among them;
-    the caucus size is the whole seats the fictitious party's votes make of it. The law
-    does not say how the fictitious party enters the count (wahlrecht.de calls it
-    unclear); this is the reading, and "at least" is the whole part, since a remainder
-    seat is not certain.
+    How: ``quota`` gives the votes one of the ``seats_to_apportion`` seats is worth among
+    the votes counted; the caucus size is the whole seats the fictitious party's votes
+    make of it ("at least": a remainder seat is not certain). With a Hare quota that is
+    the whole part of ``share`` times the seats. Sec. 35 (8a) LWG LSA measures the share
+    of all valid votes instead: :class:`SetCaucusSizeFromAllVotes`.
     """
 
-    share: Share = Field(
-        description="The fictitious party's share of all valid votes, e.g. ``Fraction(5, 100)``.",
+    fictitious: FictitiousParty = Field(
+        description="The party it measures with, e.g. ``FictitiousParty(share=Fraction(5, 100))``.",
     )
     section: Slug = Field(
         description="The vote it is measured on, e.g. ``zweitstimme``.",
@@ -56,7 +64,7 @@ class SetCaucusSize(AllocationStep):
     by: Column = Field(
         default="eligible party",
         description=(
-            "Whose votes the fictitious party joins: the parties past the threshold "
+            "Whose votes the seats are divided by: the parties past the threshold "
             "(``eligible party``), or, with no threshold, every ``party``."
         ),
     )
@@ -64,8 +72,7 @@ class SetCaucusSize(AllocationStep):
     @property
     def inputs(self) -> dict[str, str]:
         return {
-            "votes": counts_fact(self.section, self.level, "party"),
-            "eligible": counts_fact(self.section, self.level, self.by),
+            "votes": counts_fact(self.section, self.level, self.by),
             "seats": "seats_to_apportion",
         }
 
@@ -76,22 +83,64 @@ class SetCaucusSize(AllocationStep):
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
         return {
+            "fictitious": (("total", "the votes counted"),),
             "quota": (
                 ("part", "the fictitious party's votes"),
-                ("votes", "votes of the eligible parties and of the fictitious one"),
+                ("votes", "the votes counted"),
                 ("seats", "seats"),
             ),
         }
 
+    def _counted(self, allocation: Allocation) -> tuple[Fraction, Fraction]:
+        """The fictitious party's votes, and the votes counted with them."""
+        counted = Fraction(sum(allocation.count(self.section, self.level, self.by).per_column().values()))
+        return self.fictitious.votes(counted), counted
+
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.count(self.section, self.level, "party").per_column()
-        eligible = allocation.count(self.section, self.level, self.by).per_column()
-        fictitious = self.share * sum(votes.values())
-        counted = sum(eligible.values()) + fictitious
+        part, counted = self._counted(allocation)
         if not counted or not allocation.seats_to_apportion:
             return allocation.with_values(caucus_size=0)
-        seats = self.quota.whole_seats(fictitious, counted, allocation.seats_to_apportion)
+        seats = self.quota.whole_seats(part, counted, allocation.seats_to_apportion)
         return allocation.with_values(caucus_size=seats)
+
+
+class SetCaucusSizeFromAllVotes(SetCaucusSize):
+    """Set ``caucus_size`` from all valid votes: :class:`SetCaucusSize` as Sec. 35 (8a)
+    LWG LSA measures it. The fictitious party has its share of **all** valid votes in
+    ``section`` ("fünf v. H. der im Land abgegebenen gültigen Zweitstimmen"), the votes
+    of parties below the threshold included, and joins the parties the seats are divided
+    by ("der jeweilige Stand der Verteilung der Abgeordnetensitze"). Against those its
+    share is a little larger than its ``share``, by the votes below the threshold.
+
+    The law does not say how the fictitious party enters the count (wahlrecht.de calls it
+    unclear); joining the eligible parties is the reading, and it reproduces the official
+    results of 2021 and 2026.
+    """
+
+    @property
+    def inputs(self) -> dict[str, str]:
+        return {
+            "all": counts_fact(self.section, self.level, "party"),
+            "votes": counts_fact(self.section, self.level, self.by),
+            "seats": "seats_to_apportion",
+        }
+
+    @property
+    def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        return {
+            "fictitious": (("total", "all valid votes"),),
+            "quota": (
+                ("part", "the fictitious party's votes"),
+                ("votes", "the votes counted and the fictitious party's"),
+                ("seats", "seats"),
+            ),
+        }
+
+    def _counted(self, allocation: Allocation) -> tuple[Fraction, Fraction]:
+        every = sum(allocation.count(self.section, self.level, "party").per_column().values())
+        counted = sum(allocation.count(self.section, self.level, self.by).per_column().values())
+        part = self.fictitious.votes(every)
+        return part, counted + part
 
 
 class RaiseChamberSize(AllocationStep):

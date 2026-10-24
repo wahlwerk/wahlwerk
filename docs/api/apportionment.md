@@ -56,6 +56,24 @@ How seats are divided among options, free of any law.
 .. automodule:: wahlwerk.apportionment.threshold
 ```
 
+## `wahlwerk.apportionment.deduction`
+
+```{eval-rst}
+.. automodule:: wahlwerk.apportionment.deduction
+```
+
+## `wahlwerk.apportionment.increment`
+
+```{eval-rst}
+.. automodule:: wahlwerk.apportionment.increment
+```
+
+## `wahlwerk.apportionment.fictitious`
+
+```{eval-rst}
+.. automodule:: wahlwerk.apportionment.fictitious
+```
+
 ## `wahlwerk.apportionment.ausgleich`
 
 ```{eval-rst}

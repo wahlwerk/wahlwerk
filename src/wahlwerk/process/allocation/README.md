@@ -119,13 +119,14 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
             DeductUnitSeats(),                                      # § 35 (7): the overhang
         ),
     ),
-    SetCaucusSize(share="5/100", section="zweitstimme",             # § 35 (8a); stage 3
-                  level="land", quota=HareQuota()),
+    SetCaucusSizeFromAllVotes(                                      # § 35 (8a); stage 3
+        fictitious=FictitiousParty(share="5/100"),
+        section="zweitstimme", level="land", quota=HareQuota()),
     RaiseByOverhang(                                                # § 35 (8), (8a); stage 4
         protocol=(                                                  # one round, only while
             RaiseChamberSize(increment=Increment(factor=2)),                             # there is overhang
             ALLOCATE,                                               # the sequence above
-            CAUCUS,                                                 # SetCaucusSize again
+            CAUCUS,                                                 # the caucus size again
         ),
         full_rounds=2,
     ),

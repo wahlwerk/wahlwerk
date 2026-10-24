@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
+from wahlwerk.apportionment.fictitious import FictitiousParty
 from wahlwerk.apportionment.increment import Increment
 from wahlwerk.apportionment.majority import MajorityFirst
 from wahlwerk.apportionment.plurality import Plurality
@@ -34,7 +35,7 @@ from wahlwerk.process.allocation.eligibility import (
 from wahlwerk.process.allocation.overhang import (
     RaiseByOverhang,
     RaiseChamberSize,
-    SetCaucusSize,
+    SetCaucusSizeFromAllVotes,
 )
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
@@ -86,8 +87,8 @@ ALLOCATE = StepSequence(
 )
 """Sec. 35 (4) to (7): the seats of one chamber size, which Sec. 35 (8) repeats."""
 
-CAUCUS = SetCaucusSize(
-    share=_FIVE_PERCENT,
+CAUCUS = SetCaucusSizeFromAllVotes(
+    fictitious=FictitiousParty(share=_FIVE_PERCENT),
     section="zweitstimme",
     level="land",
     quota=HareQuota(),

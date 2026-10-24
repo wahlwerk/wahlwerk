@@ -89,7 +89,7 @@ def test_a_sequence_in_the_wrong_place_is_refused():
 def test_describe_and_the_table():
     nodes = flow.describe(P)
     assert [n.kind for n in nodes] == [
-        "SetChamberSize", "CountVotes", "ElectAndQualify", "AllocateSeats", "SetCaucusSize",
+        "SetChamberSize", "CountVotes", "ElectAndQualify", "AllocateSeats", "SetCaucusSizeFromAllVotes",
         "RaiseByOverhang", "FillVacantSeatsFromLists",
     ]
     assert [c.kind for c in nodes[1].children] == ["SumGroupBy", "SumGroupBy"]
@@ -99,7 +99,7 @@ def test_describe_and_the_table():
     assert loop.condition == "while overhang > 0; after 2 rounds, while 2 × overhang > caucus_size"
     raise_, sequence, caucus = loop.children
     assert raise_.kind == "RaiseChamberSize" and raise_.writes == ("chamber_size",)
-    assert caucus.kind == "SetCaucusSize" and caucus.writes == ("caucus_size",)
+    assert caucus.kind == "SetCaucusSizeFromAllVotes" and caucus.writes == ("caucus_size",)
     assert sequence.kind == "AllocateSeats"
     assert [c.path for c in sequence.children] == [(5, "protocol", 1, "steps", i) for i in range(3)]
     assert nodes[0].parameters == (("seats", "83"),)  # defaults left out
@@ -174,7 +174,9 @@ def test_a_concept_shows_what_the_step_hands_it():
     assert threshold.arguments == (("votes", "votes per party, summed over the units"),)
     assert threshold.parameters == (("share", "1/20"),)
     caucus = flow.describe(P)[4]  # a step of its own, before the loop and in each round
-    (quota,) = caucus.uses
+    fictitious, quota = caucus.uses
+    assert fictitious.kind == "FictitiousParty" and fictitious.arguments == (("total", "all valid votes"),)
+    assert [c.formula for c in fictitious.calls] == ["wahlwerk.calc.share.counts"]
     assert quota.kind == "HareQuota" and dict(quota.arguments)["seats"] == "seats"
     assert [c.formula for c in quota.calls] == ["wahlwerk.calc.quota.hare", "wahlwerk.calc.quota.whole_seats"]
 

@@ -34,6 +34,7 @@ Modules, one per family or piece:
 - ``quota``: what one seat is worth (:class:`HareQuota`), and the whole seats votes make of it
 - ``deduction``: seats won outright taken off seats (:class:`Deduction`): what is left, what is beyond
 - ``increment``: a size raised for seats of overhang (:class:`Increment`)
+- ``fictitious``: a party that did not stand, with a share of the votes (:class:`FictitiousParty`)
 - ``threshold``: which options take part at all
 - ``ausgleich``: Überhang, and adding seats until it is covered
 
@@ -51,6 +52,7 @@ from wahlwerk.apportionment import (
     ausgleich,
     deduction,
     divisor,
+    fictitious,
     increment,
     majority,
     method,
@@ -68,6 +70,7 @@ __all__ = [
     "ausgleich",
     "deduction",
     "divisor",
+    "fictitious",
     "increment",
     "majority",
     "method",

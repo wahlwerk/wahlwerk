@@ -4,6 +4,7 @@ Ausgleich of Sec. 58 (6) LKWG M-V."""
 
 from fractions import Fraction
 
+from wahlwerk.apportionment.fictitious import FictitiousParty
 from wahlwerk.apportionment.increment import Increment
 from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.apportionment.quota import HareQuota
@@ -23,13 +24,16 @@ from wahlwerk.process.allocation.overhang import (
     RaiseChamberSize,
     RaiseUntilBalanced,
     SetCaucusSize,
+    SetCaucusSizeFromAllVotes,
 )
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
 LEVELS = (Level(name="land", depth=2), Level(name="wahlkreis", depth=4))
 FIVE = Fraction(5, 100)
-CAUCUS = SetCaucusSize(share=FIVE, section="zweitstimme", level="land", quota=HareQuota())
+CAUCUS = SetCaucusSizeFromAllVotes(
+    fictitious=FictitiousParty(share=FIVE), section="zweitstimme", level="land", quota=HareQuota()
+)
 ALLOCATE = (
     SetSeatsToApportion(section="zweitstimme", level="land"),
     ApportionSeats(method=HareNiemeyer(), section="zweitstimme", level="land"),
@@ -132,6 +136,27 @@ def test_caucus_size_counts_a_fictitious_five_percent_party():
     assert CAUCUS(allocation.with_values(seats_to_apportion=97)).caucus_size == 5  # 97 * 50 / 950 = 5.1
     assert CAUCUS.reads == {"zweitstimme by land × party", "zweitstimme by land × eligible party", "seats_to_apportion"}
     assert CAUCUS.writes == {"caucus_size"}
+
+    # The general case: 5 % of the 900 votes counted, so 5 % of the seats, whole.
+    general = SetCaucusSize(fictitious=FictitiousParty(share=FIVE), section="zweitstimme", level="land", quota=HareQuota())
+    assert general(allocation).caucus_size == 1  # 20 * 45 / 900 = 1
+    assert general(allocation.with_values(seats_to_apportion=97)).caucus_size == 4  # 4.85
+    assert general.reads == {"zweitstimme by land × eligible party", "seats_to_apportion"}
+
+
+def test_the_votes_below_the_threshold_raise_the_caucus_size():
+    # 10 % below the threshold: the fictitious party's 5 % of all votes is 5.26 % of the
+    # votes counted with it; on 59 seats 3.1 seats against 2.95 in the general case.
+    rows = tuple(
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, party=p, count=n)
+        for p, n in {"a": 450, "b": 450, "c": 100}.items()
+    )
+    allocation = SumGroupBy(section="zweitstimme", level="land", by="party")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
+    allocation = ApplyThresholdTo(threshold=RelativeThreshold(share=Fraction(45, 100)), section="zweitstimme", level="land")(allocation)
+    allocation = allocation.with_values(seats_to_apportion=59)
+    general = SetCaucusSize(fictitious=FictitiousParty(share=FIVE), section="zweitstimme", level="land", quota=HareQuota())
+    assert general(allocation).caucus_size == 2
+    assert CAUCUS(allocation).caucus_size == 3
 
 
 def test_loop_declares_what_it_reads_and_writes():
