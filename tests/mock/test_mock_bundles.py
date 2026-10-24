@@ -26,7 +26,7 @@ def read(name: str) -> PopularVote:
 
 
 def votes(tally: Tally, section: str = "type1") -> dict[str, int]:
-    """Valid votes per party (or option, or independent candidate) across all districts."""
+    """Valid votes per party (or option, or independent candidate) across all units."""
     rows = tally.filter(kind="votes", section=section).rows
     totals: dict[str, int] = {}
     for row in rows:
@@ -36,8 +36,8 @@ def votes(tally: Tally, section: str = "type1") -> dict[str, int]:
     return totals
 
 
-def district_winners(tally: Tally, section: str = "type1") -> dict[str, str]:
-    """The recipient with the most votes per district, over all channels."""
+def unit_winners_of(tally: Tally, section: str = "type1") -> dict[str, str]:
+    """The recipient with the most votes per unit, over all channels."""
     per = tally.filter(kind="votes", section=section)
     totals: dict[tuple[str, str], int] = {}
     for row in per.rows:
@@ -58,31 +58,31 @@ def test_all_bundles_are_present():
 @pytest.mark.parametrize("name", BUNDLES)
 def test_bundle_adds_up(name):
     """Per unit, channel and section, valid and invalid votes equal the voters; per
-    district (Wahlkreis), the voters, Brief included, are at most the eligible."""
+    unit (Wahlkreis), the voters, Brief included, are at most the eligible."""
     tally = read(name).tally
     sections = {row.section for row in tally.filter(kind="votes").rows}
     for (unit, channel), voters in tally.filter(kind="voters").sum_by("unit", "channel").items():
         for section in sections:
             cast = tally.filter(unit=unit, section=section, channel=channel).total()
             assert cast == voters, (unit, section, channel)
-    district = tally.sum_to(tally.levels[1].name)
-    eligible = district.filter(kind="eligible").sum_by("unit")
-    for unit, voters in district.filter(kind="voters").sum_by("unit").items():
+    summed = tally.sum_to(tally.levels[1].name)
+    eligible = summed.filter(kind="eligible").sum_by("unit")
+    for unit, voters in summed.filter(kind="voters").sum_by("unit").items():
         assert voters <= eligible[unit], unit
 
 
-def test_two_party_inverted_popular_loser_wins_most_districts():
+def test_two_party_inverted_popular_loser_wins_most_units():
     tally = read("two-party-inverted").tally
     total = votes(tally)
-    wins = list(district_winners(tally).values())
+    wins = list(unit_winners_of(tally).values())
     assert total["party-a"] > total["party-b"]
     assert wins.count("party-b") > wins.count("party-a")
 
 
-def test_electoral_college_popular_winner_wins_few_districts():
+def test_electoral_college_popular_winner_wins_few_units():
     tally = read("electoral-college").tally
     total = votes(tally)
-    wins = list(district_winners(tally).values())
+    wins = list(unit_winners_of(tally).values())
     assert total["party-a"] > total["party-b"]
     assert wins.count("party-a") == 3
 
@@ -92,23 +92,23 @@ def test_fptp_regional_party_wins_seats_with_few_votes():
     total = votes(tally)
     share = Fraction(total["party-d"], sum(total.values()))
     assert share < Fraction(5, 100)
-    assert list(district_winners(tally).values()).count("party-d") >= 2
+    assert list(unit_winners_of(tally).values()).count("party-d") >= 2
 
 
-def test_mixed_member_district_strength_exceeds_list_share():
+def test_mixed_member_unit_strength_exceeds_list_share():
     tally = read("mixed-member").tally
     one, two = votes(tally, "type1"), votes(tally, "type2")
-    wins = list(district_winners(tally, "type1").values())
+    wins = list(unit_winners_of(tally, "type1").values())
     assert Fraction(two["party-a"], sum(two.values())) < Fraction(30, 100)
     assert wins.count("party-a") > len(wins) // 2
     assert one["party-a"] > two["party-a"]
 
 
-def test_basic_mandate_party_below_five_percent_wins_three_districts():
+def test_basic_mandate_party_below_five_percent_wins_three_units():
     tally = read("basic-mandate").tally
     two = votes(tally, "type2")
     assert Fraction(two["party-g"], sum(two.values())) < Fraction(5, 100)
-    assert list(district_winners(tally, "type1").values()).count("party-g") == 3
+    assert list(unit_winners_of(tally, "type1").values()).count("party-g") == 3
 
 
 def test_threshold_edge_shares_are_exact():
@@ -151,21 +151,21 @@ def test_referendum_majority_misses_a_quarter_of_the_eligible():
     assert total["option1"] * 4 < tally.filter(kind="eligible").total()
 
 
-def test_independent_wins_one_district():
-    winners = district_winners(read("independent-winner").tally)
-    assert winners["mock.independent-winner.district04"].endswith(".indep1")
-    assert not winners["mock.independent-winner.district09"].endswith(".indep1")
+def test_independent_wins_one_unit():
+    winners = unit_winners_of(read("independent-winner").tally)
+    assert winners["mock.independent-winner.unit04"].endswith(".indep1")
+    assert not winners["mock.independent-winner.unit09"].endswith(".indep1")
 
 
-def test_two_round_second_holds_only_undecided_districts():
+def test_two_round_second_holds_only_undecided_units():
     first = read("two-round-first").tally
     second = read("two-round-second").tally
     first_units = {row.unit.split(".")[-1] for row in first.rows}
     second_units = {row.unit.split(".")[-1] for row in second.rows}
     assert second_units < first_units
-    assert "district02" not in second_units
-    assert "district05" in second_units
-    parties_in_08 = second.filter(unit="mock.two-round-second.district08", kind="votes")
+    assert "unit02" not in second_units
+    assert "unit05" in second_units
+    parties_in_08 = second.filter(unit="mock.two-round-second.unit08", kind="votes")
     assert len({row.party for row in parties_in_08.rows}) == 3
 
 
@@ -173,15 +173,15 @@ def test_pathological_edge_cases():
     tally = read("pathological").tally
     total = votes(tally)
     assert total == {"party-a": 6_000, "party-b": 6_000, "party-c": 3_000, "party-d": 0}
-    district01 = tally.filter(unit="mock.pathological.district01", kind="votes").sum_by("party")
-    assert district01["party-a"] == district01["party-b"]
+    unit01 = tally.filter(unit="mock.pathological.unit01", kind="votes").sum_by("party")
+    assert unit01["party-a"] == unit01["party-b"]
 
 
 # Landtag mocks: Erst- and Zweitstimme, Urne and Brief, run under the real Landtag laws.
 
 
 def wahlkreis_winners(tally: Tally) -> dict[str, str]:
-    return district_winners(tally.sum_to("wahlkreis"), "erststimme")
+    return unit_winners_of(tally.sum_to("wahlkreis"), "erststimme")
 
 
 def zweitstimmen(tally: Tally) -> dict[str, Fraction]:

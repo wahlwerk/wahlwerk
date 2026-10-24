@@ -239,7 +239,7 @@ de.st.wk.035.gem.15002000.wbz.000001,wahlbezirk,de.st.gem.15002000
 - The law is never evaluated along an alternative hierarchy.
 
 What the main hierarchy does not cover, and should not until a case needs it: a
-Wahlkreis across a Land border, or a redistricting inside one election. Bayern's
+Wahlkreis across a Land border, or units redrawn within one election. Bayern's
 Stimmkreise inside Wahlkreise still nest by prefix.
 
 ## Order of work

@@ -12,31 +12,31 @@ Everything is generic, and its meaning is left to the law under test:
 
 | Field | Values | Played as |
 |---|---|---|
-| `unit` | `mock.<scenario>.district01`, … | a district (Wahlkreis, constituency, state) |
-| `level` | `district` (depth 3); `whole` (depth 2) is declared for summing | |
+| `unit` | `mock.<scenario>.unit01`, … | a unit (a Wahlkreis, a constituency, a state) |
+| `level` | `unit` (depth 3); `whole` (depth 2) is declared for summing | |
 | `section` | `type1`, `type2` | a ballot or vote type: candidate and list vote, first and second round |
 | `channel` | `channel1`, `channel2`, blank where not recorded | in person, by post |
 | `party` | `party-a` … `party-y` | |
-| `candidate` | `mock.<scenario>.district04.indep1` | an independent, with no party |
+| `candidate` | `mock.<scenario>.unit04.indep1` | an independent, with no party |
 | `option` | `option1`, `option2` | the answers in a referendum |
 
-Every voter casts one vote in every section, so per district, section and channel the
+Every voter casts one vote in every section, so per unit, section and channel the
 valid and invalid votes add up to the voters. Postal ballots have fewer invalid votes
 and lean slightly towards some parties.
 
 ## Scenarios
 
-| Bundle | Districts | Parties | Turnout | Sections | Postal | What it is for |
+| Bundle | Units | Parties | Turnout | Sections | Postal | What it is for |
 |---|---|---|---|---|---|---|
 | `two-party-close` | 20 | 3 | 65 % | 1 | yes | two parties within a fraction of a point; postal votes lean to B |
 | `two-party-landslide` | 20 | 4 | 56 % | 1 | | 61 % to 37 %; wasted votes, winner's bonus |
-| `two-party-inverted` | 15 | 2 | 58 % | 1 | | A wins 56 % of the votes but loses most districts (A is packed into five) |
-| `electoral-college` | 15, 50 000 to 900 000 eligible | 4 | 62 % | 1 | | A wins the votes and only the three largest districts |
-| `fptp-regional` | 30 | 7 | 66 % | 1 | | D has under 5 % overall but wins districts where it is concentrated |
-| `two-round-first` | 12 | 8 | 50 % | 1 | | a fragmented first round; district02 is decided, district05 has a majority of votes but under a quarter of the eligible, district08 has three strong parties |
-| `two-round-second` | 11 | 2 to 3 each | 47 % | 1 | | the runoffs of `two-round-first` (rule in `make_mock.py`), three parties in district08 |
-| `mixed-member` | 15 | 7 | 76 % | 2 | yes | A wins most districts on `type1` with under 30 % of `type2`: overhang |
-| `basic-mandate` | 15 | 8 | 73 % | 2 | yes | G has under 5 % of `type2` but wins three districts on `type1` |
+| `two-party-inverted` | 15 | 2 | 58 % | 1 | | A wins 56 % of the votes but loses most units (A is packed into five) |
+| `electoral-college` | 15, 50 000 to 900 000 eligible | 4 | 62 % | 1 | | A wins the votes and only the three largest units |
+| `fptp-regional` | 30 | 7 | 66 % | 1 | | D has under 5 % overall but wins units where it is concentrated |
+| `two-round-first` | 12 | 8 | 50 % | 1 | | a fragmented first round; unit02 is decided, unit05 has a majority of votes but under a quarter of the eligible, unit08 has three strong parties |
+| `two-round-second` | 11 | 2 to 3 each | 47 % | 1 | | the runoffs of `two-round-first` (rule in `make_mock.py`), three parties in unit08 |
+| `mixed-member` | 15 | 7 | 76 % | 2 | yes | A wins most units on `type1` with under 30 % of `type2`: overhang |
+| `basic-mandate` | 15 | 8 | 73 % | 2 | yes | G has under 5 % of `type2` but wins three units on `type1` |
 | `threshold-edge` | 10 | 9 | 71 % | 1 | | of exactly 100 000 valid votes, E has 5.01 %, F 5.00 %, G 4.99 %, H 3.00 % |
 | `fragmented` | 10 | 25 | 61 % | 1 | | the largest party has 14 %, seven have under 1 %: methods diverge |
 | `few-big` | 15 | 6 | 72 % | 1 | yes | four parties between 21 % and 27 % |
@@ -44,10 +44,10 @@ and lean slightly towards some parties.
 | `low-turnout` | 20 | 6 | 17 % | 1 | yes, half | low turnout, 4 % invalid |
 | `high-turnout` | 20 | 5 | 93 % | 1 | yes | high turnout, 3.5 % invalid |
 | `referendum` | 10 | `option1`, `option2` | 36 % | 1 | yes | option1 wins 56 % of the votes, yet fewer than a quarter of the eligible |
-| `independent-winner` | 12 | 5 + 2 independents | 69 % | 2 | | an independent wins district04, another loses district09 |
-| `pathological` | 6 | 4 | | 1 | | written by hand: A and B tie in district01; nobody votes in district02; every vote is invalid in district03; one eligible in district04; A and B tie overall (6 000 each, C 3 000, D 0), so quotients tie under D'Hondt and Sainte-Laguë |
+| `independent-winner` | 12 | 5 + 2 independents | 69 % | 2 | | an independent wins unit04, another loses unit09 |
+| `pathological` | 6 | 4 | | 1 | | written by hand: A and B tie in unit01; nobody votes in unit02; every vote is invalid in unit03; one eligible in unit04; A and B tie overall (6 000 each, C 3 000, D 0), so quotients tie under D'Hondt and Sainte-Laguë |
 
-Seats, district magnitudes, district weights (`electoral-college`), thresholds and quorums
+Seats, unit magnitudes, unit weights (`electoral-college`), thresholds and quorums
 are parameters of the law, not of the vote, so they are not in the bundles.
 
 ## Landtag scenarios

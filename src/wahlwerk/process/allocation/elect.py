@@ -5,7 +5,7 @@ contest per unit: the nominees standing there and their votes. A method then cho
 the winner from that list alone, knowing nothing of units, sections or law; usually
 :class:`~wahlwerk.apportionment.plurality.Plurality`, the most votes win. In Germany
 the units are Wahlkreise and the vote is the Erststimme (Sec. 33 LWG LSA: the most
-Erststimmen; lot on a tie); elsewhere constituencies, ridings or districts: here, units of a level.
+Erststimmen; lot on a tie); elsewhere constituencies or ridings: here, units of a level.
 """
 
 from __future__ import annotations

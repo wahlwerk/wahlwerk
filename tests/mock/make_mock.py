@@ -6,7 +6,7 @@ committed; this script is how they were made, and its SHA-256 is each bundle's
 ``[source] sha256``. What each scenario is for is in ``README.md`` beside this file.
 
 Everything is deliberately generic: parties ``party-a`` to ``party-y``, units
-``mock.<scenario>.district01``, sections ``type1`` and ``type2``, channels ``channel1``
+``mock.<scenario>.unit01``, sections ``type1`` and ``type2``, channels ``channel1``
 (cast in person) and ``channel2`` (cast by post), options ``option1`` and ``option2``.
 What a section or channel means is up to the law under test.
 """
@@ -27,7 +27,7 @@ GENERATED = "2026-10-10"
 COLUMNS = ("unit", "level", "kind", "section", "channel", "party", "candidate", "option", "count")
 IN_PERSON = "channel1"
 POSTAL = "channel2"
-LEVEL = "district"
+LEVEL = "unit"
 
 Recipient = tuple[str, str]
 """Who a vote counts for: ``("party", "party-a")``, ``("candidate", ...)``, ``("option", ...)``."""
@@ -61,7 +61,7 @@ def split(total: int, weights: dict[Recipient, float] | dict[str, float]) -> dic
 
 
 def noisy(weights: dict[Recipient, float], rng: random.Random, sigma: float) -> dict[Recipient, float]:
-    """Each weight times a log-normal factor, so districts differ around the mean."""
+    """Each weight times a log-normal factor, so units differ around the mean."""
     return {key: weight * rng.lognormvariate(0, sigma) for key, weight in weights.items()}
 
 
@@ -77,9 +77,9 @@ def row(unit: str, kind: str, count: int, section: str = "", channel: str = "",
     )
 
 
-def district_rows(unit: str, eligible: int | None, ballots: dict[str, tuple[int, dict[str, tuple[int, dict[Recipient, int]]]]],
+def unit_rows(unit: str, eligible: int | None, ballots: dict[str, tuple[int, dict[str, tuple[int, dict[Recipient, int]]]]],
                   level: str = LEVEL) -> list[tuple[str, ...]]:
-    """The rows of one district.
+    """The rows of one unit.
 
     ``ballots`` maps a channel (``""`` when not recorded) to its voters and, per section,
     the invalid votes and the votes per recipient. Every voter casts one vote in every
@@ -112,59 +112,59 @@ def cast(voters: int, invalid_rate: float, shares: Shares, rng: random.Random,
     return voters, sections
 
 
-def district(unit: str, eligible: int, turnout: float, invalid_rate: float, shares: Shares,
+def simulate_unit(unit: str, eligible: int, turnout: float, invalid_rate: float, shares: Shares,
              rng: random.Random, postal: float | None = None,
              postal_tilt: dict[Recipient, float] | None = None) -> list[tuple[str, ...]]:
-    """A district's rows; with ``postal``, that share of voters cast by post, which
+    """A unit's rows; with ``postal``, that share of voters cast by post, which
     has fewer invalid votes and leans by ``postal_tilt``."""
     voters = round(eligible * turnout)
     if postal is None:
-        return district_rows(unit, eligible, {"": cast(voters, invalid_rate, shares, rng)})
+        return unit_rows(unit, eligible, {"": cast(voters, invalid_rate, shares, rng)})
     by_post = round(voters * postal)
-    return district_rows(unit, eligible, {
+    return unit_rows(unit, eligible, {
         IN_PERSON: cast(voters - by_post, invalid_rate, shares, rng),
         POSTAL: cast(by_post, invalid_rate / 2, shares, rng, postal_tilt),
     })
 
 
 def units(name: str, count: int) -> list[str]:
-    return [f"mock.{name}.district{index:02d}" for index in range(1, count + 1)]
+    return [f"mock.{name}.unit{index:02d}" for index in range(1, count + 1)]
 
 
-def standard(name: str, districts: int, shares: Callable[[int, random.Random], Shares], *,
+def standard(name: str, n_units: int, shares: Callable[[int, random.Random], Shares], *,
              turnout: float, turnout_sd: float = 0.04, invalid: float = 0.012,
              size: int = 60_000, size_spread: float = 0.25, postal: float | None = None,
              postal_tilt: dict[Recipient, float] | None = None,
              turnouts: dict[int, float] | None = None) -> list[tuple[str, ...]]:
-    """Districts of similar size; ``shares(index, rng)`` gives each its weights, and
-    ``turnouts`` fixes the turnout of single districts (1-based)."""
+    """Units of similar size; ``shares(index, rng)`` gives each its weights, and
+    ``turnouts`` fixes the turnout of single units (1-based)."""
     rng = random.Random(name)
     rows = []
-    for index, unit in enumerate(units(name, districts), start=1):
+    for index, unit in enumerate(units(name, n_units), start=1):
         eligible = round(size * rng.uniform(1 - size_spread, 1 + size_spread))
         rate = (turnouts or {}).get(index) or min(0.99, max(0.05, rng.gauss(turnout, turnout_sd)))
-        district_postal = None if postal is None else min(0.9, max(0.02, rng.gauss(postal, 0.05)))
-        rows += district(unit, eligible, rate, invalid, shares(index, rng), rng,
-                         district_postal, postal_tilt)
+        unit_postal = None if postal is None else min(0.9, max(0.02, rng.gauss(postal, 0.05)))
+        rows += simulate_unit(unit, eligible, rate, invalid, shares(index, rng), rng,
+                         unit_postal, postal_tilt)
     return rows
 
 
-def exact(name: str, totals: dict[str, int], districts: int, *, turnout: float,
+def exact(name: str, totals: dict[str, int], n_units: int, *, turnout: float,
           invalid: float, sigma: float = 0.08) -> list[tuple[str, ...]]:
     """One section, ``type1``, whose valid votes sum to exactly ``totals`` per party.
 
-    Each district but the last splits its valid votes by noisy national shares; the
+    Each unit but the last splits its valid votes by noisy national shares; the
     last takes what is left, so the party totals come out exact.
     """
     rng = random.Random(name)
     grand = sum(totals.values())
-    sizes = {unit: rng.uniform(0.75, 1.25) for unit in units(name, districts)}
+    sizes = {unit: rng.uniform(0.75, 1.25) for unit in units(name, n_units)}
     valid = split(grand, sizes)
     national = parties({letter: count / grand for letter, count in totals.items()})
     left = {party(letter): count for letter, count in totals.items()}
     rows = []
     for position, unit in enumerate(sizes):
-        if position < districts - 1:
+        if position < n_units - 1:
             votes = split(valid[unit], noisy(national, rng, sigma))
             for key, count in votes.items():
                 left[key] -= count
@@ -174,7 +174,7 @@ def exact(name: str, totals: dict[str, int], districts: int, *, turnout: float,
         spoiled = round(valid[unit] * invalid / (1 - invalid))
         voters = valid[unit] + spoiled
         eligible = round(voters / min(0.99, max(0.05, rng.gauss(turnout, 0.03))))
-        rows += district_rows(unit, eligible, {"": (voters, {"type1": (spoiled, votes)})})
+        rows += unit_rows(unit, eligible, {"": (voters, {"type1": (spoiled, votes)})})
     return rows
 
 
@@ -186,7 +186,7 @@ def leaned(base: dict[str, float], lean: float) -> dict[Recipient, float]:
     return parties(weights)
 
 
-# Scenarios. Each returns its rows; districts are 1-based in every rule below.
+# Scenarios. Each returns its rows; units are 1-based in every rule below.
 
 
 def two_party_close() -> list[tuple[str, ...]]:
@@ -204,7 +204,7 @@ def two_party_landslide() -> list[tuple[str, ...]]:
 
 
 def two_party_inverted() -> list[tuple[str, ...]]:
-    # Party A is packed into five districts and loses the other ten narrowly.
+    # Party A is packed into five units and loses the other ten narrowly.
     def shares(index: int, rng: random.Random) -> Shares:
         lean = 0.30 if index <= 5 else -0.05
         return {"type1": leaned({"a": 0.5, "b": 0.5}, lean + rng.uniform(-0.02, 0.02))}
@@ -212,7 +212,7 @@ def two_party_inverted() -> list[tuple[str, ...]]:
 
 
 def electoral_college() -> list[tuple[str, ...]]:
-    # Three large districts go heavily to A, twelve small ones narrowly to B.
+    # Three large units go heavily to A, twelve small ones narrowly to B.
     sizes = [900_000, 700_000, 600_000, 250_000, 220_000, 200_000, 180_000, 150_000,
              130_000, 110_000, 90_000, 80_000, 70_000, 60_000, 50_000]
     rng = random.Random("electoral-college")
@@ -222,13 +222,13 @@ def electoral_college() -> list[tuple[str, ...]]:
             weights = {"a": 0.68, "b": 0.29, "c": 0.02, "d": 0.01}
         else:
             weights = {"a": 0.47 + rng.uniform(-0.01, 0.01), "b": 0.49, "c": 0.025, "d": 0.015}
-        rows += district(unit, eligible, rng.gauss(0.62, 0.03), 0.008,
+        rows += simulate_unit(unit, eligible, rng.gauss(0.62, 0.03), 0.008,
                          {"type1": parties(weights)}, rng)
     return rows
 
 
 def fptp_regional() -> list[tuple[str, ...]]:
-    # Party D stands almost only in the last three districts, and is strong there.
+    # Party D stands almost only in the last three units, and is strong there.
     national = {"a": 0.34, "b": 0.31, "c": 0.18, "d": 0.003, "e": 0.07, "f": 0.05, "g": 0.03}
     def shares(index: int, rng: random.Random) -> Shares:
         weights = dict(national)
@@ -277,7 +277,7 @@ def two_round() -> tuple[list[tuple[str, ...]], list[tuple[str, ...]]]:
             qualified = ranked[:2]
         voters = int(next(r[8] for r in here if r[2] == "voters"))
         weights = {key: votes[key] * rng.uniform(1.0, 1.6) for key in qualified}
-        rows = district(unit.replace(first_name, f"{name}-second"), eligible,
+        rows = simulate_unit(unit.replace(first_name, f"{name}-second"), eligible,
                         voters / eligible * rng.uniform(0.85, 1.05), 0.03,
                         {"type1": weights}, rng)
         second += rows
@@ -285,7 +285,7 @@ def two_round() -> tuple[list[tuple[str, ...]], list[tuple[str, ...]]]:
 
 
 def mixed_member() -> list[tuple[str, ...]]:
-    # Party A's district candidates run far ahead of its list (type2).
+    # Party A's unit candidates run far ahead of its list (type2).
     type1 = {"a": 0.38, "b": 0.30, "c": 0.12, "d": 0.08, "e": 0.07, "f": 0.03, "g": 0.02}
     type2 = {"a": 0.28, "b": 0.25, "c": 0.15, "d": 0.12, "e": 0.10, "f": 0.07, "g": 0.03}
     def shares(index: int, rng: random.Random) -> Shares:
@@ -299,7 +299,7 @@ def mixed_member() -> list[tuple[str, ...]]:
 
 
 def basic_mandate() -> list[tuple[str, ...]]:
-    # Party G is weak on lists (type2) but its candidates win three districts.
+    # Party G is weak on lists (type2) but its candidates win three units.
     type1 = {"a": 0.33, "b": 0.29, "c": 0.13, "d": 0.10, "e": 0.07, "f": 0.05, "g": 0.02, "h": 0.01}
     type2 = {"a": 0.30, "b": 0.27, "c": 0.14, "d": 0.10, "e": 0.08, "f": 0.05, "g": 0.025, "h": 0.025}
     def shares(index: int, rng: random.Random) -> Shares:
@@ -364,7 +364,7 @@ def referendum() -> list[tuple[str, ...]]:
 
 
 def independent_winner() -> list[tuple[str, ...]]:
-    # Independents stand in districts 4 (and win) and 9 (and lose).
+    # Independents stand in units 4 (and win) and 9 (and lose).
     name = "independent-winner"
     type1 = {"a": 0.32, "b": 0.28, "c": 0.17, "d": 0.13, "e": 0.10}
     type2 = {"a": 0.30, "b": 0.27, "c": 0.18, "d": 0.14, "e": 0.11}
@@ -374,7 +374,7 @@ def independent_winner() -> list[tuple[str, ...]]:
         if index in strength:
             whole = sum(one.values())
             one = {key: value / whole * (1 - strength[index]) for key, value in one.items()}
-            one[("candidate", f"mock.{name}.district{index:02d}.indep1")] = strength[index]
+            one[("candidate", f"mock.{name}.unit{index:02d}.indep1")] = strength[index]
         return {"type1": one, "type2": noisy(parties(type2), rng, 0.08)}
     return standard(name, 12, shares, turnout=0.70)
 
@@ -384,7 +384,7 @@ def pathological() -> list[tuple[str, ...]]:
     name = "pathological"
     a, b, c, d = (party(letter) for letter in "abcd")
     table = [  # eligible, voters, invalid, A, B, C, D
-        (2_000, 1_500, 20, 700, 700, 80, 0),       # A and B tie for the district
+        (2_000, 1_500, 20, 700, 700, 80, 0),       # A and B tie for the unit
         (500, 0, 0, 0, 0, 0, 0),                   # nobody voted
         (300, 120, 120, 0, 0, 0, 0),               # every vote invalid
         (1, 1, 0, 0, 0, 1, 0),                     # one eligible, one vote
@@ -394,7 +394,7 @@ def pathological() -> list[tuple[str, ...]]:
     rows = []
     for unit, (eligible, voters, invalid, *votes) in zip(units(name, len(table)), table):
         counts = dict(zip((a, b, c, d), votes))
-        rows += district_rows(unit, eligible, {"": (voters, {"type1": (invalid, counts)})})
+        rows += unit_rows(unit, eligible, {"": (voters, {"type1": (invalid, counts)})})
     return rows
 
 
@@ -468,9 +468,9 @@ def landtag(name: str, erst: dict[Recipient, float], zweit: dict[Recipient, floa
             postal += round(voters * by_post)
             shares = {ERST: noisy(one, rng, 0.05), ZWEIT: noisy(two, rng, 0.05)}
             urne = cast(voters - round(voters * by_post), 0.015, shares, rng)
-            rows += district_rows(f"{unit}.wbz.{wbz:02d}", eligible, {URNE: urne}, "wahlbezirk")
+            rows += unit_rows(f"{unit}.wbz.{wbz:02d}", eligible, {URNE: urne}, "wahlbezirk")
         shares = {ERST: one, ZWEIT: two}
-        rows += district_rows(f"{unit}.bwb.01", None,
+        rows += unit_rows(f"{unit}.bwb.01", None,
                               {BRIEF: cast(postal, 0.008, shares, rng, brief_tilt)}, "briefwahlbezirk")
     return rows
 
@@ -658,7 +658,7 @@ sha256 = "{sha256}"
 {levels}
 """
 
-LEVELS = "whole = 2\ndistrict = 3"
+LEVELS = "whole = 2\nunit = 3"
 LANDTAG_LEVELS = "land = 2\nwahlkreis = 4\nwahlbezirk = 6\nbriefwahlbezirk = 6"
 
 
