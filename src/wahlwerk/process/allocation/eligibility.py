@@ -12,9 +12,9 @@ from wahlwerk.model import Seats
 from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationStep,
+    Column,
     GroupBy,
     counts_fact,
-    eligible_fact,
 )
 
 __all__ = ["ApplyThresholdTo", "SetChamberSize", "SetSeatsToApportion"]
@@ -22,13 +22,13 @@ __all__ = ["ApplyThresholdTo", "SetChamberSize", "SetSeatsToApportion"]
 
 class ApplyThresholdTo(AllocationStep):
     """Apply ``threshold`` to the parties (or, ``to="option"``, the options) of a vote:
-    those that pass it on their valid votes in ``section``, summed at ``level``, become
-    the fact ``eligible parties of <section>`` (``eligible parties of zweitstimme``), or
-    ``eligible options of <section>``. A law with thresholds on two votes keeps two such
-    facts.
+    it takes the table ``<section> by <level> × <to>`` and leaves the same table with
+    only the columns that pass, ``<section> by <level> × eligible <to>``
+    (``zweitstimme by land × eligible party``): the votes the seats are divided by, and
+    who takes part. A law with thresholds on two votes keeps two such tables. Without a
+    threshold, the steps after it take ``× party`` instead (their ``by``).
 
-    It takes the table ``<section> by <level> × <to>``. The share is of all valid votes
-    counted there. A threshold that counts seats already won (a Grundmandatsklausel) is
+    The share is of all valid votes counted in the table it takes. A threshold that counts seats already won (a Grundmandatsklausel) is
     given each party's Wahlkreis wins, so the step then also reads ``unit_mandates``.
     """
 
@@ -55,7 +55,7 @@ class ApplyThresholdTo(AllocationStep):
 
     @property
     def writes(self) -> frozenset[str]:
-        return frozenset({eligible_fact(self.section, self.to)})
+        return frozenset({counts_fact(self.section, self.level, f"eligible {self.to}")})
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
@@ -65,11 +65,20 @@ class ApplyThresholdTo(AllocationStep):
         return {"threshold": given}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.count(self.section, self.level, self.to).per_column()
+        table = allocation.count(self.section, self.level, self.to)
         won = allocation.unit_wins() if self.threshold.uses_won else None
-        fact = eligible_fact(self.section, self.to)
-        others = tuple((f, p) for f, p in allocation.passed if f != fact)
-        return allocation.with_values(passed=(*others, (fact, self.threshold.select(votes, won))))
+        passed = self.threshold.select(table.per_column(), won)
+        eligible = table.model_copy(
+            update={
+                "by": f"eligible {self.to}",
+                "rows": tuple(
+                    (unit, tuple((c, n) for c, n in row if c in passed)) for unit, row in table.rows
+                ),
+                "parties": tuple((c, p) for c, p in table.parties if c in passed),
+            }
+        )
+        others = tuple(t for t in allocation.counts if t.fact != eligible.fact)
+        return allocation.with_values(counts=(*others, eligible))
 
 
 class SetChamberSize(AllocationStep):
@@ -107,14 +116,25 @@ class SetChamberSize(AllocationStep):
 class SetSeatsToApportion(AllocationStep):
     """The seats the proportional allocation divides: the ``chamber_size`` less the Wahlkreis
     seats whose mandates take no part in it, read off ``unit_mandates``: those of no party
-    (Einzelbewerber) and those of parties that are not eligible parties of ``section``.
+    (Einzelbewerber) and those of parties that are not columns of the table it takes,
+    ``<section> by <level> × <by>`` (the eligible parties).
 
     Their seats are theirs regardless; the rest of the chamber size is divided among the
     eligible parties, whose own Wahlkreis seats are deducted later.
     """
 
     section: Slug = Field(
-        description="The vote whose eligible parties the seats are divided among, e.g. ``zweitstimme``.",
+        description="The vote whose parties the seats are divided among, e.g. ``zweitstimme``.",
+    )
+    level: LevelName = Field(
+        description="The level its votes are summed at, e.g. ``land``.",
+    )
+    by: Column = Field(
+        default="eligible party",
+        description=(
+            "Whose votes: the parties past the threshold (``eligible party``), or, with no "
+            "threshold, every ``party``."
+        ),
     )
     deduction: Deduction = Field(
         default_factory=Deduction,
@@ -126,7 +146,7 @@ class SetSeatsToApportion(AllocationStep):
         return {
             "size": "chamber_size",
             "mandates": "unit_mandates",
-            "eligible": eligible_fact(self.section),
+            "parties": counts_fact(self.section, self.level, self.by),
         }
 
     @property
@@ -139,7 +159,7 @@ class SetSeatsToApportion(AllocationStep):
 
     def _apply(self, allocation: Allocation) -> Allocation:
         wins = allocation.unit_wins()
-        eligible = allocation.eligible(self.section)
+        eligible = allocation.count(self.section, self.level, self.by).columns
         size = allocation.chamber_size or 0
         mandates = allocation.unit_mandates or ()
         outside = sum(1 for d in mandates if d.party is None) + sum(

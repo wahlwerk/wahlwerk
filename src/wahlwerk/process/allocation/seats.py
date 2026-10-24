@@ -11,16 +11,17 @@ from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationStep,
+    Column,
     counts_fact,
-    eligible_fact,
 )
 
 __all__ = ["ApportionSeats", "DeductUnitSeats"]
 
 
 class ApportionSeats(AllocationStep):
-    """Apportion ``seats_to_apportion`` among the eligible parties of ``section`` by ``method``, on their
-    valid votes in ``section`` summed at ``level``: their ``entitlement``.
+    """Apportion ``seats_to_apportion`` by ``method`` among the columns of the table it
+    takes, ``<section> by <level> × <by>`` (``zweitstimme by land × eligible party``), on
+    their votes there: their ``entitlement``.
 
     A tie in the apportionment stays in the entitlement; the lot is applied before the
     seats are used.
@@ -35,14 +36,17 @@ class ApportionSeats(AllocationStep):
     level: LevelName = Field(
         description="The level the votes are summed at, e.g. ``land``.",
     )
+    by: Column = Field(
+        default="eligible party",
+        description=(
+            "Whose votes: the parties past the threshold (``eligible party``), or, with no "
+            "threshold, every ``party``."
+        ),
+    )
 
     @property
     def inputs(self) -> dict[str, str]:
-        return {
-            "votes": counts_fact(self.section, self.level, "party"),
-            "eligible": eligible_fact(self.section),
-            "seats": "seats_to_apportion",
-        }
+        return {"votes": counts_fact(self.section, self.level, self.by), "seats": "seats_to_apportion"}
 
     @property
     def writes(self) -> frozenset[str]:
@@ -50,14 +54,12 @@ class ApportionSeats(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"method": (("votes", "votes of the eligible parties"), ("seats", "seats"))}
+        return {"method": (("votes", "votes per party"), ("seats", "seats"))}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.count(self.section, self.level, "party").per_column()
-        eligible = allocation.eligible(self.section)
-        weights = {party: n for party, n in votes.items() if party in eligible}
+        votes = allocation.count(self.section, self.level, self.by).per_column()
         seats = allocation.seats_to_apportion or 0
-        return allocation.with_values(entitlement=self.method.apportion(weights, seats))
+        return allocation.with_values(entitlement=self.method.apportion(votes, seats))
 
 
 class DeductUnitSeats(AllocationStep):

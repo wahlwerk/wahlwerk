@@ -17,8 +17,8 @@ from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationProtocol,
     AllocationStep,
+    Column,
     counts_fact,
-    eligible_fact,
     outside_reads,
     written_by,
 )
@@ -53,12 +53,19 @@ class SetCaucusSize(AllocationStep):
     quota: SerializeAsAny[Quota] = Field(
         description="What one seat is worth among the votes counted, e.g. ``HareQuota()``.",
     )
+    by: Column = Field(
+        default="eligible party",
+        description=(
+            "Whose votes the fictitious party joins: the parties past the threshold "
+            "(``eligible party``), or, with no threshold, every ``party``."
+        ),
+    )
 
     @property
     def inputs(self) -> dict[str, str]:
         return {
             "votes": counts_fact(self.section, self.level, "party"),
-            "eligible": eligible_fact(self.section),
+            "eligible": counts_fact(self.section, self.level, self.by),
             "seats": "seats_to_apportion",
         }
 
@@ -78,9 +85,9 @@ class SetCaucusSize(AllocationStep):
 
     def _apply(self, allocation: Allocation) -> Allocation:
         votes = allocation.count(self.section, self.level, "party").per_column()
-        eligible = allocation.eligible(self.section)
+        eligible = allocation.count(self.section, self.level, self.by).per_column()
         fictitious = self.share * sum(votes.values())
-        counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
+        counted = sum(eligible.values()) + fictitious
         if not counted or not allocation.seats_to_apportion:
             return allocation.with_values(caucus_size=0)
         seats = self.quota.whole_seats(fictitious, counted, allocation.seats_to_apportion)

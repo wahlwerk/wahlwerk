@@ -69,7 +69,7 @@ def law(base, threshold=FIVE_PERCENT, method=HARE):
         SumGroupBy(section="zweitstimme", level="land", by="party"),
         ApplyThresholdTo(threshold=threshold, section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
-        SetSeatsToApportion(section="zweitstimme"),
+        SetSeatsToApportion(section="zweitstimme", level="land"),
         ApportionSeats(method=method, section="zweitstimme", level="land"),
         DeductUnitSeats(),
     )
@@ -86,7 +86,7 @@ def test_seats_won_outside_the_allocation_leave_the_total():
     # Wahlkreis 2 to an Einzelbewerber, 3 to the FDP under 5 %: 10 - 2 = 8 seats.
     # Hare on 8 among 970: afd 4.12, cdu 2.47, linke 1.40 -> 4, 3, 1.
     result = run(law(10), Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"])))
-    assert result.eligible("zweitstimme") == {"afd", "cdu", "linke"}
+    assert result.count("zweitstimme", "land", "eligible party").columns == {"afd", "cdu", "linke"}
     assert result.seats_to_apportion == 8
     assert result.entitlement.as_dict() == {"afd": 4, "cdu": 3, "linke": 1}
     assert dict(result.list_seats) == {"afd": 3, "cdu": 3, "linke": 1}
@@ -106,7 +106,7 @@ def test_grundmandatsklausel_reads_the_wahlkreise():
     step = ApplyThresholdTo(threshold=rule, section="zweitstimme", level="land")
     assert "unit_mandates" in step.reads
     result = run(law(20, threshold=rule), Allocation(tally=tally(["fdp", "fdp", "fdp"])))
-    assert "fdp" in result.eligible("zweitstimme")
+    assert "fdp" in result.count("zweitstimme", "land", "eligible party").columns
     assert result.seats_to_apportion == 20
 
 
@@ -213,7 +213,7 @@ def test_the_minimum_is_written_once_unless_it_differs():
 
 
 def test_each_section_keeps_its_own_eligible_options():
-    # A threshold on the Erststimme as well as on the Zweitstimme: two facts, apart.
+    # A threshold on the Erststimme as well as on the Zweitstimme: two tables, apart.
     start = Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"]))
     by_party = (
         SumGroupBy(section="zweitstimme", level="land", by="party"),
@@ -222,15 +222,15 @@ def test_each_section_keeps_its_own_eligible_options():
     allocation = by_party[1](by_party[0](start))
     on_lists = ApplyThresholdTo(threshold=FIVE_PERCENT, section="zweitstimme", level="land")
     on_units = ApplyThresholdTo(threshold=FIVE_PERCENT, section="erststimme", level="land")
-    assert on_lists.writes == {"eligible parties of zweitstimme"}
+    assert on_lists.writes == {"zweitstimme by land × eligible party"}
     both = on_units(on_lists(allocation))
-    assert both.eligible("zweitstimme") == {"afd", "cdu", "linke"}
+    lists = both.count("zweitstimme", "land", "eligible party")
+    assert lists.columns == {"afd", "cdu", "linke"}
+    assert lists.per_column() == {p: n for p, n in both.count("zweitstimme", "land", "party").per_column().items() if p in lists.columns}
     # Counted by party, the Einzelbewerber's Erststimmen count for no party.
-    assert "afd" in both.eligible("erststimme") and "de.st.wk.002.eb" not in both.eligible("erststimme")
-    assert {"eligible parties of zweitstimme", "eligible parties of erststimme"} <= both.facts
-    assert on_lists(both).eligible("erststimme") == both.eligible("erststimme")  # replaced, not stacked
-    with pytest.raises(KeyError, match="no 'eligible parties of stimme'"):
-        both.eligible("stimme")
+    units = both.count("erststimme", "land", "eligible party").columns
+    assert "afd" in units and "de.st.wk.002.eb" not in units
+    assert [t.fact for t in on_lists(both).counts].count("zweitstimme by land × eligible party") == 1  # replaced
 
 
 def test_a_threshold_can_apply_to_options():
@@ -239,8 +239,27 @@ def test_a_threshold_can_apply_to_options():
     counted = SumGroupBy(section="erststimme", level="land", by="option")(start)
     step = ApplyThresholdTo(threshold=FIVE_PERCENT, section="erststimme", level="land", to="option")
     assert step.inputs == {"votes": "erststimme by land × option"}
-    assert step.writes == {"eligible options of erststimme"}
+    assert step.writes == {"erststimme by land × eligible option"}
     result = step(counted)
-    assert "de.st.wk.002.eb" in result.eligible("erststimme", to="option")  # an Einzelbewerber is an option
-    with pytest.raises(KeyError):
-        result.eligible("erststimme")  # no threshold was applied to its parties
+    # an Einzelbewerber is an option
+    assert "de.st.wk.002.eb" in result.count("erststimme", "land", "eligible option").columns
+
+
+def test_no_threshold_is_the_eligible_table_left_out():
+    # Dropping the threshold and reading every party's votes gives what a 0 % threshold gives.
+    from wahlwerk.io.bundle import read_bundle
+    from wahlwerk.law.de.st.lwg import LWG_2021
+    from wahlwerk.law.edit import find, remove, replace
+    from wahlwerk.process.allocation.allocate import allocate
+    from wahlwerk.process.allocation.overhang import SetCaucusSize
+
+    vote = read_bundle("tests/golden/de.landtag.st.2021")
+    protocol = LWG_2021.protocol
+    zero = replace(protocol, ApplyThresholdTo, threshold=RelativeThreshold(share=Fraction(0)))
+    without = protocol
+    for kind in (SetSeatsToApportion, ApportionSeats, SetCaucusSize):
+        without = replace(without, kind, by="party")
+    (at,) = find(without, ApplyThresholdTo)
+    without = remove(without, at)
+    assert allocate(vote, without).seats_by_party == allocate(vote, zero).seats_by_party
+    assert allocate(vote, without).seats_by_party != allocate(vote, protocol).seats_by_party

@@ -65,7 +65,7 @@ def test_movable_gives_the_range_a_step_can_go():
 
 
 def test_a_sequence_is_one_step():
-    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "eligible parties of zweitstimme", "zweitstimme by land × party"}
+    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "zweitstimme by land × eligible party"}
     assert ALLOCATE.writes == {"seats_to_apportion", "entitlement", "list_seats", "overhang"}
     inline = (*P[:3], ALLOCATE, P[4])
     flat = (*P[:3], *ALLOCATE.steps, P[4])

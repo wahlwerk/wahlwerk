@@ -14,10 +14,10 @@ its own facts again when applied.
 Facts are named by strings: ``tally`` (the input); a table of counts is named by
 what it counts and by what: ``<section> by <level> × <by>`` (the valid votes of one
 section per unit and per option or party, e.g. ``erststimme by wahlkreis × option``, a
-:class:`Counts` made by :class:`~wahlwerk.process.allocation.count.SumGroupBy`);
-``eligible parties of <section>`` (the parties past the threshold of one vote, e.g.
-``eligible parties of zweitstimme``); and one per optional field of :class:`Allocation`,
-named like it: ``unit_mandates``, ``chamber_size``, ``minimum_mandates``, ``seats_to_apportion``, ``entitlement``, ``list_seats``,
+:class:`Counts` made by :class:`~wahlwerk.process.allocation.count.SumGroupBy`; the same
+votes of the parties past a threshold, ``zweitstimme by land × eligible party``, made by
+:class:`~wahlwerk.process.allocation.eligibility.ApplyThresholdTo`); and one per
+optional field of :class:`Allocation`, named like it: ``unit_mandates``, ``chamber_size``, ``minimum_mandates``, ``seats_to_apportion``, ``entitlement``, ``list_seats``,
 ``overhang``, ``chamber``.
 
 Steps that belong together, one feeding the next, can be written as one step: a
@@ -47,12 +47,12 @@ __all__ = [
     "Allocation",
     "AllocationProtocol",
     "AllocationStep",
+    "Column",
     "Counts",
     "GroupBy",
     "UnitResult",
     "check_protocol",
     "counts_fact",
-    "eligible_fact",
     "outside_reads",
 ]
 
@@ -76,8 +76,12 @@ OPTIONAL_FACTS = (
 
 
 GroupBy = Literal["option", "party"]
-"""What a table of counts has a column for: each ``option`` voted for, or each ``party``
-(its options' votes added up; votes for no party left out)."""
+"""What votes are counted by: each ``option`` voted for, or each ``party`` (its options'
+votes added up; votes for no party left out)."""
+
+Column = Literal["option", "party", "eligible option", "eligible party"]
+"""What a table of counts has a column for: an option or a party, or only those past a
+threshold (``eligible party``), as :class:`ApplyThresholdTo` leaves them."""
 
 
 def counts_fact(section: str, level: str, by: str = "option") -> str:
@@ -86,12 +90,6 @@ def counts_fact(section: str, level: str, by: str = "option") -> str:
     ``zweitstimme by land × party``."""
     return f"{section} by {level} × {by}"
 
-
-def eligible_fact(section: str, to: str = "party") -> str:
-    """The name of the fact holding the parties (or options) past the threshold of
-    ``section``: ``eligible parties of <section>``, e.g. ``eligible parties of
-    zweitstimme``, or ``eligible options of <section>``."""
-    return f"eligible {'parties' if to == 'party' else 'options'} of {section}"
 
 
 class Counts(Model):
@@ -108,7 +106,10 @@ class Counts(Model):
 
     section: Slug = Field(description="The vote counted, e.g. ``erststimme``.")
     level: LevelName = Field(description="The level of the rows' units, e.g. ``wahlkreis``.")
-    by: GroupBy = Field(default="option", description="What each column is: ``option`` or ``party``.")
+    by: Column = Field(
+        default="option",
+        description="What each column is: ``option``, ``party``, or one past a threshold, ``eligible party``.",
+    )
     rows: tuple[tuple[UnitId, tuple[tuple[OptionId, Count], ...]], ...] = Field(
         default_factory=tuple,
         description="Per unit, in order of first appearance, each column and its votes.",
@@ -135,6 +136,11 @@ class Counts(Model):
             for column, count in row:
                 votes[column] = votes.get(column, 0) + count
         return votes
+
+    @property
+    def columns(self) -> frozenset[str]:
+        """Every column of the table: past a threshold, the options or parties that passed."""
+        return frozenset(name for name, _ in self.parties)
 
     def party_of(self, column: str) -> str | None:
         """The party ``column`` stands for; ``None`` for an Einzelbewerber or an answer.
@@ -208,14 +214,6 @@ class Allocation(Model):
         default=None,
         description="The result of each single-seat unit; ``None`` until decided.",
     )
-    passed: tuple[tuple[str, frozenset[OptionId]], ...] = Field(
-        default_factory=tuple,
-        description=(
-            "Per threshold applied, the fact it established (``eligible parties of "
-            "zweitstimme``) and the parties or options that passed, taking part in the "
-            "proportional allocation; in the order established."
-        ),
-    )
     chamber_size: Seats | None = Field(
         default=None,
         description=(
@@ -263,9 +261,6 @@ class Allocation(Model):
         tables = [table.fact for table in self.counts]
         if len(set(tables)) != len(tables):
             raise ValueError(f"allocation holds a table more than once: {tables}")
-        established = [fact for fact, _ in self.passed]
-        if len(set(established)) != len(established):
-            raise ValueError(f"allocation holds a threshold's result more than once: {established}")
         return self
 
     @property
@@ -273,7 +268,6 @@ class Allocation(Model):
         """The names of the facts established so far."""
         facts = set(INPUT_FACTS)
         facts.update(table.fact for table in self.counts)
-        facts.update(fact for fact, _ in self.passed)
         facts.update(name for name in OPTIONAL_FACTS if getattr(self, name) is not None)
         return frozenset(facts)
 
@@ -299,16 +293,6 @@ class Allocation(Model):
             if table.fact == fact:
                 return table
         raise KeyError(f"allocation has no table {fact!r}; made: {[t.fact for t in self.counts]}")
-
-    def eligible(self, section: str, to: str = "party") -> frozenset[str]:
-        """The parties (or, with ``to="option"``, the options) past the threshold of
-        ``section``; raises ``KeyError`` naming the fact if no such threshold was
-        applied."""
-        fact = eligible_fact(section, to)
-        for name, passed in self.passed:
-            if name == fact:
-                return passed
-        raise KeyError(f"allocation has no {fact!r}; applied: {[n for n, _ in self.passed]}")
 
     def with_values(self, **changes: Any) -> Allocation:
         """This allocation with ``changes`` in place of its fields, validated."""
