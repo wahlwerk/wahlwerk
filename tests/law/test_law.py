@@ -49,7 +49,7 @@ def test_lkwg_2011_governs_the_elections_from_2011():
 
 
 def test_a_misordered_law_fails_when_created():
-    with pytest.raises(ValidationError, match=r"reads \['total:wahlkreis'\]"):
+    with pytest.raises(ValidationError, match=r"reads \['wahlkreis:votes'\]"):
         law(protocol=(SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"), FillVacantSeatsFromLists()))
 
 

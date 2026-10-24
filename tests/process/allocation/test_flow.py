@@ -30,7 +30,7 @@ def test_stages_follow_the_facts():
 def test_sources_name_the_last_writer():
     read = flow.sources(P)
     assert read[1] == {"tally": None}
-    assert read[2] == {"total:land": 1, "total:wahlkreis": 1}
+    assert read[2] == {"land:votes": 1, "wahlkreis:votes": 1}
     assert read[3]["chamber_size"] == 0 and read[3]["unit_mandates"] == 2
     assert read[5]["overhang"] == 3 and read[5]["chamber_size"] == 0
     assert read[6] == {"unit_mandates": 2, "list_seats": 5, "minimum_mandates": 0}
@@ -53,7 +53,7 @@ def test_a_swap_that_keeps_the_flow_keeps_the_result():
 
 
 def test_two_writers_of_one_fact_cannot_trade_places():
-    # Both write total:land; the later one is the one that counts.
+    # Both write land:votes; the later one is the one that counts.
     twice = (SumVotes(level="land"), SumVotes(level="land", citation="again"))
     assert not flow.can_swap(twice, 0, 1)
 
@@ -65,7 +65,7 @@ def test_movable_gives_the_range_a_step_can_go():
 
 
 def test_a_sequence_is_one_step():
-    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "eligible_options", "total:land"}
+    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "zweitstimme:eligible_options", "land:votes"}
     assert ALLOCATE.writes == {"seat_total", "entitlement", "list_seats", "overhang"}
     inline = (*P[:3], ALLOCATE, P[4])
     flat = (*P[:3], *ALLOCATE.steps, P[4])

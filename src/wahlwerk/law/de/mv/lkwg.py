@@ -70,7 +70,7 @@ ALLOCATE = StepSequence(
     name="AllocateSeats",
     citation="Sec. 58 (2) S. 3 to (5)",
     steps=(
-        SetSeatTotal(citation="Sec. 58 (2) S. 3"),
+        SetSeatTotal(section="zweitstimme", citation="Sec. 58 (2) S. 3"),
         ApportionSeats(
             method=MajorityFirst(method=HareNiemeyer()),
             section="zweitstimme",

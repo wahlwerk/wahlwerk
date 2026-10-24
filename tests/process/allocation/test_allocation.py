@@ -72,7 +72,7 @@ def test_start_has_only_the_tally():
 
 def test_sum_votes_adds_a_total():
     summed = SumVotes(level="wahlkreis")(START)
-    assert summed.facts == {"tally", "total:wahlkreis"}
+    assert summed.facts == {"tally", "wahlkreis:votes"}
     assert summed.total("wahlkreis").filter(party="afd").sum_by("unit") == {"de.st.wk.001": 65}
     assert START.facts == {"tally"}  # the input is untouched
 
@@ -116,7 +116,7 @@ def test_tie_is_a_result():
 
 
 def test_elect_needs_its_total():
-    with pytest.raises(ValueError, match=r"reads \['total:wahlkreis'\], which are not established"):
+    with pytest.raises(ValueError, match=r"reads \['wahlkreis:votes'\], which are not established"):
         ELECT(START)
 
 
@@ -142,16 +142,16 @@ def test_unit_result_needs_winner_xor_tie():
 # ===========================================================
 def test_check_protocol_returns_the_facts_at_the_end():
     protocol = (SumVotes(level="wahlkreis"), ELECT)
-    assert check_protocol(protocol) == {"tally", "total:wahlkreis", "unit_mandates"}
+    assert check_protocol(protocol) == {"tally", "wahlkreis:votes", "unit_mandates"}
 
 
 def test_check_protocol_refuses_a_misordered_law():
-    with pytest.raises(ValueError, match=r"step 1 .*SingleMandatePerUnit.* reads \['total:wahlkreis'\]"):
+    with pytest.raises(ValueError, match=r"step 1 .*SingleMandatePerUnit.* reads \['wahlkreis:votes'\]"):
         check_protocol((ELECT, SumVotes(level="wahlkreis")))
 
 
 def test_check_protocol_sees_the_wrong_level():
-    with pytest.raises(ValueError, match="total:wahlkreis"):
+    with pytest.raises(ValueError, match="wahlkreis:votes"):
         check_protocol((SumVotes(level="land"), ELECT))
 
 

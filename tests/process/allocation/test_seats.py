@@ -69,7 +69,7 @@ def law(base, threshold=FIVE_PERCENT, method=HARE):
         SumVotes(level="land"),
         ApplyThresholdToOptions(threshold=threshold, section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
-        SetSeatTotal(),
+        SetSeatTotal(section="zweitstimme"),
         ApportionSeats(method=method, section="zweitstimme", level="land"),
         DeductUnitSeats(),
     )
@@ -86,7 +86,7 @@ def test_seats_won_outside_the_allocation_leave_the_total():
     # Wahlkreis 2 to an Einzelbewerber, 3 to the FDP under 5 %: 10 - 2 = 8 seats.
     # Hare on 8 among 970: afd 4.12, cdu 2.47, linke 1.40 -> 4, 3, 1.
     result = run(law(10), Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"])))
-    assert result.eligible_options == {"afd", "cdu", "linke"}
+    assert result.eligible("zweitstimme") == {"afd", "cdu", "linke"}
     assert result.seat_total == 8
     assert result.entitlement.as_dict() == {"afd": 4, "cdu": 3, "linke": 1}
     assert dict(result.list_seats) == {"afd": 3, "cdu": 3, "linke": 1}
@@ -106,7 +106,7 @@ def test_grundmandatsklausel_reads_the_wahlkreise():
     step = ApplyThresholdToOptions(threshold=rule, section="zweitstimme", level="land")
     assert "unit_mandates" in step.reads
     result = run(law(20, threshold=rule), Allocation(tally=tally(["fdp", "fdp", "fdp"])))
-    assert "fdp" in result.eligible_options
+    assert "fdp" in result.eligible("zweitstimme")
     assert result.seat_total == 20
 
 
@@ -210,3 +210,18 @@ def test_the_minimum_is_written_once_unless_it_differs():
     assert allocate(vote, (*no_minimum, FillVacantSeatsFromLists())).minimum_mandates is None
     assert allocate(vote, (*no_minimum, FillVacantSeatsFromLists(minimum_mandates=8))).minimum_mandates == 8
     assert allocate(vote, (*law(10), FillVacantSeatsFromLists(minimum_mandates=8))).minimum_mandates == 8
+
+
+def test_each_section_keeps_its_own_eligible_options():
+    # A threshold on the Erststimme as well as on the Zweitstimme: two facts, apart.
+    allocation = SumVotes(level="land")(Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"])))
+    on_lists = ApplyThresholdToOptions(threshold=FIVE_PERCENT, section="zweitstimme", level="land")
+    on_units = ApplyThresholdToOptions(threshold=FIVE_PERCENT, section="erststimme", level="land")
+    assert on_lists.writes == {"zweitstimme:eligible_options"}
+    both = on_units(on_lists(allocation))
+    assert both.eligible("zweitstimme") == {"afd", "cdu", "linke"}
+    assert "de.st.wk.002.eb" in both.eligible("erststimme")
+    assert {"zweitstimme:eligible_options", "erststimme:eligible_options"} <= both.facts
+    assert on_lists(both).eligible("erststimme") == both.eligible("erststimme")  # replaced, not stacked
+    with pytest.raises(KeyError, match="no eligible options of section 'stimme'"):
+        both.eligible("stimme")

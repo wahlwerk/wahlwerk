@@ -11,13 +11,18 @@ from pydantic import Field, SerializeAsAny
 from wahlwerk.apportionment.method import ApportionmentMethod
 from wahlwerk.calc import compensation
 from wahlwerk.ids import LevelName, Slug
-from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
+from wahlwerk.process.allocation.base import (
+    Allocation,
+    AllocationStep,
+    eligible_fact,
+    votes_fact,
+)
 
 __all__ = ["ApportionSeats", "DeductUnitSeats"]
 
 
 class ApportionSeats(AllocationStep):
-    """Apportion ``seat_total`` among the ``eligible_options`` parties by ``method``, on their
+    """Apportion ``seat_total`` among the eligible options of ``section`` by ``method``, on their
     valid votes in ``section`` summed at ``level``: their ``entitlement``.
 
     A tie in the apportionment stays in the entitlement; the lot is applied before the
@@ -36,7 +41,7 @@ class ApportionSeats(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({total_fact(self.level), "eligible_options", "seat_total"})
+        return frozenset({votes_fact(self.level), eligible_fact(self.section), "seat_total"})
 
     @property
     def writes(self) -> frozenset[str]:
@@ -48,7 +53,7 @@ class ApportionSeats(AllocationStep):
 
     def _apply(self, allocation: Allocation) -> Allocation:
         votes = allocation.votes_by_option(self.level, self.section)
-        eligible = allocation.eligible_options or frozenset()
+        eligible = allocation.eligible(self.section)
         weights = {party: n for party, n in votes.items() if party in eligible}
         seats = allocation.seat_total or 0
         return allocation.with_values(entitlement=self.method.apportion(weights, seats))

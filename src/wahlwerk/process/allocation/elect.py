@@ -21,7 +21,7 @@ from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationStep,
     UnitResult,
-    total_fact,
+    votes_fact,
 )
 from wahlwerk.vote.popular.tally import TallyKind
 
@@ -57,7 +57,7 @@ class SingleMandatePerUnit(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({total_fact(self.level)})
+        return frozenset({votes_fact(self.level)})
 
     @property
     def writes(self) -> frozenset[str]:

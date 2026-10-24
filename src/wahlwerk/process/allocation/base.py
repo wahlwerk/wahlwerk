@@ -11,10 +11,12 @@ protocol and refuses one that reads a fact before any step writes it, so a law w
 in the wrong order fails when it is checked, not halfway through a run; each step checks
 its own facts again when applied.
 
-Facts are named by strings: ``tally`` (the input), ``total:<level>`` (the tally summed
-to a level, see :class:`~wahlwerk.process.allocation.count.SumVotes`), and one per
-optional field of :class:`Allocation`, named like it: ``unit_mandates``, ``eligible_options``,
-``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
+Facts are named by strings: ``tally`` (the input); scope first for a fact held per
+level or per section, ``<level>:votes`` (the tally summed to a level, e.g.
+``wahlkreis:votes``, see :class:`~wahlwerk.process.allocation.count.SumVotes`) and
+``<section>:eligible_options`` (the options past the threshold of one vote, e.g.
+``zweitstimme:eligible_options``); and one per optional field of :class:`Allocation`,
+named like it: ``unit_mandates``, ``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
 ``overhang``, ``chamber``.
 
 Steps that belong together, one feeding the next, can be written as one step: a
@@ -34,7 +36,7 @@ from pydantic import Field, model_validator
 
 from wahlwerk.apportionment.result import Apportionment
 from wahlwerk.apportionment.tie import Tie
-from wahlwerk.ids import LevelName, OptionId, PartyId, UnitId
+from wahlwerk.ids import LevelName, OptionId, PartyId, Slug, UnitId
 from wahlwerk.model import Count, Model, Seats
 from wahlwerk.state.chamber import Chamber
 from wahlwerk.vote.popular.tally import Tally, TallyKind
@@ -47,8 +49,9 @@ __all__ = [
     "AllocationStep",
     "UnitResult",
     "check_protocol",
+    "eligible_fact",
     "outside_reads",
-    "total_fact",
+    "votes_fact",
 ]
 
 logger = logging.getLogger(__name__)
@@ -59,7 +62,6 @@ INPUT_FACTS = frozenset({"tally"})
 OPTIONAL_FACTS = (
     "unit_mandates",
     "caucus_size",
-    "eligible_options",
     "chamber_size",
     "minimum_mandates",
     "seat_total",
@@ -71,9 +73,16 @@ OPTIONAL_FACTS = (
 """The facts held by an optional field of :class:`Allocation` of the same name."""
 
 
-def total_fact(level: str) -> str:
-    """The name of the fact holding the tally summed to ``level``: ``total:<level>``."""
-    return f"total:{level}"
+def votes_fact(level: str) -> str:
+    """The name of the fact holding the tally summed to ``level``: ``<level>:votes``,
+    e.g. ``wahlkreis:votes``."""
+    return f"{level}:votes"
+
+
+def eligible_fact(section: str) -> str:
+    """The name of the fact holding the options past the threshold of ``section``:
+    ``<section>:eligible_options``, e.g. ``zweitstimme:eligible_options``."""
+    return f"{section}:eligible_options"
 
 
 class UnitResult(Model):
@@ -139,9 +148,12 @@ class Allocation(Model):
         default=None,
         description="The result of each single-seat unit; ``None`` until decided.",
     )
-    eligible_options: frozenset[PartyId] | None = Field(
-        default=None,
-        description="The parties taking part in the proportional allocation, past the threshold.",
+    eligible_options: tuple[tuple[Slug, frozenset[OptionId]], ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Per section, the options past its threshold, taking part in the proportional "
+            "allocation, e.g. the parties of the Zweitstimme; in the order established."
+        ),
     )
     chamber_size: Seats | None = Field(
         default=None,
@@ -190,13 +202,17 @@ class Allocation(Model):
         levels = [level for level, _ in self.totals]
         if len(set(levels)) != len(levels):
             raise ValueError(f"allocation sums a level more than once: {levels}")
+        sections = [section for section, _ in self.eligible_options]
+        if len(set(sections)) != len(sections):
+            raise ValueError(f"allocation has eligible options of a section more than once: {sections}")
         return self
 
     @property
     def facts(self) -> frozenset[str]:
         """The names of the facts established so far."""
         facts = set(INPUT_FACTS)
-        facts.update(total_fact(level) for level, _ in self.totals)
+        facts.update(votes_fact(level) for level, _ in self.totals)
+        facts.update(eligible_fact(section) for section, _ in self.eligible_options)
         facts.update(name for name in OPTIONAL_FACTS if getattr(self, name) is not None)
         return frozenset(facts)
 
@@ -221,6 +237,17 @@ class Allocation(Model):
             if name == level:
                 return tally
         raise KeyError(f"allocation has no total at level {level!r}; summed: {[n for n, _ in self.totals]}")
+
+    def eligible(self, section: str) -> frozenset[str]:
+        """The options past the threshold of ``section``; raises ``KeyError`` naming the
+        section if no threshold was applied to it."""
+        for name, options in self.eligible_options:
+            if name == section:
+                return options
+        raise KeyError(
+            f"allocation has no eligible options of section {section!r}; "
+            f"applied: {[n for n, _ in self.eligible_options]}"
+        )
 
     def votes_by_option(self, level: str, section: str) -> dict[str, int]:
         """The valid votes in ``section`` per option, from the total at ``level``, summed

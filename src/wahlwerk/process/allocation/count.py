@@ -6,7 +6,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from wahlwerk.ids import LevelName
-from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
+from wahlwerk.process.allocation.base import Allocation, AllocationStep, votes_fact
 
 __all__ = ["SumVotes"]
 
@@ -29,7 +29,7 @@ class SumVotes(AllocationStep):
 
     @property
     def writes(self) -> frozenset[str]:
-        return frozenset({total_fact(self.level)})
+        return frozenset({votes_fact(self.level)})
 
     def _apply(self, allocation: Allocation) -> Allocation:
         summed = allocation.tally.sum_to(self.level)

@@ -106,7 +106,7 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
     StepSequence(                                                   # § 35 (4) to (7); stage 2
         name="AllocateSeats",
         steps=(
-            SetSeatTotal(),                                         # § 35 (4)
+            SetSeatTotal(section="zweitstimme"),                                         # § 35 (4)
             ApportionSeats(                                         # § 35 (5), (6)
                 method=MajorityFirst(method=HareNiemeyer()),
                 section="zweitstimme",
