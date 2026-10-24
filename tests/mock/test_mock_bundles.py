@@ -36,7 +36,7 @@ def votes(tally: Tally, section: str = "type1") -> dict[str, int]:
     return totals
 
 
-def unit_winners_of(tally: Tally, section: str = "type1") -> dict[str, str]:
+def mandate_winners_of(tally: Tally, section: str = "type1") -> dict[str, str]:
     """The recipient with the most votes per unit, over all channels."""
     per = tally.filter(kind="votes", section=section)
     totals: dict[tuple[str, str], int] = {}
@@ -74,7 +74,7 @@ def test_bundle_adds_up(name):
 def test_two_party_inverted_popular_loser_wins_most_units():
     tally = read("two-party-inverted").tally
     total = votes(tally)
-    wins = list(unit_winners_of(tally).values())
+    wins = list(mandate_winners_of(tally).values())
     assert total["party-a"] > total["party-b"]
     assert wins.count("party-b") > wins.count("party-a")
 
@@ -82,7 +82,7 @@ def test_two_party_inverted_popular_loser_wins_most_units():
 def test_electoral_college_popular_winner_wins_few_units():
     tally = read("electoral-college").tally
     total = votes(tally)
-    wins = list(unit_winners_of(tally).values())
+    wins = list(mandate_winners_of(tally).values())
     assert total["party-a"] > total["party-b"]
     assert wins.count("party-a") == 3
 
@@ -92,13 +92,13 @@ def test_fptp_regional_party_wins_seats_with_few_votes():
     total = votes(tally)
     share = Fraction(total["party-d"], sum(total.values()))
     assert share < Fraction(5, 100)
-    assert list(unit_winners_of(tally).values()).count("party-d") >= 2
+    assert list(mandate_winners_of(tally).values()).count("party-d") >= 2
 
 
 def test_mixed_member_unit_strength_exceeds_list_share():
     tally = read("mixed-member").tally
     one, two = votes(tally, "type1"), votes(tally, "type2")
-    wins = list(unit_winners_of(tally, "type1").values())
+    wins = list(mandate_winners_of(tally, "type1").values())
     assert Fraction(two["party-a"], sum(two.values())) < Fraction(30, 100)
     assert wins.count("party-a") > len(wins) // 2
     assert one["party-a"] > two["party-a"]
@@ -108,7 +108,7 @@ def test_basic_mandate_party_below_five_percent_wins_three_units():
     tally = read("basic-mandate").tally
     two = votes(tally, "type2")
     assert Fraction(two["party-g"], sum(two.values())) < Fraction(5, 100)
-    assert list(unit_winners_of(tally, "type1").values()).count("party-g") == 3
+    assert list(mandate_winners_of(tally, "type1").values()).count("party-g") == 3
 
 
 def test_threshold_edge_shares_are_exact():
@@ -152,7 +152,7 @@ def test_referendum_majority_misses_a_quarter_of_the_eligible():
 
 
 def test_independent_wins_one_unit():
-    winners = unit_winners_of(read("independent-winner").tally)
+    winners = mandate_winners_of(read("independent-winner").tally)
     assert winners["mock.independent-winner.unit04"].endswith(".indep1")
     assert not winners["mock.independent-winner.unit09"].endswith(".indep1")
 
@@ -181,7 +181,7 @@ def test_pathological_edge_cases():
 
 
 def wahlkreis_winners(tally: Tally) -> dict[str, str]:
-    return unit_winners_of(tally.sum_to("wahlkreis"), "erststimme")
+    return mandate_winners_of(tally.sum_to("wahlkreis"), "erststimme")
 
 
 def zweitstimmen(tally: Tally) -> dict[str, Fraction]:

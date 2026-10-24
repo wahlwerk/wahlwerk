@@ -25,14 +25,14 @@ from wahlwerk.process.allocation.base import (
 )
 from wahlwerk.vote.popular.tally import TallyKind
 
-__all__ = ["ElectPerUnit", "contests"]
+__all__ = ["SingleMandatePerUnit", "contests"]
 
 Nominee = tuple[str | None, str | None]
 """A nominee as a tally names it: (party, candidate), either may be missing."""
 
 
-class ElectPerUnit(AllocationStep):
-    """Elect one nominee in each unit of ``level`` by ``method``, from the valid votes
+class SingleMandatePerUnit(AllocationStep):
+    """One mandate per unit: elect one nominee in each unit of ``level`` by ``method``, from the valid votes
     in ``section`` summed over channels (Urne and Brief).
 
     Each unit is one contest (:func:`contests`): its nominees and their votes, a
@@ -64,7 +64,7 @@ class ElectPerUnit(AllocationStep):
 
     @property
     def writes(self) -> frozenset[str]:
-        return frozenset({"unit_winners"})
+        return frozenset({"unit_mandates"})
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
@@ -77,7 +77,7 @@ class ElectPerUnit(AllocationStep):
                 f"{type(self).__name__}: no {self.section!r} votes at level {self.level!r} to elect from"
             )
         return allocation.with_values(
-            unit_winners=tuple(self._elect(unit, nominees) for unit, nominees in per_unit.items())
+            unit_mandates=tuple(self._elect(unit, nominees) for unit, nominees in per_unit.items())
         )
 
     def _elect(self, unit: str, nominees: dict[Nominee, int]) -> UnitResult:

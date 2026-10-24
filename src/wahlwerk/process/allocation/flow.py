@@ -234,7 +234,7 @@ def calls_of(model: BaseModel) -> tuple[Call, ...]:
 
 def uses(model: BaseModel, prefix: str = "") -> tuple[Use, ...]:
     """Each core concept held by ``model`` (and by those, and so on), outermost first,
-    with its settings and formulas: ``ElectPerUnit`` uses ``Plurality``, which computes
+    with its settings and formulas: ``SingleMandatePerUnit`` uses ``Plurality``, which computes
     with :func:`wahlwerk.calc.plurality.plurality`. Read from the objects, never declared."""
     found: list[Use] = []
     for name in type(model).model_fields:
@@ -355,7 +355,7 @@ def _held(step: AllocationStep) -> tuple[str | None, AllocationProtocol | None]:
     return None, None
 
 
-_HIDDEN = {"citation", "title", "steps", "protocol"}
+_HIDDEN = {"citation", "name", "steps", "protocol"}  # shown otherwise, or held as steps
 
 
 def _parameters(step: AllocationStep) -> tuple[tuple[str, str], ...]:

@@ -35,7 +35,7 @@ class FormChamber(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({"unit_winners", "list_seats"})
+        return frozenset({"unit_mandates", "list_seats"})
 
     @property
     def optional_reads(self) -> frozenset[str]:
@@ -52,7 +52,7 @@ class FormChamber(AllocationStep):
             Mandate.model_validate(
                 {"id": ".".join(d.unit.split(".")[-2:]), "party": d.party, "origin": elected}
             )
-            for d in allocation.unit_winners or ()
+            for d in allocation.unit_mandates or ()
         ]
         for party, seats in allocation.list_seats or ():
             mandates += [

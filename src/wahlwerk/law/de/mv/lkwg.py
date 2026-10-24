@@ -26,7 +26,7 @@ from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.law.base import Law
 from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.elect import ElectPerUnit
+from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
     SetChamberSize,
@@ -54,7 +54,7 @@ QUALIFY = StepSequence(
     name="ElectAndQualify",
     citation="Sec. 57, 58 (1)",
     steps=(
-        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 57"),
+        SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 57"),
         ApplyThreshold(
             threshold=RelativeThreshold(share=_FIVE_PERCENT),
             section="zweitstimme",

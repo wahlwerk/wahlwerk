@@ -19,7 +19,7 @@ from wahlwerk.process.allocation.allocate import allocate
 from wahlwerk.process.allocation.base import Allocation, check_protocol
 from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.elect import ElectPerUnit
+from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
     SetChamberSize,
@@ -65,7 +65,7 @@ def tally(winners, zweit=ZWEIT):
 def law(base, threshold=FIVE_PERCENT, method=HARE):
     return (
         SumVotes(level="wahlkreis"),
-        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
+        SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumVotes(level="land"),
         ApplyThreshold(threshold=threshold, section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
@@ -104,7 +104,7 @@ def test_overhang_when_a_party_wins_more_wahlkreise_than_it_is_entitled_to():
 def test_grundmandatsklausel_reads_the_wahlkreise():
     rule = AlternativeThresholds(thresholds=(FIVE_PERCENT, SeatThreshold(seats=3)))
     step = ApplyThreshold(threshold=rule, section="zweitstimme", level="land")
-    assert "unit_winners" in step.reads
+    assert "unit_mandates" in step.reads
     result = run(law(20, threshold=rule), Allocation(tally=tally(["fdp", "fdp", "fdp"])))
     assert "fdp" in result.eligible
     assert result.seat_total == 20
@@ -116,7 +116,7 @@ def test_a_grundmandatsklausel_before_the_wahlkreise_is_refused():
         SumVotes(level="land"),
         ApplyThreshold(threshold=rule, section="zweitstimme", level="land"),
     )
-    with pytest.raises(ValueError, match=r"reads \['unit_winners'\]"):
+    with pytest.raises(ValueError, match=r"reads \['unit_mandates'\]"):
         check_protocol(misordered)
 
 

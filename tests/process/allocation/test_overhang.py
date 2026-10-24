@@ -11,7 +11,7 @@ from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.process.allocation.base import Allocation, check_protocol
 from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.elect import ElectPerUnit
+from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
     SetChamberSize,
@@ -51,7 +51,7 @@ def tally(winners, zweit):
 def law(base, repeat):
     return (
         SumVotes(level="wahlkreis"),
-        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
+        SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumVotes(level="land"),
         ApplyThreshold(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
@@ -128,7 +128,7 @@ def test_caucus_size_counts_a_fictitious_five_percent_party():
 
 def test_loop_declares_what_it_reads_and_writes():
     # It runs its allocation first, so the overhang it is driven by is its own.
-    assert {"chamber_size", "unit_winners", "eligible", "total:land"} <= LOOP.reads
+    assert {"chamber_size", "unit_mandates", "eligible", "total:land"} <= LOOP.reads
     assert "overhang" not in LOOP.reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= LOOP.writes
 
@@ -202,7 +202,7 @@ def test_no_ueberhang_leaves_the_chamber_size_even_if_odd_is_required():
 
 def test_step_declares_what_it_reads_and_writes():
     step = raise_for_ausgleich(limit=2, has_odd_size=True)
-    assert {"chamber_size", "unit_winners", "eligible", "total:land"} <= step.reads
+    assert {"chamber_size", "unit_mandates", "eligible", "total:land"} <= step.reads
     assert "overhang" not in step.reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes
 

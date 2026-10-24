@@ -11,7 +11,7 @@ from wahlwerk.process.allocation import flow
 from wahlwerk.process.allocation.allocate import derive
 from wahlwerk.process.allocation.base import check_protocol
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.elect import ElectPerUnit
+from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.sequence import StepSequence
 
 P = LWG_2021.protocol
@@ -30,8 +30,8 @@ def test_sources_name_the_last_writer():
     read = flow.sources(P)
     assert read[1] == {"tally": None}
     assert read[2] == {"total:land": 1, "total:wahlkreis": 1}
-    assert read[3]["chamber_size"] == 0 and read[3]["unit_winners"] == 2
-    assert read[4] == {"unit_winners": 2, "list_seats": 3, "minimum_mandates": 0}
+    assert read[3]["chamber_size"] == 0 and read[3]["unit_mandates"] == 2
+    assert read[4] == {"unit_mandates": 2, "list_seats": 3, "minimum_mandates": 0}
 
 
 def test_independent_steps_can_swap_and_dependent_ones_cannot():
@@ -63,7 +63,7 @@ def test_movable_gives_the_range_a_step_can_go():
 
 
 def test_a_sequence_is_one_step():
-    assert ALLOCATE.reads == {"chamber_size", "unit_winners", "eligible", "total:land"}
+    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "eligible", "total:land"}
     assert ALLOCATE.writes == {"seat_total", "entitlement", "list_seats", "overhang"}
     inline = (*P[:3], ALLOCATE, P[4])
     flat = (*P[:3], *ALLOCATE.steps, P[4])
@@ -90,7 +90,7 @@ def test_describe_and_the_table():
         "SetChamberSize", "CountVotes", "ElectAndQualify", "RaiseByOverhang", "FormChamber",
     ]
     assert [c.kind for c in nodes[1].children] == ["SumVotes", "SumVotes"]
-    assert [c.kind for c in nodes[2].children] == ["ElectPerUnit", "ApplyThreshold"]
+    assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThreshold"]
     loop = nodes[3]
     assert loop.citation == "Sec. 35 (8), (8a)"
     assert loop.depends_on == (0, 1, 2)
@@ -110,7 +110,7 @@ def test_describe_and_the_table():
 def test_citations_are_data_and_survive_an_edit():
     assert [s.citation for s in P] == ["Sec. 1 (1)", "Sec. 31, 32, 35 (2)", "Sec. 33, 35 (3)", "Sec. 35 (8), (8a)", None]
     assert [s.citation for s in QUALIFY.steps] == ["Sec. 33", "Sec. 35 (3)"]
-    winners = ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis")
+    winners = SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis")
     assert winners != QUALIFY.steps[0]  # the citation is part of the step
 
 

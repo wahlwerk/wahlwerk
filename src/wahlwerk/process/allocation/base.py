@@ -13,7 +13,7 @@ its own facts again when applied.
 
 Facts are named by strings: ``tally`` (the input), ``total:<level>`` (the tally summed
 to a level, see :class:`~wahlwerk.process.allocation.count.SumVotes`), and one per
-optional field of :class:`Allocation`, named like it: ``unit_winners``, ``eligible``,
+optional field of :class:`Allocation`, named like it: ``unit_mandates``, ``eligible``,
 ``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
 ``overhang``, ``chamber``.
 
@@ -57,7 +57,7 @@ INPUT_FACTS = frozenset({"tally"})
 """The facts every allocation starts with."""
 
 OPTIONAL_FACTS = (
-    "unit_winners",
+    "unit_mandates",
     "caucus_size",
     "eligible",
     "chamber_size",
@@ -139,7 +139,7 @@ class Allocation(Model):
         default_factory=tuple,
         description="The tally summed to each level a step asked for, in the order summed.",
     )
-    unit_winners: tuple[UnitResult, ...] | None = Field(
+    unit_mandates: tuple[UnitResult, ...] | None = Field(
         default=None,
         description="The result of each single-seat unit; ``None`` until decided.",
     )
@@ -205,15 +205,15 @@ class Allocation(Model):
         return frozenset(facts)
 
     def unit_wins(self) -> dict[str, int]:
-        """The Wahlkreise each party won, from ``unit_winners``. Raises ``ValueError`` if
+        """The Wahlkreise each party won, from ``unit_mandates``. Raises ``ValueError`` if
         they are not decided yet, or a tie in one is still to be decided by lot."""
-        if self.unit_winners is None:
+        if self.unit_mandates is None:
             raise ValueError("the Wahlkreise are not decided yet")
-        tied = [d.unit for d in self.unit_winners if not d.is_decided]
+        tied = [d.unit for d in self.unit_mandates if not d.is_decided]
         if tied:
             raise ValueError(f"Wahlkreise {tied} are tied; the lot must be applied first")
         wins: dict[str, int] = {}
-        for result in self.unit_winners:
+        for result in self.unit_mandates:
             if result.party is not None:
                 wins[result.party] = wins.get(result.party, 0) + 1
         return wins

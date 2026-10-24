@@ -10,7 +10,7 @@ from wahlwerk.process.allocation.base import (
     check_protocol,
 )
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.elect import ElectPerUnit
+from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
 LEVELS = (
@@ -57,7 +57,7 @@ TALLY = Tally(
     ),
 )
 START = Allocation(tally=TALLY)
-ELECT = ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis")
+ELECT = SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis")
 
 
 # ===========================================================
@@ -65,7 +65,7 @@ ELECT = ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis"
 # ===========================================================
 def test_start_has_only_the_tally():
     assert START.facts == {"tally"}
-    assert START.unit_winners is None
+    assert START.unit_mandates is None
     with pytest.raises(KeyError, match="no total at level 'wahlkreis'"):
         START.total("wahlkreis")
 
@@ -89,26 +89,26 @@ def test_allocation_rejects_a_level_summed_twice():
 
 
 # ===========================================================
-# ElectPerUnit
+# SingleMandatePerUnit
 # ===========================================================
-def unit_winners():
-    return {d.unit: d for d in ELECT(SumVotes(level="wahlkreis")(START)).unit_winners}
+def unit_mandates():
+    return {d.unit: d for d in ELECT(SumVotes(level="wahlkreis")(START)).unit_mandates}
 
 
 def test_winner_counts_both_channels():
-    wk1 = unit_winners()["de.st.wk.001"]
+    wk1 = unit_mandates()["de.st.wk.001"]
     assert (wk1.nominee, wk1.party, wk1.votes) == ("afd", "afd", 65)
     assert wk1.is_decided
 
 
 def test_einzelbewerber_wins_without_party():
-    wk2 = unit_winners()["de.st.wk.002"]
+    wk2 = unit_mandates()["de.st.wk.002"]
     assert wk2.nominee == wk2.candidate == "de.st.wk.002.einzelbewerber"
     assert wk2.party is None
 
 
 def test_tie_is_a_result():
-    wk3 = unit_winners()["de.st.wk.003"]
+    wk3 = unit_mandates()["de.st.wk.003"]
     assert wk3.nominee is None
     assert wk3.tie == Tie(candidates=frozenset({"spd", "cdu"}), seats=1)
     assert wk3.votes == 20
@@ -121,7 +121,7 @@ def test_elect_needs_its_total():
 
 
 def test_elect_without_votes_in_section():
-    other = ElectPerUnit(method=Plurality(), section="stimme", level="wahlkreis")
+    other = SingleMandatePerUnit(method=Plurality(), section="stimme", level="wahlkreis")
     with pytest.raises(ValueError, match="no 'stimme' votes"):
         other(SumVotes(level="wahlkreis")(START))
 
@@ -142,11 +142,11 @@ def test_unit_result_needs_winner_xor_tie():
 # ===========================================================
 def test_check_protocol_returns_the_facts_at_the_end():
     protocol = (SumVotes(level="wahlkreis"), ELECT)
-    assert check_protocol(protocol) == {"tally", "total:wahlkreis", "unit_winners"}
+    assert check_protocol(protocol) == {"tally", "total:wahlkreis", "unit_mandates"}
 
 
 def test_check_protocol_refuses_a_misordered_law():
-    with pytest.raises(ValueError, match=r"step 1 .*ElectPerUnit.* reads \['total:wahlkreis'\]"):
+    with pytest.raises(ValueError, match=r"step 1 .*SingleMandatePerUnit.* reads \['total:wahlkreis'\]"):
         check_protocol((ELECT, SumVotes(level="wahlkreis")))
 
 
@@ -157,8 +157,8 @@ def test_check_protocol_sees_the_wrong_level():
 
 def test_steps_are_data():
     assert SumVotes(level="wahlkreis") == SumVotes(level="wahlkreis")
-    assert hash(ELECT) == hash(ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis"))
-    assert "ElectPerUnit" in repr(ELECT)
+    assert hash(ELECT) == hash(SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"))
+    assert "SingleMandatePerUnit" in repr(ELECT)
 
 
 def test_a_step_must_write_what_it_declares():
@@ -169,12 +169,12 @@ def test_a_step_must_write_what_it_declares():
 
         @property
         def writes(self):
-            return frozenset({"unit_winners"})
+            return frozenset({"unit_mandates"})
 
         def _apply(self, allocation):
             return allocation
 
-    with pytest.raises(ValueError, match=r"did not establish \['unit_winners'\]"):
+    with pytest.raises(ValueError, match=r"did not establish \['unit_mandates'\]"):
         Forgetful()(START)
 
 
@@ -187,5 +187,5 @@ def test_each_unit_is_a_contest_the_method_decides():
     assert per_unit and all(isinstance(v, int) for unit in per_unit.values() for v in unit.values())
     assert per_unit["de.st.wk.001"] == {("afd", None): 65, ("cdu", None): 60}
     elected = ELECT(allocation)
-    for result in elected.unit_winners or ():
+    for result in elected.unit_mandates or ():
         assert result.votes == max(per_unit[result.unit].values())
