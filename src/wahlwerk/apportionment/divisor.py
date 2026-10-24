@@ -26,7 +26,7 @@ class DivisorMethod(ApportionmentMethod):
     """Highest averages: seat ``k + 1`` of a key is claimed by its weight over the
     ``k``-th divisor, and the seats go to the largest claims."""
 
-    formula: ClassVar[Callable[..., SeatResult]] = staticmethod(calc.highest_averages)
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.highest_averages,)
 
     @property
     @abstractmethod
@@ -34,7 +34,9 @@ class DivisorMethod(ApportionmentMethod):
         """The method's rounding, as ``wahlwerk.calc`` names it."""
 
     def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
-        return self.formula(weights, seats, self.signposts)
+        (highest_averages,) = self.formulas
+        result: SeatResult = highest_averages(weights, seats, self.signposts)
+        return result
 
 
 class DHondt(DivisorMethod):

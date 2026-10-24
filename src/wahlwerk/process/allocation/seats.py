@@ -3,6 +3,9 @@ list once its Wahlkreis seats are deducted (e.g. Sec. 35 (5) to (7) LWG LSA)."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any, ClassVar
+
 from pydantic import Field, SerializeAsAny
 
 from wahlwerk.apportionment.method import ApportionmentMethod
@@ -59,6 +62,8 @@ class DeductUnitSeats(AllocationStep):
     def reads(self) -> frozenset[str]:
         return frozenset({"entitlement", "unit_winners"})
 
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (compensation.remaining, compensation.overhang)
+
     @property
     def writes(self) -> frozenset[str]:
         return frozenset({"list_seats", "overhang"})
@@ -70,8 +75,9 @@ class DeductUnitSeats(AllocationStep):
         wins = allocation.unit_wins()
         entitled = dict(entitlement.seats)
         won = {party: wins.get(party, 0) for party in entitled}
-        rest = compensation.remaining(entitled, won) if entitled else {}
-        over = compensation.overhang(entitled, won) if entitled else {}
+        remaining, overhang_of = self.formulas
+        rest = remaining(entitled, won) if entitled else {}
+        over = overhang_of(entitled, won) if entitled else {}
         assert isinstance(rest, dict) and isinstance(over, dict)
         list_seats = tuple((party, rest[party]) for party in entitled)
         overhang = tuple((party, over[party]) for party in entitled if over[party] > 0)

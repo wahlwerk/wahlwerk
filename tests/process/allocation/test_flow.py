@@ -123,27 +123,36 @@ def test_fancy_html_draws_the_protocol():
 
 def test_a_step_leads_down_to_its_formula():
     elect = flow.describe(P)[2].children[0]
-    assert [(u.field, u.kind, u.formula) for u in elect.uses] == [
-        ("method", "Plurality", "wahlwerk.calc.plurality.plurality")
-    ]
+    assert [(u.field, u.kind) for u in elect.uses] == [("method", "Plurality")]
+    (call,) = elect.uses[0].calls
+    assert call.formula == "wahlwerk.calc.plurality.plurality"
+    assert call.call == "plurality(votes, seats=1)"  # the concept, here for one seat
     apportion = flow.describe(P)[3].children[0].children[1]
-    assert [u.formula for u in apportion.uses] == [
-        "wahlwerk.calc.majority.majority_first",
-        "wahlwerk.calc.remainder.largest_remainder",
+    assert [(u.field, [c.formula for c in u.calls]) for u in apportion.uses] == [
+        ("method", ["wahlwerk.calc.majority.majority_first"]),
+        ("method.method", ["wahlwerk.calc.remainder.largest_remainder", "wahlwerk.calc.quota.hare"]),
     ]
-    assert "-> Plurality: calc.plurality.plurality" in flow.protocol_table(P)
+    threshold = flow.describe(P)[2].children[1].uses[0]
+    assert threshold.parameters == (("share", "1/20"),)
+    deduct = flow.describe(P)[3].children[0].children[2]
+    assert [c.formula for c in deduct.calls] == [
+        "wahlwerk.calc.compensation.remaining",
+        "wahlwerk.calc.compensation.overhang",
+    ]
+    table = flow.protocol_table(P)
+    assert "-> Plurality" in table and "= calc.plurality.plurality" in table
 
 
 def test_the_formula_named_is_the_one_called(monkeypatch):
-    # The link is the call: the method computes through the formula it names.
+    # The link is the call: the method computes through the formulas it names.
     from fractions import Fraction
 
     from wahlwerk.apportionment.plurality import Plurality
     from wahlwerk.calc import plurality as calc
 
-    assert Plurality.formula is calc.plurality
+    assert Plurality.formulas == (calc.plurality,)
     calls = []
-    original = Plurality.formula
-    monkeypatch.setattr(Plurality, "formula", staticmethod(lambda w, s: calls.append(dict(w)) or original(w, s)))
+    (original,) = Plurality.formulas
+    monkeypatch.setattr(Plurality, "formulas", (lambda w, s: calls.append(dict(w)) or original(w, s),))
     Plurality().apportion({"a": 2, "b": 1}, 1)
     assert calls == [{"a": Fraction(2), "b": Fraction(1)}]

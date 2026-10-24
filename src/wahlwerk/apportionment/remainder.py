@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections.abc import Callable, Mapping
 from fractions import Fraction
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from wahlwerk.apportionment.method import ApportionmentMethod
 from wahlwerk.calc import quota as quotas
@@ -25,7 +25,8 @@ class LargestRemainder(ApportionmentMethod):
     """Quota methods: each key gets the whole part of its weight over the quota, and the
     seats left go to the largest remainders, one each."""
 
-    formula: ClassVar[Callable[..., SeatResult]] = staticmethod(calc.largest_remainder)
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.largest_remainder,)
+    """The remainder formula first; a family adds the quota it divides by."""
 
     @abstractmethod
     def quota(self, total: Number, seats: int) -> Number:
@@ -33,7 +34,8 @@ class LargestRemainder(ApportionmentMethod):
 
     def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
         try:
-            return self.formula(weights, seats, self.quota)
+            result: SeatResult = self.formulas[0](weights, seats, self.quota)
+            return result
         except ValueError as error:
             raise ValueError(f"{type(self).__name__}: {error}") from None
 
@@ -43,5 +45,8 @@ class HareNiemeyer(LargestRemainder):
     share is exactly its weight's proportion of the seats; the whole parts are kept, and
     the largest remainders win the rest."""
 
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.largest_remainder, quotas.hare)
+
     def quota(self, total: Number, seats: int) -> Number:
-        return quotas.hare(total, seats)
+        hare: Callable[[Number, int], Number] = self.formulas[1]
+        return hare(total, seats)

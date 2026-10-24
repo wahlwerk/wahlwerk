@@ -38,8 +38,10 @@ from wahlwerk.process.allocation.base import (
 )
 
 __all__ = [
+    "Call",
     "StepNode",
     "Use",
+    "calls_of",
     "can_swap",
     "describe",
     "movable",
@@ -141,13 +143,23 @@ def _flow(
 # ===========================================================
 # Describing a protocol: for tables, drawings and the site
 # ===========================================================
+class Call(Model):
+    """One function in ``wahlwerk.calc`` and how it is called: the bottom of the chain
+    from a step down to its arithmetic."""
+
+    formula: str = Field(description="Its full name, e.g. ``wahlwerk.calc.plurality.plurality``.")
+    call: str = Field(description="Its parameters as written, defaults included, e.g. ``plurality(votes, seats=1)``.")
+
+
 class Use(Model):
-    """A law-free model a step uses, and the formula it computes with: one link of
-    the chain from a step down to ``wahlwerk.calc``."""
+    """A core concept a step uses: a law-free model (a method, a threshold) with its
+    settings and the functions in ``wahlwerk.calc`` it computes with. One link of the
+    chain from a step down to ``wahlwerk.calc``; a concept can hold another."""
 
     field: str = Field(description="Where it sits in the step, e.g. ``method`` or ``method.method``.")
     kind: str = Field(description="Its class, e.g. ``Plurality``.")
-    formula: str = Field(description="The function in ``wahlwerk.calc`` it calls, e.g. ``wahlwerk.calc.plurality.plurality``.")
+    parameters: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="Its settings that are not concepts themselves, e.g. ``(\"share\", \"1/20\")``.")
+    calls: tuple[Call, ...] = Field(default_factory=tuple, description="The functions it computes with.")
 
 
 class StepNode(Model):
@@ -165,7 +177,8 @@ class StepNode(Model):
     stage: int = Field(ge=0, description="Its stage among its siblings: 0 reads only what comes from outside.")
     depends_on: tuple[int, ...] = Field(default_factory=tuple, description="The positions of the siblings it reads from.")
     holds: str | None = Field(default=None, description="The field holding its own steps, e.g. ``steps`` or ``protocol``.")
-    uses: tuple[Use, ...] = Field(default_factory=tuple, description="The models it computes with and their formulas, outermost first.")
+    uses: tuple[Use, ...] = Field(default_factory=tuple, description="The core concepts it computes with, outermost first.")
+    calls: tuple[Call, ...] = Field(default_factory=tuple, description="The functions in ``wahlwerk.calc`` it computes with itself.")
     children: tuple[StepNode, ...] = Field(default_factory=tuple, description="The steps it holds, described the same way.")
 
 
@@ -200,27 +213,63 @@ def describe(
                 depends_on=tuple(sorted({w for w in read_from[position].values() if w is not None})),
                 holds=holds,
                 uses=uses(step),
+                calls=calls_of(step),
                 children=children,
             )
         )
     return tuple(nodes)
 
 
+def calls_of(model: BaseModel) -> tuple[Call, ...]:
+    """The functions in ``wahlwerk.calc`` ``model`` computes with itself: its class's
+    ``formulas``, through which it calls them."""
+    return tuple(
+        Call(formula=f"{f.__module__}.{f.__qualname__}", call=_signature(f))
+        for f in getattr(type(model), "formulas", ())
+    )
+
+
 def uses(model: BaseModel, prefix: str = "") -> tuple[Use, ...]:
-    """Each model held by ``model`` (and by those, and so on) that names a formula,
-    with that formula: ``ElectPerUnit`` uses ``Plurality``, which computes with
-    :func:`wahlwerk.calc.plurality.plurality`. Read from the objects, never declared."""
+    """Each core concept held by ``model`` (and by those, and so on), outermost first,
+    with its settings and formulas: ``ElectPerUnit`` uses ``Plurality``, which computes
+    with :func:`wahlwerk.calc.plurality.plurality`. Read from the objects, never declared."""
     found: list[Use] = []
     for name in type(model).model_fields:
         value = getattr(model, name)
-        if not isinstance(value, BaseModel) or isinstance(value, AllocationStep):
-            continue
-        field = f"{prefix}{name}"
-        formula = getattr(type(value), "formula", None)
-        if callable(formula):
-            found.append(Use(field=field, kind=type(value).__name__, formula=f"{formula.__module__}.{formula.__qualname__}"))
-        found.extend(uses(value, f"{field}."))
+        held = value if isinstance(value, tuple) else (value,)
+        for index, item in enumerate(held):
+            if not isinstance(item, BaseModel) or isinstance(item, AllocationStep):
+                continue
+            field = f"{prefix}{name}" + (f".{index}" if isinstance(value, tuple) else "")
+            settings = tuple(
+                (key, _short(getattr(item, key)))
+                for key in _set_fields(item)
+                if not _is_concept(getattr(item, key))
+            )
+            found.append(Use(field=field, kind=type(item).__name__, parameters=settings, calls=calls_of(item)))
+            found.extend(uses(item, f"{field}."))
     return tuple(found)
+
+
+def _is_concept(value: Any) -> bool:
+    held = value if isinstance(value, tuple) else (value,)
+    return any(isinstance(v, BaseModel) for v in held)
+
+
+def _signature(function: Any) -> str:
+    """``name(a, b=1, *, c=True)``: the parameters as written, without annotations."""
+    parts = []
+    star = False
+    for parameter in inspect.signature(function).parameters.values():
+        if parameter.kind is parameter.KEYWORD_ONLY and not star:
+            parts.append("*")
+            star = True
+        text = parameter.name
+        if parameter.default is not parameter.empty:
+            default = parameter.default
+            text += f"={default.__name__ if callable(default) else repr(default)}"
+        parts.append(text)
+    return f"{function.__name__}({', '.join(parts)})"
 
 
 def protocol_data(protocol: AllocationProtocol) -> list[dict[str, Any]]:
@@ -246,8 +295,13 @@ def protocol_table(protocol: AllocationProtocol) -> str:
                 ", ".join(node.writes),
             )
         )
+        for call in node.calls:
+            rows.append(("", "  " * (depth + 1) + f"= {call.formula.removeprefix('wahlwerk.')}", "", "", ""))
         for use in node.uses:
-            rows.append(("", "  " * (depth + 1) + f"-> {use.kind}: {use.formula.removeprefix('wahlwerk.')}", "", "", ""))
+            indent = "  " * (depth + 1 + use.field.count("."))
+            rows.append(("", f"{indent}-> {use.kind}", "", "", ""))
+            for call in use.calls:
+                rows.append(("", f"{indent}   = {call.formula.removeprefix('wahlwerk.')}", "", "", ""))
     widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
     lines = ["  ".join(cell.ljust(width) for cell, width in zip(row, widths)).rstrip() for row in rows]
     lines.insert(1, "  ".join("-" * width for width in widths))

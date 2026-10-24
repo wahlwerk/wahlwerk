@@ -12,9 +12,9 @@ minority is exempt. Modelled on the seatless selectors of votelib
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from fractions import Fraction
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import Field, SerializeAsAny, field_validator
 
@@ -34,6 +34,10 @@ __all__ = [
 
 class Threshold(Model):
     """A rule that passes some keys and excludes the others."""
+
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = ()
+    """The functions in ``wahlwerk.calc`` the threshold computes with, called through
+    this attribute (see :attr:`wahlwerk.apportionment.method.ApportionmentMethod.formulas`)."""
 
     def select(
         self,
@@ -67,6 +71,8 @@ class RelativeThreshold(Threshold):
     """Passes keys whose weight is at least ``share`` of the total weight, e.g. five
     percent of the valid Zweitstimmen (``share=Fraction(5, 100)``)."""
 
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.share_threshold,)
+
     share: Share = Field(
         description="The share of the total weight a key needs, e.g. ``Fraction(5, 100)``.",
     )
@@ -86,11 +92,14 @@ class RelativeThreshold(Threshold):
     def _select(self, weights: dict[str, Fraction], won: dict[str, int]) -> frozenset[str]:
         if not weights:
             return frozenset()
-        return _passed(calc.share_threshold(weights, self.share, accept_equal=self.accept_equal))
+        (share_threshold,) = self.formulas
+        return _passed(share_threshold(weights, self.share, accept_equal=self.accept_equal))
 
 
 class AbsoluteThreshold(Threshold):
     """Passes keys whose weight is at least ``weight``, e.g. a number of votes."""
+
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.count_threshold,)
 
     weight: Count = Field(
         description="The weight a key needs, e.g. a number of votes.",
@@ -103,12 +112,15 @@ class AbsoluteThreshold(Threshold):
     def _select(self, weights: dict[str, Fraction], won: dict[str, int]) -> frozenset[str]:
         if not weights:
             return frozenset()
-        return _passed(calc.count_threshold(weights, self.weight, accept_equal=self.accept_equal))
+        (count_threshold,) = self.formulas
+        return _passed(count_threshold(weights, self.weight, accept_equal=self.accept_equal))
 
 
 class SeatThreshold(Threshold):
     """Passes keys that already won at least ``seats`` seats, e.g. three Wahlkreis seats
     (the Grundmandatsklausel), whatever their weight."""
+
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.seat_threshold,)
 
     seats: int = Field(
         ge=1,
@@ -118,7 +130,8 @@ class SeatThreshold(Threshold):
     def _select(self, weights: dict[str, Fraction], won: dict[str, int]) -> frozenset[str]:
         if not weights:
             return frozenset()
-        return _passed(calc.seat_threshold({key: won.get(key, 0) for key in weights}, self.seats))
+        (seat_threshold,) = self.formulas
+        return _passed(seat_threshold({key: won.get(key, 0) for key in weights}, self.seats))
 
     @property
     def uses_won(self) -> bool:

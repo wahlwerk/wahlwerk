@@ -4,6 +4,9 @@ LKWG M-V)."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any, ClassVar
+
 from pydantic import Field, SerializeAsAny
 
 from wahlwerk.calc import quota
@@ -32,6 +35,8 @@ class FraktionSize(Model):
     a remainder seat is not certain.
     """
 
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (quota.hare, quota.whole_seats)
+
     share: Share = Field(
         description="The fictitious party's share of all valid votes, e.g. ``Fraction(5, 100)``.",
     )
@@ -55,7 +60,9 @@ class FraktionSize(Model):
         counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
         if not counted or not allocation.seat_total:
             return 0
-        return quota.whole_seats(fictitious, quota.hare(counted, allocation.seat_total))
+        hare, whole_seats = self.formulas
+        seats: int = whole_seats(fictitious, hare(counted, allocation.seat_total))
+        return seats
 
 
 class RepeatForMehrsitze(AllocationStep):

@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections.abc import Callable, Mapping
 from fractions import Fraction
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from wahlwerk.apportionment.result import Apportionment
 from wahlwerk.calc.result import SeatResult
@@ -22,10 +22,10 @@ __all__ = ["ApportionmentMethod"]
 class ApportionmentMethod(Model):
     """A way to divide seats among keys in proportion to their weights."""
 
-    formula: ClassVar[Callable[..., SeatResult]]
-    """The function in ``wahlwerk.calc`` that :meth:`calculate` calls, set by each
-    family and called through this attribute, so the link from a method to its formula
-    (shown by :func:`wahlwerk.process.allocation.flow.describe`) is the call itself."""
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = ()
+    """The functions in ``wahlwerk.calc`` the method computes with, set by each family
+    and called through this attribute, so the link from a method to its formulas (shown
+    by :func:`wahlwerk.process.allocation.flow.describe`) is the call itself."""
 
     def apportion(self, weights: Mapping[str, int | Fraction], seats: int) -> Apportionment:
         """Divide ``seats`` among the keys of ``weights``.

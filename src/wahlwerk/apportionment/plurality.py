@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from fractions import Fraction
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from wahlwerk.apportionment.method import ApportionmentMethod
 from wahlwerk.calc import plurality as calc
@@ -27,7 +27,9 @@ class Plurality(ApportionmentMethod):
     """The keys with the most weight win, one seat each; with one seat, the key with
     the most weight wins it (first past the post). A key of weight 0 wins nothing."""
 
-    formula: ClassVar[Callable[..., SeatResult]] = staticmethod(calc.plurality)
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.plurality,)
 
     def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
-        return self.formula(weights, seats)
+        (plurality,) = self.formulas
+        result: SeatResult = plurality(weights, seats)
+        return result

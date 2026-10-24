@@ -27,7 +27,8 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from typing import Any
+from collections.abc import Callable
+from typing import Any, ClassVar
 
 from pydantic import Field, model_validator
 
@@ -238,6 +239,10 @@ class AllocationStep(Model):
     (and :attr:`optional_reads`, facts used when present). Callable, so
     ``step(allocation)`` is ``step.apply(allocation)``.
     """
+
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = ()
+    """The functions in ``wahlwerk.calc`` the step computes with itself, called through
+    this attribute; formulas of the models it holds (a method, a threshold) are theirs."""
 
     citation: str | None = Field(
         default=None,
