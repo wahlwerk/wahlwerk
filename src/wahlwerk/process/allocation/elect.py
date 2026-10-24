@@ -37,8 +37,7 @@ class SingleMandatePerUnit(AllocationStep):
     nominee where the tally names no candidate. ``method`` chooses one winner from a row
     alone. Where it cannot (equal votes at the top, or no votes at all), the unit's
     result is a :class:`~wahlwerk.apportionment.tie.Tie`, since the law decides it by
-    lot; nothing is guessed. The winner's party is the option's, from the table; a
-    winner of no party is an independent, and their number is ``independent_mandates``.
+    lot; nothing is guessed. The winner's party is the option's, from the table.
     """
 
     SEATS: ClassVar[int] = 1
@@ -63,7 +62,7 @@ class SingleMandatePerUnit(AllocationStep):
 
     @property
     def writes(self) -> frozenset[str]:
-        return frozenset({"unit_mandates", "independent_mandates"})
+        return frozenset({"unit_mandates"})
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
@@ -73,10 +72,8 @@ class SingleMandatePerUnit(AllocationStep):
         table = allocation.count(self.section, self.level, "option")
         if not table.rows:
             raise ValueError(f"{type(self).__name__}: no {table.fact!r} votes to elect from")
-        results = tuple(self._elect(unit, votes, table) for unit, votes in table.per_unit().items())
         return allocation.with_values(
-            unit_mandates=results,
-            independent_mandates=sum(1 for r in results if r.is_decided and r.party is None),
+            unit_mandates=tuple(self._elect(unit, votes, table) for unit, votes in table.per_unit().items())
         )
 
     def _elect(self, unit: str, votes: dict[str, int], table: Counts) -> UnitResult:

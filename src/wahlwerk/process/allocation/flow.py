@@ -375,8 +375,8 @@ section, a level and what is counted by."""
 
 
 def _in_order(facts: frozenset[str]) -> tuple[str, ...]:
-    """``facts`` in the order the allocation lists them (``unit_mandates`` before
-    ``independent_mandates``), the rest after, by name."""
+    """``facts`` in the order the allocation lists them (``chamber_size`` before
+    ``minimum_mandates``), the rest after, by name."""
     rank = {fact: i for i, fact in enumerate(OPTIONAL_FACTS)}
     return tuple(sorted(facts, key=lambda fact: (rank.get(fact, len(rank)), fact)))
 

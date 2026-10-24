@@ -109,8 +109,8 @@ class SetChamberSize(AllocationStep):
 
 class SetSeatTotal(AllocationStep):
     """The seats the proportional allocation divides: the ``chamber_size`` less the Wahlkreis
-    seats of winners who take no part in it: the ``independent_mandates`` (Einzelbewerber)
-    and the units won by parties that are not eligible parties of ``section``.
+    seats of winners who take no part in it, read off ``unit_mandates``: those of no party
+    (Einzelbewerber) and those of parties that are not eligible parties of ``section``.
 
     Their seats are theirs regardless; the rest of the chamber size is divided among the
     eligible parties, whose own Wahlkreis seats are deducted later.
@@ -126,14 +126,13 @@ class SetSeatTotal(AllocationStep):
     def inputs(self) -> dict[str, str]:
         return {
             "seats": "chamber_size",
-            "independent": "independent_mandates",
             "won": "unit_mandates",
             "eligible": eligible_fact(self.section),
         }
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"": (("seats", "seats"), ("won", "independent plus units won by parties not eligible"))}
+        return {"": (("seats", "seats"), ("won", "units won by Einzelbewerber and by parties not eligible"))}
 
     @property
     def writes(self) -> frozenset[str]:
@@ -143,7 +142,8 @@ class SetSeatTotal(AllocationStep):
         wins = allocation.unit_wins()
         eligible = allocation.eligible(self.section)
         size = allocation.chamber_size or 0
-        outside = (allocation.independent_mandates or 0) + sum(
+        winners = allocation.unit_mandates or ()
+        outside = sum(1 for d in winners if d.party is None) + sum(
             n for party, n in wins.items() if party not in eligible
         )
         if outside > size:

@@ -113,13 +113,6 @@ def test_einzelbewerber_wins_without_party():
     assert wk2.party is None
 
 
-def test_independent_mandates_counts_the_winners_of_no_party():
-    # Wahlkreis 2 to an Einzelbewerber; Wahlkreis 3 is tied, so it counts for nobody yet.
-    elected = ELECT(SumGroupBy(section="erststimme", level="wahlkreis", by="option")(START))
-    assert elected.independent_mandates == 1
-    assert "independent_mandates" in ELECT.writes
-
-
 def test_tie_is_a_result():
     wk3 = unit_mandates()["de.st.wk.003"]
     assert wk3.option is None
@@ -157,7 +150,7 @@ def test_unit_result_needs_winner_xor_tie():
 # ===========================================================
 def test_check_protocol_returns_the_facts_at_the_end():
     protocol = (SumGroupBy(section="erststimme", level="wahlkreis", by="option"), ELECT)
-    assert check_protocol(protocol) == {"tally", "erststimme by wahlkreis × option", "unit_mandates", "independent_mandates"}
+    assert check_protocol(protocol) == {"tally", "erststimme by wahlkreis × option", "unit_mandates"}
 
 
 def test_check_protocol_refuses_a_misordered_law():
