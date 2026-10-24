@@ -267,6 +267,14 @@ class AllocationStep(Model):
         """Facts this step uses when they are established, and does without otherwise."""
         return frozenset()
 
+    @property
+    def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        """What the step hands each core concept it holds, by field: the arguments the
+        concept is called with, in words, e.g. ``{"method": (("seats", "1"),)}``. Shown
+        by :func:`wahlwerk.process.allocation.flow.describe` above the concept's
+        functions; the concept's own settings come from the concept."""
+        return {}
+
     @abstractmethod
     def _apply(self, allocation: Allocation) -> Allocation:
         """The allocation with this step's facts, given that its reads are established."""

@@ -16,17 +16,17 @@ from wahlwerk.process.allocation.eligibility import (
     SetChamberSize,
     SetSeatTotal,
 )
-from wahlwerk.process.allocation.mehrsitze import (
-    FraktionSize,
-    RaiseForAusgleich,
-    RepeatForMehrsitze,
+from wahlwerk.process.allocation.overhang import (
+    CaucusSize,
+    RaiseByOverhang,
+    RaiseUntilBalanced,
 )
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
 LEVELS = (Level(name="land", depth=2), Level(name="wahlkreis", depth=4))
 FIVE = Fraction(5, 100)
-FRAKTION = FraktionSize(share=FIVE, section="zweitstimme", level="land")
+CAUCUS = CaucusSize(share=FIVE, section="zweitstimme", level="land")
 ALLOCATE = (
     SetSeatTotal(),
     ApportionSeats(method=HareNiemeyer(), section="zweitstimme", level="land"),
@@ -69,7 +69,7 @@ def run(protocol, winners, zweit):
 
 
 ZWEIT = {"afd": 500, "cdu": 300, "linke": 170, "fdp": 30}
-LOOP = RepeatForMehrsitze(protocol=ALLOCATE, factor=2, full_rounds=2, fraktion=FRAKTION)
+LOOP = RaiseByOverhang(protocol=ALLOCATE, factor=2, full_rounds=2, caucus_size=CAUCUS)
 
 
 def test_balanced_within_the_full_rounds():
@@ -93,8 +93,8 @@ MANY = ["linke"] * 5
 SMALL = {"afd": 540, "cdu": 400, "linke": 60}
 
 
-def test_without_a_fraktion_rule_mehrsitze_left_after_the_full_rounds_are_kept():
-    loop = RepeatForMehrsitze(protocol=ALLOCATE, factor=2, full_rounds=2)
+def test_without_a_caucus_size_overhang_left_after_the_full_rounds_are_kept():
+    loop = RaiseByOverhang(protocol=ALLOCATE, factor=2, full_rounds=2)
     result = run(law(10, loop), MANY, SMALL)
     kept = sum(n for _, n in result.overhang)
     assert kept > 0
@@ -102,16 +102,16 @@ def test_without_a_fraktion_rule_mehrsitze_left_after_the_full_rounds_are_kept()
     assert dict(result.list_seats)["linke"] == 0
 
 
-def test_further_rounds_run_while_mehrsitze_exceed_half_a_fraktion():
-    unlimited = run(law(10, RepeatForMehrsitze(protocol=ALLOCATE)), MANY, SMALL)
+def test_further_rounds_run_while_overhang_exceeds_half_a_caucus():
+    unlimited = run(law(10, RaiseByOverhang(protocol=ALLOCATE)), MANY, SMALL)
     limited = run(law(10, LOOP), MANY, SMALL)
     kept = sum(n for _, n in limited.overhang)
-    assert 2 * kept <= FRAKTION.seats(limited)
+    assert 2 * kept <= CAUCUS.seats(limited)
     assert limited.chamber_size > unlimited.chamber_size
     assert limited.chamber.size == limited.chamber_size + kept
 
 
-def test_fraktion_size_counts_a_fictitious_five_percent_party():
+def test_caucus_size_counts_a_fictitious_five_percent_party():
     # 5 % of 1000 = 50 fictitious votes beside 900 eligible: 20 * 50 / 950 = 1.05 -> 1.
     rows = tuple(
         TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", party=p, count=n)
@@ -119,8 +119,8 @@ def test_fraktion_size_counts_a_fictitious_five_percent_party():
     )
     allocation = SumVotes(level="land")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
     allocation = allocation.with_values(eligible=frozenset({"a", "b"}), seat_total=20)
-    assert FRAKTION.seats(allocation) == 1
-    assert FRAKTION.seats(allocation.with_values(seat_total=97)) == 5  # 97 * 50 / 950 = 5.1
+    assert CAUCUS.seats(allocation) == 1
+    assert CAUCUS.seats(allocation.with_values(seat_total=97)) == 5  # 97 * 50 / 950 = 5.1
 
 
 def test_loop_declares_what_it_reads_and_writes():
@@ -139,7 +139,7 @@ LINKE = ["linke"] * 3
 
 
 def raise_for_ausgleich(**fields):
-    return RaiseForAusgleich(protocol=ALLOCATE, **fields)
+    return RaiseUntilBalanced(protocol=ALLOCATE, **fields)
 
 
 def test_without_a_limit_the_chamber_size_rises_until_the_ueberhang_is_balanced():

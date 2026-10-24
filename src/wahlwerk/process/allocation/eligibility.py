@@ -43,6 +43,13 @@ class ApplyThreshold(AllocationStep):
     def writes(self) -> frozenset[str]:
         return frozenset({"eligible"})
 
+    @property
+    def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        given: tuple[tuple[str, str], ...] = (("votes", f"{self.section} per party"),)
+        if self.threshold.uses_won:
+            given += (("won", "units won per party"),)
+        return {"threshold": given}
+
     def _apply(self, allocation: Allocation) -> Allocation:
         votes = allocation.votes_by_party(self.level, self.section)
         won = allocation.unit_wins() if self.threshold.uses_won else None

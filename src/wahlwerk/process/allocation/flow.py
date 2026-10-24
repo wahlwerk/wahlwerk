@@ -158,6 +158,7 @@ class Use(Model):
 
     field: str = Field(description="Where it sits in the step, e.g. ``method`` or ``method.method``.")
     kind: str = Field(description="Its class, e.g. ``Plurality``.")
+    arguments: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="What the step hands it, in words, e.g. ``(\"seats\", \"1\")``: the arguments it is called with besides its settings.")
     parameters: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="Its settings that are not concepts themselves, e.g. ``(\"share\", \"1/20\")``.")
     calls: tuple[Call, ...] = Field(default_factory=tuple, description="The functions it computes with.")
 
@@ -246,7 +247,8 @@ def uses(model: BaseModel, prefix: str = "") -> tuple[Use, ...]:
                 for key in _set_fields(item)
                 if not _is_concept(getattr(item, key))
             )
-            found.append(Use(field=field, kind=type(item).__name__, parameters=settings, calls=calls_of(item)))
+            given = model.passes.get(name, ()) if isinstance(model, AllocationStep) else ()
+            found.append(Use(field=field, kind=type(item).__name__, arguments=given, parameters=settings, calls=calls_of(item)))
             found.extend(uses(item, f"{field}."))
     return tuple(found)
 
@@ -299,7 +301,8 @@ def protocol_table(protocol: AllocationProtocol) -> str:
             rows.append(("", "  " * (depth + 1) + f"= {call.formula.removeprefix('wahlwerk.')}", "", "", ""))
         for use in node.uses:
             indent = "  " * (depth + 1 + use.field.count("."))
-            rows.append(("", f"{indent}-> {use.kind}", "", "", ""))
+            needs = ", ".join(f"{k}={v}" for k, v in (*use.arguments, *use.parameters))
+            rows.append(("", f"{indent}-> {use.kind}" + (f" ({needs})" if needs else ""), "", "", ""))
             for call in use.calls:
                 rows.append(("", f"{indent}   = {call.formula.removeprefix('wahlwerk.')}", "", "", ""))
     widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]

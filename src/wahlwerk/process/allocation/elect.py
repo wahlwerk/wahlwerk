@@ -10,6 +10,8 @@ Erststimmen; lot on a tie); elsewhere constituencies or ridings: here, units of 
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from pydantic import Field, SerializeAsAny
 
 from wahlwerk.apportionment.method import ApportionmentMethod
@@ -40,6 +42,9 @@ class ElectPerUnit(AllocationStep):
     the law decides it by lot; nothing is guessed.
     """
 
+    SEATS: ClassVar[int] = 1
+    """Each unit elects one member: the seats handed to ``method`` per contest."""
+
     method: SerializeAsAny[ApportionmentMethod] = Field(
         description=(
             "How one winner is chosen from a unit's nominees and their votes, e.g. "
@@ -61,6 +66,10 @@ class ElectPerUnit(AllocationStep):
     def writes(self) -> frozenset[str]:
         return frozenset({"unit_winners"})
 
+    @property
+    def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        return {"method": (("votes", f"{self.section} per nominee"), ("seats", str(self.SEATS)))}
+
     def _apply(self, allocation: Allocation) -> Allocation:
         per_unit = contests(allocation, self.section, self.level)
         if not per_unit:
@@ -77,7 +86,7 @@ class ElectPerUnit(AllocationStep):
         votes = {key: nominees[keys[key]] for key in keys if key}
         most = max(votes.values())
         if most:
-            result = self.method.apportion(votes, 1)
+            result = self.method.apportion(votes, self.SEATS)
             tie = result.tie
             winners = [key for key, seats in result.seats if seats]
         else:  # no votes at all: every nominee is equally placed

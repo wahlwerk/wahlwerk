@@ -18,7 +18,7 @@ import pytest
 from wahlwerk.io.bundle import read_bundle
 from wahlwerk.law.registry import LAWS
 from wahlwerk.process.allocation.allocate import allocate, derive
-from wahlwerk.process.allocation.mehrsitze import RaiseForAusgleich
+from wahlwerk.process.allocation.overhang import RaiseUntilBalanced
 from wahlwerk.state.term import Term
 
 HERE = Path(__file__).parent
@@ -125,7 +125,7 @@ def test_ueberhang_and_ausgleich_equal_the_official_result(year, vote, law):
     """The Überhang of the first allocation of 71 seats, and the Ausgleichsmandate the
     raised chamber size gives each party beyond it."""
     seats = official(year)
-    raise_at = next(i for i, step in enumerate(law.protocol) if isinstance(step, RaiseForAusgleich))
+    raise_at = next(i for i, step in enumerate(law.protocol) if isinstance(step, RaiseUntilBalanced))
     first = derive(vote, (*law.protocol[:raise_at], *law.protocol[raise_at].protocol))
     derived = derive(vote, law.protocol)
     ueberhang = {p: n for p, n in seats[LAND, "darunter Überhangmandate"].items() if n}

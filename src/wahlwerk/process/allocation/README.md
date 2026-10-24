@@ -103,7 +103,7 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
         ApplyThreshold(threshold=RelativeThreshold(share="5/100"),  # § 35 (3)
                        section="zweitstimme", level="land"),
     )),
-    RepeatForMehrsitze(                                             # § 35 (8), (8a); stage 2
+    RaiseByOverhang(                                             # § 35 (8), (8a); stage 2
         protocol=(
             StepSequence(                                           # § 35 (4) to (7)
                 title="allocate the seats of one chamber size",
@@ -120,7 +120,7 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
         ),
         factor=2,
         full_rounds=2,
-        fraktion=FraktionSize(share="5/100", section="zweitstimme", level="land"),
+        caucus_size=CaucusSize(share="5/100", section="zweitstimme", level="land"),
     ),
     FormChamber(),                                                  # stage 3
 )
@@ -137,7 +137,7 @@ writes:
 - **A sequence** (`StepSequence`, `sequence.py`) is a named row of steps that acts as one
   step: it reads what its steps need from outside it and writes what they write. Sec. 35
   (4) to (7) is one (`ALLOCATE` in the law module), written once and used by the loop.
-- **A loop holds its block.** `RepeatForMehrsitze` and `RaiseForAusgleich` run their
+- **A loop holds its block.** `RaiseByOverhang` and `RaiseUntilBalanced` run their
   protocol first, then raise the chamber size and run it again while the law asks, so the
   allocation of one chamber size is not written twice (once before the loop, once inside).
 - **A number the statute states once is written once.** `SetChamberSize(seats=83)` writes
@@ -265,7 +265,7 @@ Stimmkreise inside Wahlkreise still nest by prefix.
    Sachsen-Anhalt 2026 against the official Sitzverteilung
    (`tests/golden/test_de_landtag_st.py`). **Done**: equal party by party, 41
    Wahlkreis and 42 list seats, 83 in all.
-6. `RepeatForMehrsitze` and `FraktionSize`, on constructed tallies (balanced within
+6. `RaiseByOverhang` and `CaucusSize`, on constructed tallies (balanced within
    the full rounds, kept after them, further rounds beyond half a Fraktion), then the
    Landtag 2021 as a second golden test. **Done**: 2021 gives 97 seats, CDU 40 (all from
    Wahlkreise), AfD 23, Linke 12, SPD 9, FDP 7, Grüne 6, as published. The law moved to

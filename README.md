@@ -349,8 +349,8 @@ Built one small step at a time; each step leaves the package importable.
 - The allocation, `wahlwerk.process.allocation`: a law is a protocol of steps (count,
   Wahlkreis winners, threshold, seat total, entitlement, list seats, chamber) checked
   for order before it runs; `allocate(vote, protocol)` returns the `Chamber`
-- The Mehrsitze loop of Sec. 35 (8), (8a) LWG LSA (`RepeatForMehrsitze`, `FraktionSize`),
-  and the capped Ausgleich of Sec. 58 (6) LKWG M-V with its odd chamber size (`RaiseForAusgleich`)
+- The Mehrsitze loop of Sec. 35 (8), (8a) LWG LSA (`RaiseByOverhang`, `CaucusSize`),
+  and the capped Ausgleich of Sec. 58 (6) LKWG M-V with its odd chamber size (`RaiseUntilBalanced`)
 - `law/`: electoral laws as versioned protocols by jurisdiction, with a registry by body
   and date: `law/de/st/lwg.py` and `law/de/mv/lkwg.py`. Beside it, the caucus protocol of the
   Bundestag's Geschäftsordnung, `law/de/bund/gobt.py` (CDU and CSU form the `union`),

@@ -42,6 +42,10 @@ class ApportionSeats(AllocationStep):
     def writes(self) -> frozenset[str]:
         return frozenset({"entitlement"})
 
+    @property
+    def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        return {"method": (("votes", f"{self.section} per eligible party"), ("seats", "seat_total"))}
+
     def _apply(self, allocation: Allocation) -> Allocation:
         votes = allocation.votes_by_party(self.level, self.section)
         eligible = allocation.eligible or frozenset()

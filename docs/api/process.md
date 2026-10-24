@@ -56,10 +56,10 @@ Steps, protocols and the processes that apply them.
 .. automodule:: wahlwerk.process.allocation.seats
 ```
 
-## `wahlwerk.process.allocation.mehrsitze`
+## `wahlwerk.process.allocation.overhang`
 
 ```{eval-rst}
-.. automodule:: wahlwerk.process.allocation.mehrsitze
+.. automodule:: wahlwerk.process.allocation.overhang
 ```
 
 ## `wahlwerk.process.allocation.chamber`

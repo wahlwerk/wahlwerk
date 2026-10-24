@@ -32,7 +32,7 @@ from wahlwerk.process.allocation.eligibility import (
     SetChamberSize,
     SetSeatTotal,
 )
-from wahlwerk.process.allocation.mehrsitze import RaiseForAusgleich
+from wahlwerk.process.allocation.overhang import RaiseUntilBalanced
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
 
@@ -103,7 +103,7 @@ LKWG_2011 = Law(
         SetChamberSize(seats=71, citation="Art. 20 (2) Verf. M-V"),  # "mindestens 71": also the minimum
         COUNT,
         QUALIFY,
-        RaiseForAusgleich(
+        RaiseUntilBalanced(
             protocol=(ALLOCATE,), limit=2, has_odd_size=True, citation="Sec. 58 (6)"
         ),
         FormChamber(),

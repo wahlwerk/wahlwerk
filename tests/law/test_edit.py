@@ -13,7 +13,7 @@ from wahlwerk.process.allocation.allocate import allocate
 from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.eligibility import ApplyThreshold, SetChamberSize
-from wahlwerk.process.allocation.mehrsitze import RepeatForMehrsitze
+from wahlwerk.process.allocation.overhang import RaiseByOverhang
 from wahlwerk.process.allocation.seats import ApportionSeats
 
 GOLDEN = Path(__file__).parents[1] / "golden" / "de.landtag.st.2026"
@@ -30,7 +30,7 @@ def test_steps_walks_nested_protocols_depth_first():
 
 def test_find_reaches_into_the_mehrsitze_loop():
     assert find(P, ApportionSeats) == [(3, "protocol", 0, "steps", 1)]
-    assert find(P, RepeatForMehrsitze) == [(3,)]
+    assert find(P, RaiseByOverhang) == [(3,)]
 
 
 def test_replace_changes_every_occurrence():

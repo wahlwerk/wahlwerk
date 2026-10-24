@@ -58,7 +58,7 @@ def test_every_ref_resolves(schema: dict[str, Any]) -> None:
 
 def test_the_step_types_are_every_concrete_step() -> None:
     names = {cls.__name__ for cls in types_of(AllocationStep)}
-    assert {"SumVotes", "ApportionSeats", "RaiseForAusgleich", "FormChamber"} <= names
+    assert {"SumVotes", "ApportionSeats", "RaiseUntilBalanced", "FormChamber"} <= names
     assert "AllocationStep" not in names
     assert "DivisorMethod" not in {cls.__name__ for cls in types_of(ApportionmentMethod)}
 

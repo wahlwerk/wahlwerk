@@ -29,7 +29,7 @@ from wahlwerk.process.allocation.eligibility import (
     SetChamberSize,
     SetSeatTotal,
 )
-from wahlwerk.process.allocation.mehrsitze import FraktionSize, RepeatForMehrsitze
+from wahlwerk.process.allocation.overhang import CaucusSize, RaiseByOverhang
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
 
@@ -99,11 +99,11 @@ LWG_2021 = Law(
         SetChamberSize(seats=83, citation="Sec. 1 (1)"),  # "mindestens 83": also the minimum
         COUNT,
         QUALIFY,
-        RepeatForMehrsitze(
+        RaiseByOverhang(
             protocol=(ALLOCATE,),
             factor=2,
             full_rounds=2,
-            fraktion=FraktionSize(share=_FIVE_PERCENT, section="zweitstimme", level="land"),
+            caucus_size=CaucusSize(share=_FIVE_PERCENT, section="zweitstimme", level="land"),
             citation="Sec. 35 (8), (8a)",
         ),
         FormChamber(),

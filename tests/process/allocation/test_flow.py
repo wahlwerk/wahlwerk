@@ -87,7 +87,7 @@ def test_a_sequence_in_the_wrong_place_is_refused():
 def test_describe_and_the_table():
     nodes = flow.describe(P)
     assert [n.kind for n in nodes] == [
-        "SetChamberSize", "StepSequence", "StepSequence", "RepeatForMehrsitze", "FormChamber",
+        "SetChamberSize", "StepSequence", "StepSequence", "RaiseByOverhang", "FormChamber",
     ]
     assert [n.title for n in nodes[1:3]] == ["count the votes", "decide the Wahlkreise and who takes part"]
     assert [c.kind for c in nodes[1].children] == ["SumVotes", "SumVotes"]
@@ -116,7 +116,7 @@ def test_citations_are_data_and_survive_an_edit():
 
 def test_fancy_html_draws_the_protocol():
     card = LWG_2021.fancy_html()
-    assert "RepeatForMehrsitze (repeats)" in card
+    assert "RaiseByOverhang (repeats)" in card
     assert "allocate the seats of one chamber size" in card
     assert "Sec. 35 (8), (8a)" in card
 
@@ -156,3 +156,14 @@ def test_the_formula_named_is_the_one_called(monkeypatch):
     monkeypatch.setattr(Plurality, "formulas", (lambda w, s: calls.append(dict(w)) or original(w, s),))
     Plurality().apportion({"a": 2, "b": 1}, 1)
     assert calls == [{"a": Fraction(2), "b": Fraction(1)}]
+
+
+def test_a_concept_shows_what_the_step_hands_it():
+    elect = flow.describe(P)[2].children[0]
+    assert elect.uses[0].arguments == (("votes", "erststimme per nominee"), ("seats", "1"))
+    threshold = flow.describe(P)[2].children[1].uses[0]
+    assert threshold.arguments == (("votes", "zweitstimme per party"),)
+    assert threshold.parameters == (("share", "1/20"),)
+    caucus = flow.describe(P)[3].uses[0]
+    assert caucus.kind == "CaucusSize" and caucus.arguments == (("seats", "seat_total"),)
+    assert [c.formula.rsplit(".", 1)[1] for c in caucus.calls] == ["hare", "whole_seats"]

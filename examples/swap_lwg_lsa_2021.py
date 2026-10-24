@@ -25,7 +25,7 @@ from wahlwerk.process.allocation.allocate import derive
 from wahlwerk.process.allocation.base import AllocationProtocol, check_protocol
 from wahlwerk.process.allocation.eligibility import ApplyThreshold
 from wahlwerk.process.allocation.flow import can_swap
-from wahlwerk.process.allocation.mehrsitze import RepeatForMehrsitze
+from wahlwerk.process.allocation.overhang import RaiseByOverhang
 from wahlwerk.process.allocation.seats import ApportionSeats
 
 GOLDEN = Path(__file__).resolve().parents[1] / "tests" / "golden" / "de.landtag.st.2021"
@@ -45,7 +45,7 @@ def row(name: str, protocol: AllocationProtocol) -> str:
 
 VOTE = read_bundle(GOLDEN)
 P = LWG_2021.protocol
-LOOP = find(P, RepeatForMehrsitze)[0][0]
+LOOP = find(P, RaiseByOverhang)[0][0]
 QUAL = P.index(QUALIFY)
 
 if __name__ == "__main__":
