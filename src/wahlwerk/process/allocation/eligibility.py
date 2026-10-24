@@ -20,7 +20,7 @@ from wahlwerk.process.allocation.base import (
     eligible_fact,
 )
 
-__all__ = ["ApplyThresholdTo", "SetChamberSize", "SetSeatTotal"]
+__all__ = ["ApplyThresholdTo", "SetChamberSize", "SetSeatsToApportion"]
 
 
 class ApplyThresholdTo(AllocationStep):
@@ -107,7 +107,7 @@ class SetChamberSize(AllocationStep):
         return allocation.with_values(chamber_size=self.seats)
 
 
-class SetSeatTotal(AllocationStep):
+class SetSeatsToApportion(AllocationStep):
     """The seats the proportional allocation divides: the ``chamber_size`` less the Wahlkreis
     seats of winners who take no part in it, read off ``unit_mandates``: those of no party
     (Einzelbewerber) and those of parties that are not eligible parties of ``section``.
@@ -136,7 +136,7 @@ class SetSeatTotal(AllocationStep):
 
     @property
     def writes(self) -> frozenset[str]:
-        return frozenset({"seat_total"})
+        return frozenset({"seats_to_apportion"})
 
     def _apply(self, allocation: Allocation) -> Allocation:
         wins = allocation.unit_wins()
@@ -154,4 +154,4 @@ class SetSeatTotal(AllocationStep):
         (remaining,) = self.formulas
         left = remaining({"chamber": size}, {"chamber": outside})
         assert isinstance(left, dict)
-        return allocation.with_values(seat_total=int(left["chamber"]))
+        return allocation.with_values(seats_to_apportion=int(left["chamber"]))

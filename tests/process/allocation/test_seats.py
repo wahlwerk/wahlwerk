@@ -23,7 +23,7 @@ from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThresholdTo,
     SetChamberSize,
-    SetSeatTotal,
+    SetSeatsToApportion,
 )
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.state.mandate_origin import MandateSource
@@ -69,7 +69,7 @@ def law(base, threshold=FIVE_PERCENT, method=HARE):
         SumGroupBy(section="zweitstimme", level="land", by="party"),
         ApplyThresholdTo(threshold=threshold, section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
-        SetSeatTotal(section="zweitstimme"),
+        SetSeatsToApportion(section="zweitstimme"),
         ApportionSeats(method=method, section="zweitstimme", level="land"),
         DeductUnitSeats(),
     )
@@ -87,7 +87,7 @@ def test_seats_won_outside_the_allocation_leave_the_total():
     # Hare on 8 among 970: afd 4.12, cdu 2.47, linke 1.40 -> 4, 3, 1.
     result = run(law(10), Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"])))
     assert result.eligible("zweitstimme") == {"afd", "cdu", "linke"}
-    assert result.seat_total == 8
+    assert result.seats_to_apportion == 8
     assert result.entitlement.as_dict() == {"afd": 4, "cdu": 3, "linke": 1}
     assert dict(result.list_seats) == {"afd": 3, "cdu": 3, "linke": 1}
     assert result.overhang == ()
@@ -107,7 +107,7 @@ def test_grundmandatsklausel_reads_the_wahlkreise():
     assert "unit_mandates" in step.reads
     result = run(law(20, threshold=rule), Allocation(tally=tally(["fdp", "fdp", "fdp"])))
     assert "fdp" in result.eligible("zweitstimme")
-    assert result.seat_total == 20
+    assert result.seats_to_apportion == 20
 
 
 def test_a_grundmandatsklausel_before_the_wahlkreise_is_refused():
@@ -138,7 +138,7 @@ def test_counterfactual_is_one_field():
     assert dhondt.entitlement.as_dict() == {"afd": 4, "cdu": 3, "linke": 1, "gruene": 0}
 
 
-def test_a_tied_wahlkreis_stops_the_seat_total():
+def test_a_tied_wahlkreis_stops_the_seats_to_apportion():
     rows = [
         TallyRow(unit="de.st.wk.001", level="wahlkreis", section="erststimme", option=party, party=party, count=5)
         for party in ("afd", "cdu")
@@ -157,7 +157,7 @@ def test_a_tied_entitlement_stops_the_deduction():
         run(law(2, threshold=FIVE_PERCENT), Allocation(tally=tally(["de.st.wk.001.eb"], zweit)))
 
 
-def test_seat_total_cannot_go_below_zero():
+def test_seats_to_apportion_cannot_go_below_zero():
     with pytest.raises(ValueError, match="more than the 1 seats"):
         run(law(1), Allocation(tally=tally(["fdp", "de.st.wk.002.eb"])))
 

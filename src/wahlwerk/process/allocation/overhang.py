@@ -38,7 +38,7 @@ class SetCaucusSize(AllocationStep):
     asks for another round only while the overhang left exceeds half of it.
 
     How: the fictitious party joins the eligible parties with ``share`` of all valid
-    votes; ``quota`` gives the votes one of the ``seat_total`` seats is worth among them;
+    votes; ``quota`` gives the votes one of the ``seats_to_apportion`` seats is worth among them;
     the caucus size is the whole seats the fictitious party's votes make of it. The law
     does not say how the fictitious party enters the count (wahlrecht.de calls it
     unclear); this is the reading, and "at least" is the whole part, since a remainder
@@ -65,7 +65,7 @@ class SetCaucusSize(AllocationStep):
         return {
             "votes": counts_fact(self.section, self.level, "party"),
             "eligible": eligible_fact(self.section),
-            "seats": "seat_total",
+            "seats": "seats_to_apportion",
         }
 
     @property
@@ -87,10 +87,10 @@ class SetCaucusSize(AllocationStep):
         eligible = allocation.eligible(self.section)
         fictitious = self.share * sum(votes.values())
         counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
-        if not counted or not allocation.seat_total:
+        if not counted or not allocation.seats_to_apportion:
             return allocation.with_values(caucus_size=0)
         (whole_seats,) = self.formulas
-        seats: int = whole_seats(fictitious, self.quota.of(counted, allocation.seat_total))
+        seats: int = whole_seats(fictitious, self.quota.of(counted, allocation.seats_to_apportion))
         return allocation.with_values(caucus_size=seats)
 
 
@@ -212,7 +212,7 @@ class RaiseUntilBalanced(AllocationStep):
 
     protocol: tuple[SerializeAsAny[AllocationStep], ...] = Field(
         min_length=1,
-        description="The allocation of one chamber size, run first and again for each raised size, e.g. seat total, apportionment, deduction.",
+        description="The allocation of one chamber size, run first and again for each raised size, e.g. seats to apportion, apportionment, deduction.",
     )
     limit: int | None = Field(
         default=None,

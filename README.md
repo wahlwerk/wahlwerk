@@ -349,7 +349,7 @@ Built one small step at a time; each step leaves the package importable.
   (`overhang`, `Ausgleich`: the smallest chamber size covering every option's seats), after
   votelib
 - The allocation, `wahlwerk.process.allocation`: a law is a protocol of steps (count,
-  Wahlkreis winners, threshold, seat total, entitlement, list seats, chamber) checked
+  Wahlkreis winners, threshold, seats to apportion, entitlement, list seats, chamber) checked
   for order before it runs; `allocate(vote, protocol)` returns the `Chamber`
 - The Mehrsitze loop of Sec. 35 (8), (8a) LWG LSA (`RaiseByOverhang`, `SetCaucusSize`),
   and the capped Ausgleich of Sec. 58 (6) LKWG M-V with its odd chamber size (`RaiseUntilBalanced`)

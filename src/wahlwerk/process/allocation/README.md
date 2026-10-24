@@ -16,9 +16,9 @@ Sachsen-Anhalt (LWG LSA) as amended on 6 July 2021.
 | `Hierarchy` | `vote/popular/` | an alternative hierarchy (administrative) as an explicit tree; `PopularVote.hierarchies` |
 | thresholds, Ausgleich | `apportionment/threshold.py`, `apportionment/ausgleich.py` | `RelativeThreshold`, `SeatThreshold`, `Exempt`, `AlternativeThresholds`; `overhang`, `Ausgleich` |
 | apportionment methods | `apportionment/` | `DHondt`, `SainteLague`, `LinearDivisor` (`divisor.py`), `HareNiemeyer` (`remainder.py`), `MajorityFirst` (`majority.py`): models with no German content; `Tie` in `tie.py` |
-| `Allocation` | `process/allocation/base.py` | the working record of one allocation: the tally, tables of counts per level and section, Wahlkreis results, eligible parties, seat total, entitlement, list seats, overhang |
+| `Allocation` | `process/allocation/base.py` | the working record of one allocation: the tally, tables of counts per level and section, Wahlkreis results, eligible parties, seats to apportion, entitlement, list seats, overhang |
 | `AllocationStep`, `AllocationProtocol` | `process/allocation/base.py` | one rule of the law, and the law as an ordered tuple of them; `check_protocol` refuses a law that reads a fact before it is written |
-| steps | `process/allocation/count.py`, `elect.py`, `eligibility.py`, `seats.py` | `SumGroupBy`, `SingleMandatePerUnit`, `ApplyThresholdTo`, `SetSeatTotal`, `ApportionSeats`, `DeductUnitSeats`; each names the section and level it counts |
+| steps | `process/allocation/count.py`, `elect.py`, `eligibility.py`, `seats.py` | `SumGroupBy`, `SingleMandatePerUnit`, `ApplyThresholdTo`, `SetSeatsToApportion`, `ApportionSeats`, `DeductUnitSeats`; each names the section and level it counts |
 | `StepSequence`, flow | `process/allocation/sequence.py`, `flow.py` | several steps used as one; the structure derived from reads and writes (below) |
 | `allocate(vote, protocol)`, `FillVacantSeatsFromLists` | `process/allocation/allocate.py`, `chamber.py` | the process: applies the protocol, returns a `Chamber` |
 
@@ -46,7 +46,7 @@ good map of a law, but Sachsen-Anhalt shows why it cannot be the mechanism:
 
 - apportionment is not one call: § 35 (8) repeats § 35 (4) to (7) in a loop;
 - § 35 (6) changes what the apportionment returned;
-- the seat total (§ 35 (4)) depends on who won the Wahlkreise (§ 33).
+- the seats to apportion (§ 35 (4)) depends on who won the Wahlkreise (§ 33).
 
 So the process uses the same shape as the caucus steps (`CaucusStep`): **one flat
 protocol of steps over one working model**. The six slots survive as the modules the
@@ -85,7 +85,7 @@ What the law asks for, section by section:
 | 32 S. 2, 35 (2) | drop the Zweitstimmen of voters whose Erststimme elected an Einzelbewerber | a count the tally does not hold (see below) |
 | 33 | most Erststimmen wins; lot on a tie | Wahlkreis winners, `Tie` |
 | 35 (3) | 5 % of valid Zweitstimmen in the Land; no Grundmandatsklausel | the threshold |
-| 35 (4) | 83 minus seats won by Einzelbewerber and by parties under 5 % | a seat total that depends on § 33 |
+| 35 (4) | 83 minus seats won by Einzelbewerber and by parties under 5 % | the seats to apportion, which depend on § 33 |
 | 35 (5) | Hare-Niemeyer; lot on equal remainders | the apportionment method |
 | 35 (6) | a party with more than half the votes but not more than half the seats gets one seat first | a rule that adjusts the apportionment |
 | 35 (7) | entitlement minus Wahlkreis seats gives list seats | the assignment |
@@ -110,7 +110,7 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
     StepSequence(                                                   # § 35 (4) to (7); stage 2
         name="AllocateSeats",
         steps=(
-            SetSeatTotal(section="zweitstimme"),                                         # § 35 (4)
+            SetSeatsToApportion(section="zweitstimme"),                                         # § 35 (4)
             ApportionSeats(                                         # § 35 (5), (6)
                 method=MajorityFirst(method=HareNiemeyer()),
                 section="zweitstimme",
@@ -264,7 +264,7 @@ Stimmkreise inside Wahlkreise still nest by prefix.
    numbers, and by properties (house monotonicity, quota rule). **Done.**
 4. `Allocation`, `AllocationStep`, `AllocationProtocol`, the read/write check
    (`check_protocol`), and the linear steps: `SumVotes` (now `SumGroupBy`), `SingleMandatePerUnit`,
-   `ApplyThresholdTo`, `SetSeatTotal`, `ApportionSeats`, `DeductUnitSeats`. **Done**:
+   `ApplyThresholdTo`, `SetSeatsToApportion`, `ApportionSeats`, `DeductUnitSeats`. **Done**:
    on 2026 they give AfD 38 Wahlkreise, Linke 3, six eligible parties, 83 seats, the
    entitlement AfD 39, CDU 15, SPD 8, Grüne 8, Linke 8, BSW 5, list seats AfD 1 and
    Linke 5, and no overhang. Constructed tallies cover Einzelbewerber, a party under

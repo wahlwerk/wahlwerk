@@ -17,7 +17,7 @@ section per unit and per option or party, e.g. ``erststimme by wahlkreis × opti
 :class:`Counts` made by :class:`~wahlwerk.process.allocation.count.SumGroupBy`);
 ``eligible parties of <section>`` (the parties past the threshold of one vote, e.g.
 ``eligible parties of zweitstimme``); and one per optional field of :class:`Allocation`,
-named like it: ``unit_mandates``, ``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
+named like it: ``unit_mandates``, ``chamber_size``, ``minimum_mandates``, ``seats_to_apportion``, ``entitlement``, ``list_seats``,
 ``overhang``, ``chamber``.
 
 Steps that belong together, one feeding the next, can be written as one step: a
@@ -67,7 +67,7 @@ OPTIONAL_FACTS = (
     "caucus_size",
     "chamber_size",
     "minimum_mandates",
-    "seat_total",
+    "seats_to_apportion",
     "entitlement",
     "list_seats",
     "overhang",
@@ -231,7 +231,7 @@ class Allocation(Model):
             "size is raised."
         ),
     )
-    seat_total: Seats | None = Field(
+    seats_to_apportion: Seats | None = Field(
         default=None,
         description="The seats apportioned among the eligible parties' lists and Wahlkreise.",
     )

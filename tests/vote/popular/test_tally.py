@@ -288,7 +288,7 @@ def test_a_tally_is_checked_once(monkeypatch):
     tally = Tally(rows=TALLY.rows)
     assert reads  # checked when built
     reads.clear()
-    allocation = Allocation(tally=tally).with_values(chamber_size=1).with_values(seat_total=1)
+    allocation = Allocation(tally=tally).with_values(chamber_size=1).with_values(seats_to_apportion=1)
     assert allocation.tally is tally
     assert reads == []
 

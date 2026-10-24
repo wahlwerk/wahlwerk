@@ -28,7 +28,7 @@ from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThresholdTo,
     SetChamberSize,
-    SetSeatTotal,
+    SetSeatsToApportion,
 )
 from wahlwerk.process.allocation.overhang import (
     RaiseByOverhang,
@@ -73,7 +73,7 @@ ALLOCATE = StepSequence(
     name="AllocateSeats",
     citation="Sec. 35 (4) to (7)",
     steps=(
-        SetSeatTotal(section="zweitstimme", citation="Sec. 35 (4)"),
+        SetSeatsToApportion(section="zweitstimme", citation="Sec. 35 (4)"),
         ApportionSeats(
             method=MajorityFirst(method=HareNiemeyer()),
             section="zweitstimme",

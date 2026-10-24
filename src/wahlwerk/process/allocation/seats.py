@@ -22,7 +22,7 @@ __all__ = ["ApportionSeats", "DeductUnitSeats"]
 
 
 class ApportionSeats(AllocationStep):
-    """Apportion ``seat_total`` among the eligible parties of ``section`` by ``method``, on their
+    """Apportion ``seats_to_apportion`` among the eligible parties of ``section`` by ``method``, on their
     valid votes in ``section`` summed at ``level``: their ``entitlement``.
 
     A tie in the apportionment stays in the entitlement; the lot is applied before the
@@ -44,7 +44,7 @@ class ApportionSeats(AllocationStep):
         return {
             "votes": counts_fact(self.section, self.level, "party"),
             "eligible": eligible_fact(self.section),
-            "seats": "seat_total",
+            "seats": "seats_to_apportion",
         }
 
     @property
@@ -59,7 +59,7 @@ class ApportionSeats(AllocationStep):
         votes = allocation.count(self.section, self.level, "party").per_column()
         eligible = allocation.eligible(self.section)
         weights = {party: n for party, n in votes.items() if party in eligible}
-        seats = allocation.seat_total or 0
+        seats = allocation.seats_to_apportion or 0
         return allocation.with_values(entitlement=self.method.apportion(weights, seats))
 
 

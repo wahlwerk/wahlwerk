@@ -15,7 +15,7 @@ from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThresholdTo,
     SetChamberSize,
-    SetSeatTotal,
+    SetSeatsToApportion,
 )
 from wahlwerk.process.allocation.overhang import (
     RaiseByOverhang,
@@ -30,7 +30,7 @@ LEVELS = (Level(name="land", depth=2), Level(name="wahlkreis", depth=4))
 FIVE = Fraction(5, 100)
 CAUCUS = SetCaucusSize(share=FIVE, section="zweitstimme", level="land", quota=HareQuota())
 ALLOCATE = (
-    SetSeatTotal(section="zweitstimme"),
+    SetSeatsToApportion(section="zweitstimme"),
     ApportionSeats(method=HareNiemeyer(), section="zweitstimme", level="land"),
     DeductUnitSeats(),
 )
@@ -124,10 +124,10 @@ def test_caucus_size_counts_a_fictitious_five_percent_party():
         for p, n in {"a": 450, "b": 450, "c": 100}.items()
     )
     allocation = SumGroupBy(section="zweitstimme", level="land", by="party")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
-    allocation = allocation.with_values(passed=(("eligible parties of zweitstimme", frozenset({"a", "b"})),), seat_total=20)
+    allocation = allocation.with_values(passed=(("eligible parties of zweitstimme", frozenset({"a", "b"})),), seats_to_apportion=20)
     assert CAUCUS(allocation).caucus_size == 1
-    assert CAUCUS(allocation.with_values(seat_total=97)).caucus_size == 5  # 97 * 50 / 950 = 5.1
-    assert CAUCUS.reads == {"zweitstimme by land × party", "eligible parties of zweitstimme", "seat_total"}
+    assert CAUCUS(allocation.with_values(seats_to_apportion=97)).caucus_size == 5  # 97 * 50 / 950 = 5.1
+    assert CAUCUS.reads == {"zweitstimme by land × party", "eligible parties of zweitstimme", "seats_to_apportion"}
     assert CAUCUS.writes == {"caucus_size"}
 
 
@@ -135,7 +135,7 @@ def test_loop_declares_what_it_reads_and_writes():
     # It checks the overhang the allocation before it left, before any round.
     assert {"chamber_size", "unit_mandates", "eligible parties of zweitstimme", "zweitstimme by land × party", "overhang"} <= LOOP.reads
     assert "caucus_size" in LOOP.optional_reads
-    assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= LOOP.writes
+    assert {"chamber_size", "seats_to_apportion", "entitlement", "list_seats", "overhang"} <= LOOP.writes
 
 
 def test_no_overhang_no_round():
@@ -220,7 +220,7 @@ def test_step_declares_what_it_reads_and_writes():
     step = raise_for_ausgleich(limit=2, has_odd_size=True)
     assert {"chamber_size", "unit_mandates", "eligible parties of zweitstimme", "zweitstimme by land × party"} <= step.reads
     assert "overhang" not in step.reads
-    assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes
+    assert {"chamber_size", "seats_to_apportion", "entitlement", "list_seats", "overhang"} <= step.writes
 
 
 def test_rounds_show_how_the_size_was_reached():
