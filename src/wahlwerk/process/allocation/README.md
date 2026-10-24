@@ -99,8 +99,8 @@ Sketched as a protocol:
 LWG_LSA_2021: AllocationProtocol = (                                # in stage order
     SetChamberSize(seats=83),                                       # § 1 (1): size and minimum
     StepSequence(name="CountVotes", steps=(                         # stage 0
-        SumGroupBy(section="erststimme", level="wahlkreis"),       # §§ 31, 32
-        SumGroupBy(section="zweitstimme", level="land"),           # § 35 (2)
+        SumGroupBy(section="erststimme", level="wahlkreis", by="option"),       # §§ 31, 32
+        SumGroupBy(section="zweitstimme", level="land", by="option"),           # § 35 (2)
     )),
     StepSequence(name="ElectAndQualify", steps=(                    # stage 1
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),  # § 33
@@ -215,7 +215,7 @@ briefwahlbezirk = 8
   has exactly the listed number of segments.
 - `sum_to` takes the level alone: `tally.sum_to("wahlkreis")`. A schema-1 bundle has no
   `[levels]`, so its tally needs the depth given: `sum_to("wahlkreis", depth=4)`.
-- Which levels the *law* counts at stays in the protocol, as `SumGroupBy(section=..., level=...)`:
+- Which levels the *law* counts at stays in the protocol, as `SumGroupBy(section=..., level=..., by=...)`:
   the data says what levels exist, the law says which ones it uses.
 
 ### Alternative hierarchies: an explicit tree

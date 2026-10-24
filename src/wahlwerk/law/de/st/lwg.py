@@ -46,7 +46,7 @@ COUNT = StepSequence(
     name="CountVotes",
     citation="Sec. 31, 32, 35 (2)",
     steps=(
-        SumGroupBy(section="erststimme", level="wahlkreis", citation="Sec. 31, 32"),
+        SumGroupBy(section="erststimme", level="wahlkreis", by="option", citation="Sec. 31, 32"),
         SumGroupBy(section="zweitstimme", level="land", by="party", citation="Sec. 35 (2)"),
     ),
 )

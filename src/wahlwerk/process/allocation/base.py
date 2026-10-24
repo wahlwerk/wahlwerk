@@ -64,6 +64,7 @@ INPUT_FACTS = frozenset({"tally"})
 
 OPTIONAL_FACTS = (
     "unit_mandates",
+    "independent_mandates",
     "caucus_size",
     "chamber_size",
     "minimum_mandates",
@@ -208,6 +209,13 @@ class Allocation(Model):
     unit_mandates: tuple[UnitResult, ...] | None = Field(
         default=None,
         description="The result of each single-seat unit; ``None`` until decided.",
+    )
+    independent_mandates: Seats | None = Field(
+        default=None,
+        description=(
+            "The units won by an independent, an option of no party (an Einzelbewerber): "
+            "their seats are theirs, outside the proportional allocation."
+        ),
     )
     passed: tuple[tuple[str, frozenset[OptionId]], ...] = Field(
         default_factory=tuple,

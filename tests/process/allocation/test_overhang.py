@@ -53,7 +53,7 @@ def law(base, repeat, *, is_measured=True):
     """A small law: count, decide, allocate once (and measure the caucus size), then the
     loop, which only runs while the allocation left overhang."""
     return (
-        SumGroupBy(section="erststimme", level="wahlkreis"),
+        SumGroupBy(section="erststimme", level="wahlkreis", by="option"),
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumGroupBy(section="zweitstimme", level="land", by="party"),
         ApplyThresholdTo(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),

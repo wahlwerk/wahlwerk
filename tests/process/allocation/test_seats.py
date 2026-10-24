@@ -64,7 +64,7 @@ def tally(winners, zweit=ZWEIT):
 
 def law(base, threshold=FIVE_PERCENT, method=HARE):
     return (
-        SumGroupBy(section="erststimme", level="wahlkreis"),
+        SumGroupBy(section="erststimme", level="wahlkreis", by="option"),
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumGroupBy(section="zweitstimme", level="land", by="party"),
         ApplyThresholdTo(threshold=threshold, section="zweitstimme", level="land"),
@@ -236,7 +236,7 @@ def test_each_section_keeps_its_own_eligible_options():
 def test_a_threshold_can_apply_to_options():
     # to="option": measured on the option table, its result the eligible options.
     start = Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"]))
-    counted = SumGroupBy(section="erststimme", level="land")(start)
+    counted = SumGroupBy(section="erststimme", level="land", by="option")(start)
     step = ApplyThresholdTo(threshold=FIVE_PERCENT, section="erststimme", level="land", to="option")
     assert step.inputs == {"votes": "erststimme by land × option"}
     assert step.writes == {"eligible options of erststimme"}

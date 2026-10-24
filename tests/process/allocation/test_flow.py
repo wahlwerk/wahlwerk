@@ -65,7 +65,7 @@ def test_movable_gives_the_range_a_step_can_go():
 
 
 def test_a_sequence_is_one_step():
-    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "eligible parties of zweitstimme", "zweitstimme by land × party"}
+    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "independent_mandates", "eligible parties of zweitstimme", "zweitstimme by land × party"}
     assert ALLOCATE.writes == {"seat_total", "entitlement", "list_seats", "overhang"}
     inline = (*P[:3], ALLOCATE, P[4])
     flat = (*P[:3], *ALLOCATE.steps, P[4])
@@ -186,5 +186,5 @@ def test_a_step_reads_like_a_function():
     assert threshold.inputs == (("votes", "zweitstimme by land × party"),)
     count = flow.describe(P)[1].children[0]
     assert count.inputs == (("tally", "tally"),)
-    assert count.parameters == (("section", "erststimme"), ("level", "wahlkreis"))  # its own settings
+    assert count.parameters == (("section", "erststimme"), ("level", "wahlkreis"), ("by", "option"))  # its own, always stated
     assert "SingleMandatePerUnit(votes=erststimme by wahlkreis × option) method=Plurality" in flow.protocol_table(P)

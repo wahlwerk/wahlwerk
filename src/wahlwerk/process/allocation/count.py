@@ -36,8 +36,7 @@ class SumGroupBy(AllocationStep):
         description="The level to group by, as listed in the tally's levels, e.g. ``wahlkreis``.",
     )
     by: GroupBy = Field(
-        default="option",
-        description="What to count per unit: each ``option`` voted for, or each ``party``.",
+        description="What to count per unit: each ``option`` voted for, or each ``party``; always stated.",
     )
 
     @property

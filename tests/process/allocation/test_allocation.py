@@ -71,7 +71,7 @@ def test_start_has_only_the_tally():
 
 
 def test_sum_group_by_makes_a_table_of_counts():
-    summed = SumGroupBy(section="erststimme", level="wahlkreis")(START)
+    summed = SumGroupBy(section="erststimme", level="wahlkreis", by="option")(START)
     assert summed.facts == {"tally", "erststimme by wahlkreis × option"}
     table = summed.count("erststimme", "wahlkreis")
     # A row per unit, a counter per option, Urne and Brief summed; nothing else in it.
@@ -83,13 +83,13 @@ def test_sum_group_by_makes_a_table_of_counts():
 
 
 def test_making_a_table_again_replaces_it():
-    step = SumGroupBy(section="erststimme", level="wahlkreis")
+    step = SumGroupBy(section="erststimme", level="wahlkreis", by="option")
     twice = step(step(START))
     assert [t.fact for t in twice.counts] == ["erststimme by wahlkreis × option"]
 
 
 def test_allocation_rejects_a_table_held_twice():
-    table = SumGroupBy(section="erststimme", level="wahlkreis")(START).counts[0]
+    table = SumGroupBy(section="erststimme", level="wahlkreis", by="option")(START).counts[0]
     with pytest.raises(ValidationError, match="more than once"):
         Allocation(tally=TALLY, counts=(table, table))
 
@@ -98,7 +98,7 @@ def test_allocation_rejects_a_table_held_twice():
 # SingleMandatePerUnit
 # ===========================================================
 def unit_mandates():
-    return {d.unit: d for d in ELECT(SumGroupBy(section="erststimme", level="wahlkreis")(START)).unit_mandates}
+    return {d.unit: d for d in ELECT(SumGroupBy(section="erststimme", level="wahlkreis", by="option")(START)).unit_mandates}
 
 
 def test_winner_counts_both_channels():
@@ -111,6 +111,13 @@ def test_einzelbewerber_wins_without_party():
     wk2 = unit_mandates()["de.st.wk.002"]
     assert wk2.option == "de.st.wk.002.einzelbewerber"
     assert wk2.party is None
+
+
+def test_independent_mandates_counts_the_winners_of_no_party():
+    # Wahlkreis 2 to an Einzelbewerber; Wahlkreis 3 is tied, so it counts for nobody yet.
+    elected = ELECT(SumGroupBy(section="erststimme", level="wahlkreis", by="option")(START))
+    assert elected.independent_mandates == 1
+    assert "independent_mandates" in ELECT.writes
 
 
 def test_tie_is_a_result():
@@ -129,9 +136,9 @@ def test_elect_needs_its_total():
 def test_elect_without_votes_in_section():
     other = SingleMandatePerUnit(method=Plurality(), section="stimme", level="wahlkreis")
     with pytest.raises(ValueError, match="no 'stimme by wahlkreis × option' votes"):
-        other(SumGroupBy(section="stimme", level="wahlkreis")(START))  # an empty table
+        other(SumGroupBy(section="stimme", level="wahlkreis", by="option")(START))  # an empty table
     with pytest.raises(ValueError, match=r"reads \['stimme by wahlkreis × option'\]"):
-        other(SumGroupBy(section="erststimme", level="wahlkreis")(START))  # no table at all
+        other(SumGroupBy(section="erststimme", level="wahlkreis", by="option")(START))  # no table at all
 
 
 def test_unit_result_needs_winner_xor_tie():
@@ -149,13 +156,13 @@ def test_unit_result_needs_winner_xor_tie():
 # Protocols
 # ===========================================================
 def test_check_protocol_returns_the_facts_at_the_end():
-    protocol = (SumGroupBy(section="erststimme", level="wahlkreis"), ELECT)
-    assert check_protocol(protocol) == {"tally", "erststimme by wahlkreis × option", "unit_mandates"}
+    protocol = (SumGroupBy(section="erststimme", level="wahlkreis", by="option"), ELECT)
+    assert check_protocol(protocol) == {"tally", "erststimme by wahlkreis × option", "unit_mandates", "independent_mandates"}
 
 
 def test_check_protocol_refuses_a_misordered_law():
     with pytest.raises(ValueError, match=r"step 1 .*SingleMandatePerUnit.* reads \['erststimme by wahlkreis × option'\]"):
-        check_protocol((ELECT, SumGroupBy(section="erststimme", level="wahlkreis")))
+        check_protocol((ELECT, SumGroupBy(section="erststimme", level="wahlkreis", by="option")))
 
 
 def test_check_protocol_sees_the_wrong_level():
@@ -164,7 +171,7 @@ def test_check_protocol_sees_the_wrong_level():
 
 
 def test_steps_are_data():
-    assert SumGroupBy(section="erststimme", level="wahlkreis") == SumGroupBy(section="erststimme", level="wahlkreis")
+    assert SumGroupBy(section="erststimme", level="wahlkreis", by="option") == SumGroupBy(section="erststimme", level="wahlkreis", by="option")
     assert hash(ELECT) == hash(SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"))
     assert "SingleMandatePerUnit" in repr(ELECT)
 
@@ -188,7 +195,7 @@ def test_a_step_must_write_what_it_declares():
 
 def test_each_unit_is_a_contest_the_method_decides():
     # The step only turns the tally into contests; the method alone picks the winner.
-    allocation = SumGroupBy(section="erststimme", level="wahlkreis")(START)
+    allocation = SumGroupBy(section="erststimme", level="wahlkreis", by="option")(START)
     per_unit = allocation.count("erststimme", "wahlkreis").per_unit()
     assert per_unit and all(isinstance(v, int) for unit in per_unit.values() for v in unit.values())
     assert per_unit["de.st.wk.001"] == {"afd": 65, "cdu": 60}  # options and votes, nothing else
