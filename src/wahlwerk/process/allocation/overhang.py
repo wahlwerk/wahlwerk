@@ -7,14 +7,10 @@ block the first repeats: it measures the yardstick for whether another round is 
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any, ClassVar
-
 from pydantic import Field, SerializeAsAny
 
+from wahlwerk.apportionment.increment import Increment
 from wahlwerk.apportionment.quota import Quota
-from wahlwerk.calc import compensation
-from wahlwerk.calc import quota as calc_quota
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.model import Share
 from wahlwerk.process.allocation.base import (
@@ -45,8 +41,6 @@ class SetCaucusSize(AllocationStep):
     seat is not certain.
     """
 
-    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc_quota.whole_seats,)
-
     share: Share = Field(
         description="The fictitious party's share of all valid votes, e.g. ``Fraction(5, 100)``.",
     )
@@ -76,10 +70,10 @@ class SetCaucusSize(AllocationStep):
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
         return {
             "quota": (
+                ("part", "the fictitious party's votes"),
                 ("votes", "votes of the eligible parties and of the fictitious one"),
                 ("seats", "seats"),
             ),
-            "": (("votes", "the fictitious party's"), ("quota", "the quota")),
         }
 
     def _apply(self, allocation: Allocation) -> Allocation:
@@ -89,22 +83,18 @@ class SetCaucusSize(AllocationStep):
         counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
         if not counted or not allocation.seats_to_apportion:
             return allocation.with_values(caucus_size=0)
-        (whole_seats,) = self.formulas
-        seats: int = whole_seats(fictitious, self.quota.of(counted, allocation.seats_to_apportion))
+        seats = self.quota.whole_seats(fictitious, counted, allocation.seats_to_apportion)
         return allocation.with_values(caucus_size=seats)
 
 
 class RaiseChamberSize(AllocationStep):
-    """Raise the ``chamber_size`` by ``factor`` seats per seat of ``overhang`` (Sec. 35 (8)
-    LWG LSA: twice the Mehrsitze). The step a :class:`RaiseByOverhang` takes each round,
-    before it allocates again."""
+    """Raise the ``chamber_size`` for its ``overhang`` by ``increment`` (Sec. 35 (8)
+    LWG LSA: twice the Mehrsitze, ``Increment(factor=2)``). The step a
+    :class:`RaiseByOverhang` takes each round, before it allocates again."""
 
-    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (compensation.raised,)
-
-    factor: int = Field(
-        default=1,
-        ge=1,
-        description="How many seats the chamber size grows by per seat of overhang, e.g. 2.",
+    increment: Increment = Field(
+        default_factory=Increment,
+        description="How much the chamber size grows per seat of overhang, e.g. ``Increment(factor=2)``.",
     )
 
     @property
@@ -117,11 +107,10 @@ class RaiseChamberSize(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"": (("size", "size"), ("overhang", "overhang"), ("factor", str(self.factor)))}
+        return {"increment": (("size", "size"), ("overhang", "overhang"))}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        (raised,) = self.formulas
-        size: int = raised(allocation.chamber_size or 0, dict(allocation.overhang or ()), self.factor)
+        size = self.increment.of(allocation.chamber_size or 0, dict(allocation.overhang or ()))
         return allocation.with_values(chamber_size=size)
 
 

@@ -3,13 +3,10 @@ seats it divides (e.g. Sec. 1 (1) and 35 (3), (4) LWG LSA)."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any, ClassVar
-
 from pydantic import Field, SerializeAsAny
 
+from wahlwerk.apportionment.deduction import Deduction
 from wahlwerk.apportionment.threshold import Threshold
-from wahlwerk.calc import compensation
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.model import Seats
 from wahlwerk.process.allocation.base import (
@@ -116,10 +113,12 @@ class SetSeatsToApportion(AllocationStep):
     eligible parties, whose own Wahlkreis seats are deducted later.
     """
 
-    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (compensation.remaining,)
-
     section: Slug = Field(
         description="The vote whose eligible parties the seats are divided among, e.g. ``zweitstimme``.",
+    )
+    deduction: Deduction = Field(
+        default_factory=Deduction,
+        description="How the seats won outside are taken off the chamber size.",
     )
 
     @property
@@ -132,7 +131,7 @@ class SetSeatsToApportion(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"": (("seats", "size"), ("won", "mandates of no party or of a party not eligible"))}
+        return {"deduction": (("seats", "size"), ("won", "mandates of no party or of a party not eligible"))}
 
     @property
     def writes(self) -> frozenset[str]:
@@ -151,7 +150,5 @@ class SetSeatsToApportion(AllocationStep):
                 f"{self!r}: {outside} Wahlkreis seats are won outside the allocation, "
                 f"more than the {size} seats of the chamber"
             )
-        (remaining,) = self.formulas
-        left = remaining({"chamber": size}, {"chamber": outside})
-        assert isinstance(left, dict)
-        return allocation.with_values(seats_to_apportion=int(left["chamber"]))
+        left = self.deduction.left({"chamber": size}, {"chamber": outside})
+        return allocation.with_values(seats_to_apportion=left["chamber"])

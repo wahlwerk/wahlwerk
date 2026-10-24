@@ -123,7 +123,7 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
                   level="land", quota=HareQuota()),
     RaiseByOverhang(                                                # § 35 (8), (8a); stage 4
         protocol=(                                                  # one round, only while
-            RaiseChamberSize(factor=2),                             # there is overhang
+            RaiseChamberSize(increment=Increment(factor=2)),                             # there is overhang
             ALLOCATE,                                               # the sequence above
             CAUCUS,                                                 # SetCaucusSize again
         ),

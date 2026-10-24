@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from wahlwerk.apportionment.deduction import Deduction
+from wahlwerk.apportionment.increment import Increment
 from wahlwerk.apportionment.method import ApportionmentMethod
 from wahlwerk.apportionment.quota import Quota
 from wahlwerk.apportionment.threshold import Threshold
@@ -32,7 +34,7 @@ def test_a_concept_never_sees_the_tally(module: Path) -> None:
 
 
 def test_concepts_are_not_steps() -> None:
-    for base in (ApportionmentMethod, Threshold, Quota):
+    for base in (ApportionmentMethod, Threshold, Quota, Deduction, Increment):
         assert not issubclass(base, AllocationStep)
         assert not hasattr(base, "apply")
 

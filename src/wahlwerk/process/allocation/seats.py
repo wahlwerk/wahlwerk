@@ -3,13 +3,10 @@ list once its Wahlkreis seats are deducted (e.g. Sec. 35 (5) to (7) LWG LSA)."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any, ClassVar
-
 from pydantic import Field, SerializeAsAny
 
+from wahlwerk.apportionment.deduction import Deduction
 from wahlwerk.apportionment.method import ApportionmentMethod
-from wahlwerk.calc import compensation
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import (
     Allocation,
@@ -75,11 +72,14 @@ class DeductUnitSeats(AllocationStep):
     def inputs(self) -> dict[str, str]:
         return {"entitlement": "entitlement", "mandates": "unit_mandates"}
 
-    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (compensation.remaining, compensation.overhang)
+    deduction: Deduction = Field(
+        default_factory=Deduction,
+        description="How the Wahlkreis seats are taken off the entitlement: what is left, what is beyond.",
+    )
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"": (("seats", "entitlement"), ("won", "mandates per party"))}
+        return {"deduction": (("seats", "entitlement"), ("won", "mandates per party"))}
 
     @property
     def writes(self) -> frozenset[str]:
@@ -92,10 +92,8 @@ class DeductUnitSeats(AllocationStep):
         wins = allocation.unit_wins()
         entitled = dict(entitlement.seats)
         won = {party: wins.get(party, 0) for party in entitled}
-        remaining, overhang_of = self.formulas
-        rest = remaining(entitled, won) if entitled else {}
-        over = overhang_of(entitled, won) if entitled else {}
-        assert isinstance(rest, dict) and isinstance(over, dict)
+        rest = self.deduction.left(entitled, won)
+        over = self.deduction.excess(entitled, won)
         list_seats = tuple((party, rest[party]) for party in entitled)
-        overhang = tuple((party, over[party]) for party in entitled if over[party] > 0)
+        overhang = tuple((party, over[party]) for party in entitled if party in over)
         return allocation.with_values(list_seats=list_seats, overhang=overhang)

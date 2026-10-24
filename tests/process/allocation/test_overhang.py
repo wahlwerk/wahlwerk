@@ -4,6 +4,7 @@ Ausgleich of Sec. 58 (6) LKWG M-V."""
 
 from fractions import Fraction
 
+from wahlwerk.apportionment.increment import Increment
 from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.apportionment.quota import HareQuota
 from wahlwerk.apportionment.remainder import HareNiemeyer
@@ -75,7 +76,7 @@ def run(protocol, winners, zweit):
 
 ZWEIT = {"afd": 500, "cdu": 300, "linke": 170, "fdp": 30}
 TALLY_EMPTY = Tally(rows=(), levels=LEVELS)
-LOOP = RaiseByOverhang(protocol=(RaiseChamberSize(factor=2), *ALLOCATE, CAUCUS), full_rounds=2)
+LOOP = RaiseByOverhang(protocol=(RaiseChamberSize(increment=Increment(factor=2)), *ALLOCATE, CAUCUS), full_rounds=2)
 
 
 def test_balanced_within_the_full_rounds():
@@ -100,7 +101,7 @@ SMALL = {"afd": 540, "cdu": 400, "linke": 60}
 
 
 def test_without_a_caucus_size_overhang_left_after_the_full_rounds_are_kept():
-    loop = RaiseByOverhang(protocol=(RaiseChamberSize(factor=2), *ALLOCATE), full_rounds=2)
+    loop = RaiseByOverhang(protocol=(RaiseChamberSize(increment=Increment(factor=2)), *ALLOCATE), full_rounds=2)
     result = run(law(10, loop, is_measured=False), MANY, SMALL)
     kept = sum(n for _, n in result.overhang)
     assert kept > 0
@@ -144,7 +145,7 @@ def test_no_overhang_no_round():
 
 
 def test_raise_chamber_size_by_twice_the_overhang():
-    step = RaiseChamberSize(factor=2)
+    step = RaiseChamberSize(increment=Increment(factor=2))
     allocation = Allocation(tally=TALLY_EMPTY).with_values(chamber_size=83, overhang=(("cdu", 6),))
     assert step(allocation).chamber_size == 95
 

@@ -142,7 +142,9 @@ def test_a_step_leads_down_to_its_formula():
     threshold = flow.describe(P)[2].children[1].uses[0]
     assert threshold.parameters == (("share", "1/20"),)
     deduct = flow.describe(P)[3].children[2]
-    assert [c.formula for c in deduct.calls] == [
+    (deduction,) = deduct.uses  # the step holds a concept, which calls the functions
+    assert deduction.kind == "Deduction"
+    assert [c.formula for c in deduction.calls] == [
         "wahlwerk.calc.compensation.remaining",
         "wahlwerk.calc.compensation.overhang",
     ]
@@ -174,8 +176,7 @@ def test_a_concept_shows_what_the_step_hands_it():
     caucus = flow.describe(P)[4]  # a step of its own, before the loop and in each round
     (quota,) = caucus.uses
     assert quota.kind == "HareQuota" and dict(quota.arguments)["seats"] == "seats"
-    assert [c.formula for c in quota.calls] == ["wahlwerk.calc.quota.hare"]
-    assert [c.formula for c in caucus.calls] == ["wahlwerk.calc.quota.whole_seats"]
+    assert [c.formula for c in quota.calls] == ["wahlwerk.calc.quota.hare", "wahlwerk.calc.quota.whole_seats"]
 
 
 def test_a_step_reads_like_a_function():
@@ -188,3 +189,19 @@ def test_a_step_reads_like_a_function():
     assert count.inputs == (("tally", "tally"),)
     assert count.parameters == (("section", "erststimme"), ("level", "wahlkreis"), ("by", "option"))  # its own, always stated
     assert "SingleMandatePerUnit(votes=erststimme by wahlkreis × option) method=Plurality" in flow.protocol_table(P)
+
+
+def test_only_a_concept_calls_a_formula():
+    # A step holds concepts and hands them numbers; it never calls wahlwerk.calc itself.
+    from wahlwerk.law.edit import steps
+    from wahlwerk.law.registry import LAWS
+    from wahlwerk.process.allocation.base import AllocationStep
+
+    for law in LAWS.laws:
+        for _, step in steps(law.protocol):
+            assert not hasattr(type(step), "formulas"), type(step).__name__
+            assert "" not in step.passes, type(step).__name__
+            for field in step.passes:  # what it hands, it hands to a concept it holds
+                assert not isinstance(getattr(step, field), AllocationStep)
+    raise_ = flow.describe(P)[5].children[0]
+    assert [(u.kind, u.parameters) for u in raise_.uses] == [("Increment", (("factor", "2"),))]

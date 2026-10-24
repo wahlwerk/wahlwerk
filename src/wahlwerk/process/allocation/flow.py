@@ -183,8 +183,6 @@ class StepNode(Model):
     holds: str | None = Field(default=None, description="The field holding its own steps, e.g. ``steps`` or ``protocol``.")
     condition: str | None = Field(default=None, description="For a loop, when another round runs, in words.")
     uses: tuple[Use, ...] = Field(default_factory=tuple, description="The core concepts it computes with, outermost first.")
-    calls: tuple[Call, ...] = Field(default_factory=tuple, description="The functions in ``wahlwerk.calc`` it computes with itself.")
-    arguments: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="What it hands those functions, in words, e.g. ``(\"seats\", \"chamber_size\")``.")
     children: tuple[StepNode, ...] = Field(default_factory=tuple, description="The steps it holds, described the same way.")
 
 
@@ -222,8 +220,6 @@ def describe(
                 holds=holds,
                 condition=getattr(step, "condition", None),
                 uses=uses(step),
-                calls=calls_of(step),
-                arguments=step.passes.get("", ()),
                 children=children,
             )
         )
@@ -308,8 +304,6 @@ def protocol_table(protocol: AllocationProtocol) -> str:
         )
         if node.condition:
             rows.append(("", "  " * (depth + 1) + f"? {node.condition}", "", "", ""))
-        for call in node.calls:
-            rows.append(("", "  " * (depth + 1) + f"= {call.formula.removeprefix('wahlwerk.')}", "", "", ""))
         for use in node.uses:
             indent = "  " * (depth + 1 + use.field.count("."))
             needs = ", ".join(f"{k}={v}" for k, v in (*use.arguments, *use.parameters))

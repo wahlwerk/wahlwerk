@@ -30,8 +30,7 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from collections.abc import Callable
-from typing import Any, ClassVar, Literal
+from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
@@ -319,17 +318,16 @@ class Allocation(Model):
 class AllocationStep(Model):
     """One rule of an electoral law: an allocation in, an allocation out.
 
-    A step is a function of the facts it reads: :attr:`inputs` names each argument and
+    A step never computes with a formula of its own: every function of
+    ``wahlwerk.calc`` it needs is called by a core concept it holds (a method, a
+    threshold, a quota, a :class:`~wahlwerk.apportionment.deduction.Deduction`), which
+    the step hands plain numbers. A step is a function of the facts it reads: :attr:`inputs` names each argument and
     the fact it takes (``votes`` takes ``erststimme by wahlkreis × option``), its fields are
     its settings, and :attr:`writes` are its results. Subclasses implement :meth:`_apply`
     and declare :attr:`inputs` (or, for a step holding others, :attr:`reads` directly)
     and :attr:`writes` (and :attr:`optional_reads`, facts used when present). Callable,
     so ``step(allocation)`` is ``step.apply(allocation)``.
     """
-
-    formulas: ClassVar[tuple[Callable[..., Any], ...]] = ()
-    """The functions in ``wahlwerk.calc`` the step computes with itself, called through
-    this attribute; formulas of the models it holds (a method, a threshold) are theirs."""
 
     citation: str | None = Field(
         default=None,
@@ -364,8 +362,8 @@ class AllocationStep(Model):
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
         """What the step hands each core concept it holds, by field: the arguments the
         concept is called with, in words and in terms of the step's own arguments, e.g.
-        ``{"method": (("seats", "1"),)}``; under
-        ``""``, what it hands the functions it calls itself. Shown by
+        ``{"method": (("seats", "1"),)}``. A step calls no function of
+        ``wahlwerk.calc`` itself: only the concepts it holds do. Shown by
         :func:`wahlwerk.process.allocation.flow.describe` above the functions; the
         concept's own settings come from the concept."""
         return {}

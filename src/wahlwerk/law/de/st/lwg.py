@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
+from wahlwerk.apportionment.increment import Increment
 from wahlwerk.apportionment.majority import MajorityFirst
 from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.apportionment.quota import HareQuota
@@ -117,7 +118,7 @@ LWG_2021 = Law(
         ALLOCATE,
         CAUCUS,
         RaiseByOverhang(  # only while ALLOCATE left overhang to balance
-            protocol=(RaiseChamberSize(factor=2, citation="Sec. 35 (8)"), ALLOCATE, CAUCUS),
+            protocol=(RaiseChamberSize(increment=Increment(factor=2), citation="Sec. 35 (8)"), ALLOCATE, CAUCUS),
             full_rounds=2,
             citation="Sec. 35 (8), (8a)",
         ),
