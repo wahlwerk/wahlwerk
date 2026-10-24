@@ -205,3 +205,11 @@ def test_step_declares_what_it_reads_and_writes():
     assert {"chamber_size", "unit_winners", "eligible", "total:land"} <= step.reads
     assert "overhang" not in step.reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes
+
+
+def test_rounds_show_how_the_size_was_reached():
+    before = run(law(10, LOOP)[:-2], ["linke"] * 3, ZWEIT)  # up to the loop
+    rounds = LOOP.rounds(before)
+    assert [r.chamber_size for r in rounds] == [10, 12, 14]
+    assert [sum(n for _, n in r.overhang) for r in rounds] == [1, 1, 0]
+    assert rounds[-1] == LOOP(before)

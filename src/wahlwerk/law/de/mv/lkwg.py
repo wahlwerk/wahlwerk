@@ -41,7 +41,7 @@ __all__ = ["ALLOCATE", "COUNT", "LKWG_2011", "QUALIFY"]
 _FIVE_PERCENT = Fraction(5, 100)
 
 COUNT = StepSequence(
-    title="count the votes",
+    name="CountVotes",
     citation="Sec. 57, 58 (2) S. 1",
     steps=(
         SumVotes(level="wahlkreis", citation="Sec. 57"),
@@ -51,7 +51,7 @@ COUNT = StepSequence(
 """The counting: the votes summed per Wahlkreis and for the Land. Reads only the tally."""
 
 QUALIFY = StepSequence(
-    title="decide the Wahlkreise and who takes part",
+    name="ElectAndQualify",
     citation="Sec. 57, 58 (1)",
     steps=(
         ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 57"),
@@ -67,7 +67,7 @@ QUALIFY = StepSequence(
 and the parties past the threshold. Reads only the sums."""
 
 ALLOCATE = StepSequence(
-    title="allocate the seats of one chamber size",
+    name="AllocateSeats",
     citation="Sec. 58 (2) S. 3 to (5)",
     steps=(
         SetSeatTotal(citation="Sec. 58 (2) S. 3"),

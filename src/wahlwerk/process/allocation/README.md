@@ -94,11 +94,11 @@ Sketched as a protocol:
 ```python
 LWG_LSA_2021: AllocationProtocol = (                                # in stage order
     SetChamberSize(seats=83),                                       # § 1 (1): size and minimum
-    StepSequence(title="count the votes", steps=(                   # stage 0
+    StepSequence(name="CountVotes", steps=(                         # stage 0
         SumVotes(level="wahlkreis"),                                # §§ 31, 32
         SumVotes(level="land"),                                     # § 35 (2)
     )),
-    StepSequence(title="decide the Wahlkreise and who takes part", steps=(   # stage 1
+    StepSequence(name="ElectAndQualify", steps=(                    # stage 1
         ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),  # § 33
         ApplyThreshold(threshold=RelativeThreshold(share="5/100"),  # § 35 (3)
                        section="zweitstimme", level="land"),
@@ -106,7 +106,7 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
     RaiseByOverhang(                                             # § 35 (8), (8a); stage 2
         protocol=(
             StepSequence(                                           # § 35 (4) to (7)
-                title="allocate the seats of one chamber size",
+                name="AllocateSeats",
                 steps=(
                     SetSeatTotal(),                                 # § 35 (4)
                     ApportionSeats(                                 # § 35 (5), (6)

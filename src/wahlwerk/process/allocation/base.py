@@ -275,9 +275,10 @@ class AllocationStep(Model):
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
         """What the step hands each core concept it holds, by field: the arguments the
-        concept is called with, in words, e.g. ``{"method": (("seats", "1"),)}``. Shown
-        by :func:`wahlwerk.process.allocation.flow.describe` above the concept's
-        functions; the concept's own settings come from the concept."""
+        concept is called with, in words, e.g. ``{"method": (("seats", "1"),)}``; under
+        ``""``, what it hands the functions it calls itself. Shown by
+        :func:`wahlwerk.process.allocation.flow.describe` above the functions; the
+        concept's own settings come from the concept."""
         return {}
 
     @abstractmethod

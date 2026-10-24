@@ -72,7 +72,8 @@ class SetCaucusSize(AllocationStep):
             "quota": (
                 ("votes", f"{self.section} of the eligible parties and the fictitious one"),
                 ("seats", "seat_total"),
-            )
+            ),
+            "": (("votes", "the fictitious party's"), ("quota", "the quota")),
         }
 
     def _apply(self, allocation: Allocation) -> Allocation:
@@ -128,18 +129,25 @@ class RaiseByOverhang(AllocationStep):
     def writes(self) -> frozenset[str]:
         return written_by(self.protocol) | {"chamber_size"}
 
-    def _apply(self, allocation: Allocation) -> Allocation:
-        allocation = _run(self.protocol, allocation)
-        rounds = 0
-        while excess := sum(n for _, n in allocation.overhang or ()):
-            if rounds >= self.full_rounds:
-                limit = allocation.caucus_size  # measured by the block, if it has the step
+    def rounds(self, allocation: Allocation) -> tuple[Allocation, ...]:
+        """Each run of the block, in order: the first at the chamber size given, then one
+        per raise. The last is the result; the ones before show how it was reached (what a
+        drawing of the rule needs). ``allocation`` must hold what the step reads."""
+        missing = self.reads - allocation.facts
+        if missing:
+            raise ValueError(f"{type(self).__name__} reads {sorted(missing)}, which are not established")
+        done = [_run(self.protocol, allocation)]
+        while excess := sum(n for _, n in done[-1].overhang or ()):
+            if len(done) - 1 >= self.full_rounds:
+                limit = done[-1].caucus_size  # measured by the block, if it has the step
                 if limit is None or 2 * excess <= limit:
                     break
-            size = (allocation.chamber_size or 0) + self.factor * excess
-            allocation = _run(self.protocol, allocation.with_values(chamber_size=size))
-            rounds += 1
-        return allocation
+            size = (done[-1].chamber_size or 0) + self.factor * excess
+            done.append(_run(self.protocol, done[-1].with_values(chamber_size=size)))
+        return tuple(done)
+
+    def _apply(self, allocation: Allocation) -> Allocation:
+        return self.rounds(allocation)[-1]
 
 
 class RaiseUntilBalanced(AllocationStep):
@@ -187,21 +195,29 @@ class RaiseUntilBalanced(AllocationStep):
     def writes(self) -> frozenset[str]:
         return written_by(self.protocol) | {"chamber_size"}
 
-    def _apply(self, allocation: Allocation) -> Allocation:
-        allocation = _run(self.protocol, allocation)
-        first = _overhang(allocation)
+    def rounds(self, allocation: Allocation) -> tuple[Allocation, ...]:
+        """Each run of the block that is kept, in order: the first at the chamber size
+        given, then one per raised size (and the odd seat). The last is the result."""
+        missing = self.reads - allocation.facts
+        if missing:
+            raise ValueError(f"{type(self).__name__} reads {sorted(missing)}, which are not established")
+        done = [_run(self.protocol, allocation)]
+        first = _overhang(done[0])
         if not first:
-            return allocation
-        base = (allocation.chamber_size or 0) + first
+            return tuple(done)
+        base = (done[0].chamber_size or 0) + first
         cap = None if self.limit is None else self.limit * first
-        while _overhang(allocation):
-            raised = self._allocate(allocation, (allocation.chamber_size or 0) + 1)
+        while _overhang(done[-1]):
+            raised = self._allocate(done[-1], (done[-1].chamber_size or 0) + 1)
             if cap is not None and _chamber_size(raised) - base > cap:
                 break
-            allocation = raised
-        if self.has_odd_size and _chamber_size(allocation) % 2 == 0:
-            allocation = self._allocate(allocation, (allocation.chamber_size or 0) + 1)
-        return allocation
+            done.append(raised)
+        if self.has_odd_size and _chamber_size(done[-1]) % 2 == 0:
+            done.append(self._allocate(done[-1], (done[-1].chamber_size or 0) + 1))
+        return tuple(done)
+
+    def _apply(self, allocation: Allocation) -> Allocation:
+        return self.rounds(allocation)[-1]
 
     def _allocate(self, allocation: Allocation, size: int) -> Allocation:
         return _run(self.protocol, allocation.with_values(chamber_size=size))

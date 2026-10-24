@@ -3,9 +3,13 @@ seats it divides (e.g. Sec. 1 (1) and 35 (3), (4) LWG LSA)."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any, ClassVar
+
 from pydantic import Field, SerializeAsAny
 
 from wahlwerk.apportionment.threshold import Threshold
+from wahlwerk.calc import compensation
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.model import Seats
 from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
@@ -97,9 +101,15 @@ class SetSeatTotal(AllocationStep):
     eligible parties, whose own Wahlkreis seats are deducted later.
     """
 
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (compensation.remaining,)
+
     @property
     def reads(self) -> frozenset[str]:
         return frozenset({"chamber_size", "unit_winners", "eligible"})
+
+    @property
+    def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        return {"": (("seats", "chamber_size"), ("won", "units won by Einzelbewerber and parties not eligible"))}
 
     @property
     def writes(self) -> frozenset[str]:
@@ -118,4 +128,7 @@ class SetSeatTotal(AllocationStep):
                 f"{self!r}: {outside} Wahlkreis seats are won outside the allocation, "
                 f"more than the {size} seats of the chamber"
             )
-        return allocation.with_values(seat_total=size - outside)
+        (remaining,) = self.formulas
+        left = remaining({"chamber": size}, {"chamber": outside})
+        assert isinstance(left, dict)
+        return allocation.with_values(seat_total=int(left["chamber"]))

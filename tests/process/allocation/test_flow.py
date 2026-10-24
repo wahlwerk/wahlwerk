@@ -74,9 +74,9 @@ def test_a_sequence_is_one_step():
 
 def test_a_sequence_needs_its_steps_and_a_title():
     with pytest.raises(ValueError):
-        StepSequence(title="nothing", steps=())
+        StepSequence(name="DoNothing", steps=())
     with pytest.raises(ValueError):
-        StepSequence(title="", steps=(SumVotes(level="land"),))
+        StepSequence(name="count the votes", steps=(SumVotes(level="land"),))  # named like a step
 
 
 def test_a_sequence_in_the_wrong_place_is_refused():
@@ -87,9 +87,8 @@ def test_a_sequence_in_the_wrong_place_is_refused():
 def test_describe_and_the_table():
     nodes = flow.describe(P)
     assert [n.kind for n in nodes] == [
-        "SetChamberSize", "StepSequence", "StepSequence", "RaiseByOverhang", "FormChamber",
+        "SetChamberSize", "CountVotes", "ElectAndQualify", "RaiseByOverhang", "FormChamber",
     ]
-    assert [n.title for n in nodes[1:3]] == ["count the votes", "decide the Wahlkreise and who takes part"]
     assert [c.kind for c in nodes[1].children] == ["SumVotes", "SumVotes"]
     assert [c.kind for c in nodes[2].children] == ["ElectPerUnit", "ApplyThreshold"]
     loop = nodes[3]
@@ -97,15 +96,15 @@ def test_describe_and_the_table():
     assert loop.depends_on == (0, 1, 2)
     sequence, caucus = loop.children
     assert caucus.kind == "SetCaucusSize" and caucus.writes == ("caucus_size",)
-    assert sequence.title == "allocate the seats of one chamber size"
+    assert sequence.kind == "AllocateSeats"
     assert [c.path for c in sequence.children] == [(3, "protocol", 0, "steps", i) for i in range(3)]
     assert nodes[0].parameters == (("seats", "83"),)  # defaults left out
     table = flow.protocol_table(P)
-    assert "Sec. 35 (8), (8a)" in table and '"allocate the seats of one chamber size"' in table
+    assert "Sec. 35 (8), (8a)" in table and "AllocateSeats" in table
     assert repr(LWG_2021).startswith("Law de.st.lwg.2021:")
     assert "<table" in LWG_2021._repr_html_()
     data = flow.protocol_data(P)
-    assert data[3]["children"][0]["kind"] == "StepSequence"
+    assert data[3]["children"][0]["kind"] == "AllocateSeats"
 
 
 def test_citations_are_data_and_survive_an_edit():
@@ -118,7 +117,7 @@ def test_citations_are_data_and_survive_an_edit():
 def test_fancy_html_draws_the_protocol():
     card = LWG_2021.fancy_html()
     assert "RaiseByOverhang (repeats)" in card
-    assert "allocate the seats of one chamber size" in card
+    assert "AllocateSeats" in card
     assert "Sec. 35 (8), (8a)" in card
 
 

@@ -3,7 +3,7 @@
 A law often says one thing in several steps that feed each other: Sec. 35 (4) to (7)
 LWG LSA take the seats of one chamber size, apportion them and deduct the Wahlkreis
 seats, and Sec. 35 (8) repeats exactly those. A :class:`StepSequence` names such a row
-and is itself a step: it reads what its steps need from outside it, writes what they
+and is itself a step, named like one (``AllocateSeats``, a verb and what it acts on): it reads what its steps need from outside it, writes what they
 write, and applies them in order. So a law can hold it, a loop can repeat it, an edit
 can reach into it (``(5, "steps", 1)``), and a drawing can show it as one box.
 """
@@ -25,9 +25,12 @@ __all__ = ["StepSequence"]
 class StepSequence(AllocationStep):
     """Several steps as one: applied in order, reading only what they need from outside."""
 
-    title: str = Field(
-        min_length=1,
-        description="What the steps do together, e.g. ``allocate the seats of one chamber size``.",
+    name: str = Field(
+        pattern=r"^[A-Z][a-z]+(?:[A-Z][a-z]*)*$",
+        description=(
+            "Its name, as a kind of step is named: a verb and what it acts on, in "
+            "CamelCase, e.g. ``AllocateSeats``."
+        ),
     )
     steps: tuple[SerializeAsAny[AllocationStep], ...] = Field(
         min_length=1,

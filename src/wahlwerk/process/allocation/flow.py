@@ -168,7 +168,7 @@ class StepNode(Model):
     writes, its stage, and the steps it holds."""
 
     path: tuple[int | str, ...] = Field(description="Where it sits, as for :mod:`wahlwerk.law.edit`, e.g. ``(5, \"protocol\", 0)``.")
-    kind: str = Field(description="The step's class, e.g. ``ApportionSeats``.")
+    kind: str = Field(description="The step's class, e.g. ``ApportionSeats``, or a sequence's name, e.g. ``AllocateSeats``.")
     title: str = Field(description="What it does, in a few words: a sequence's title, else the first sentence of its class.")
     parameters: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="Its settings, each as (field, short value), e.g. ``(\"seats\", \"83\")``.")
     citation: str | None = Field(default=None, description="The provision it follows, if recorded.")
@@ -180,6 +180,7 @@ class StepNode(Model):
     holds: str | None = Field(default=None, description="The field holding its own steps, e.g. ``steps`` or ``protocol``.")
     uses: tuple[Use, ...] = Field(default_factory=tuple, description="The core concepts it computes with, outermost first.")
     calls: tuple[Call, ...] = Field(default_factory=tuple, description="The functions in ``wahlwerk.calc`` it computes with itself.")
+    arguments: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="What it hands those functions, in words, e.g. ``(\"seats\", \"chamber_size\")``.")
     children: tuple[StepNode, ...] = Field(default_factory=tuple, description="The steps it holds, described the same way.")
 
 
@@ -203,7 +204,7 @@ def describe(
         nodes.append(
             StepNode(
                 path=path,
-                kind=type(step).__name__,
+                kind=_kind(step),
                 title=_title(step),
                 parameters=_parameters(step),
                 citation=step.citation,
@@ -215,6 +216,7 @@ def describe(
                 holds=holds,
                 uses=uses(step),
                 calls=calls_of(step),
+                arguments=step.passes.get("", ()),
                 children=children,
             )
         )
@@ -284,8 +286,6 @@ def protocol_table(protocol: AllocationProtocol) -> str:
     rows = [("", "step", "follows", "reads", "writes")]
     for node, depth in _walk(describe(protocol)):
         label = "  " * depth + node.kind
-        if node.kind == "StepSequence":
-            label += f' "{node.title}"'
         if node.parameters:
             label += " " + ", ".join(f"{k}={v}" for k, v in node.parameters)
         rows.append(
@@ -326,7 +326,7 @@ def protocol_html(protocol: AllocationProtocol, caption: str = "") -> str:
         + "</tr></thead><tbody>"
     )
     for node, depth in _walk(describe(protocol)):
-        name = escape(node.kind) + (f" <i>{escape(node.title)}</i>" if node.kind == "StepSequence" else "")
+        name = escape(node.kind)
         settings = ", ".join(f"{k}={v}" for k, v in node.parameters)
         cells = (
             ".".join(str(p) for p in node.path if isinstance(p, int)),
@@ -389,10 +389,13 @@ def _short(value: Any) -> str:
     return str(value)
 
 
+def _kind(step: AllocationStep) -> str:
+    """A step's kind: its class, or a sequence's own name, since a sequence is a step."""
+    name = getattr(step, "name", None)
+    return name if isinstance(name, str) else type(step).__name__
+
+
 def _title(step: AllocationStep) -> str:
-    title = getattr(step, "title", None)
-    if isinstance(title, str):
-        return title
     doc = inspect.getdoc(type(step)) or type(step).__name__
     first = " ".join(doc.split("\n\n")[0].split())
     first = re.sub(r":[a-z]+:`~?([^`]+)`", lambda m: m.group(1).split(".")[-1], first)
