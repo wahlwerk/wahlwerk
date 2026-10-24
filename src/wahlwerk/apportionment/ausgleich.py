@@ -6,7 +6,7 @@ Laws answer it in different ways: keep the Überhang and grow the house by it, o
 the house until the apportionment covers every key's seats (Ausgleich, :class:`Ausgleich`),
 or a mixture, as Sec. 35 (8) LWG LSA does. The pieces here are law-free; a law's steps
 combine them. Modelled on votelib's ``AllowOverhang`` and ``LevelOverhang``
-(github.com/simberaj/votelib). The formulas are :mod:`wahlwerk_calc.compensation`.
+(github.com/simberaj/votelib). The formulas are :mod:`wahlwerk.calc.compensation`.
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from wahlwerk.apportionment.method import (
     _exact_weights,
 )
 from wahlwerk.apportionment.result import Apportionment
+from wahlwerk.calc import compensation as calc
 from wahlwerk.model import Model, Seats
-from wahlwerk_calc import compensation as calc
 
 __all__ = ["Ausgleich", "overhang"]
 

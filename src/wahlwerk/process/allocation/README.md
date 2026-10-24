@@ -246,7 +246,7 @@ Stimmkreise inside Wahlkreise still nest by prefix.
    `law/de/st/lwg.py`; the 2021 and 2026 elections were held under the same Sec. 1 and
    35 (compared word by word; only an editorial change, "im Lande" to "im Land"). Its law-free
    parts exist: `MajorityFirst` (§ 35 (6)), `RelativeThreshold` (§ 35 (3)), `overhang`
-   and `Ausgleich`, all in `wahlwerk.apportionment` (computing since through `wahlwerk_calc`), and the measures, all
+   and `Ausgleich`, all in `wahlwerk.apportionment` (computing since through `wahlwerk.calc`), and the measures, all
    after votelib (github.com/simberaj/votelib, MIT), the one outside reference used.
 7. Later: the § 32 S. 2 input, nominations, Ersatzpersonen and Nachrücken (§ 35 (9),
    § 40), the recount of § 39.

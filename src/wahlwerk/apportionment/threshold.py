@@ -6,7 +6,7 @@ won, e.g. in Wahlkreise), and they compose: :class:`AlternativeThresholds` passe
 that any of its thresholds passes, which is how "5 % or three Wahlkreis seats" is
 written, and :class:`Exempt` passes named keys regardless, as a party of a national
 minority is exempt. Modelled on the seatless selectors of votelib
-(github.com/simberaj/votelib); comparisons are exact, in :mod:`wahlwerk_calc.threshold`.
+(github.com/simberaj/votelib); comparisons are exact, in :mod:`wahlwerk.calc.threshold`.
 """
 
 from __future__ import annotations
@@ -19,8 +19,8 @@ from typing import Any
 from pydantic import Field, SerializeAsAny, field_validator
 
 from wahlwerk.apportionment.method import _exact_weights
+from wahlwerk.calc import threshold as calc
 from wahlwerk.model import Count, Model, Share
-from wahlwerk_calc import threshold as calc
 
 __all__ = [
     "AbsoluteThreshold",
@@ -160,6 +160,6 @@ class AlternativeThresholds(Threshold):
 
 
 def _passed(mask: object) -> frozenset[str]:
-    """The keys a ``wahlwerk_calc`` threshold passed."""
+    """The keys a ``wahlwerk.calc`` threshold passed."""
     assert isinstance(mask, dict)
     return frozenset(key for key, passed in mask.items() if passed)

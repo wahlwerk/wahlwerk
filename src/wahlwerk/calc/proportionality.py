@@ -34,8 +34,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from wahlwerk_calc._input import Number, PerKey, Values, div, prepare_pair
-from wahlwerk_calc.share import share_array
+from wahlwerk.calc._input import Number, PerKey, Values, div, prepare_pair
+from wahlwerk.calc.share import share_array
 
 __all__ = [
     "advantage_ratio",

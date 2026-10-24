@@ -1,4 +1,4 @@
-r"""wahlwerk-calc: the formulas of electoral systems, each written once.
+r"""wahlwerk.calc: the formulas of electoral systems, each written once.
 
 Plain numbers or numpy arrays in, plain numbers or arrays out (:mod:`._input` has the
 rules): a mapping ``{"spd": 312, "cdu": 278}`` gives a mapping back, an array gives an
@@ -18,7 +18,7 @@ higher:
 5. ``coalition``, ``power``: majorities and power in a chamber
 6. ``notation``: the symbols all of them use; ``types``: the types they take and return
 
->>> import wahlwerk_calc as wc
+>>> import wahlwerk.calc as wc
 >>> wc.divisor.sainte_lague({"a": 4160, "b": 3380, "c": 2200}, 10).seats
 {'a': 4, 'b': 4, 'c': 2}
 >>> wc.fragmentation.effective_number([40, 35, 15, 10])
@@ -27,7 +27,7 @@ Fraction(200, 63)
 
 from __future__ import annotations
 
-from wahlwerk_calc import (
+from wahlwerk.calc import (
     coalition,
     compensation,
     divisor,

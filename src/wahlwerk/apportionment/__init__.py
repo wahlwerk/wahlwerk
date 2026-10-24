@@ -35,7 +35,7 @@ Modules, one per family or piece:
 
 The package exposes these modules, never their names, so the family stays visible:
 ``wahlwerk.apportionment.divisor.SainteLague``. Everything here depends only on the
-foundation and on ``wahlwerk_calc``, where the arithmetic is: these models name a
+foundation and on ``wahlwerk.calc``, where the arithmetic is: these models name a
 formula and its parameters (so a law can store, print and compare them) and check their
 input; the formula computes. Where an idea or a reference result comes from outside, it
 is votelib (github.com/simberaj/votelib).

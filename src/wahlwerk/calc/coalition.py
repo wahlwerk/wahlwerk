@@ -22,8 +22,8 @@ from typing import Any
 
 import numpy as np
 
-from wahlwerk_calc._input import Number, Values, prepare, to_number
-from wahlwerk_calc.majority import majority_of
+from wahlwerk.calc._input import Number, Values, prepare, to_number
+from wahlwerk.calc.majority import majority_of
 
 __all__ = ["is_winning", "minimal_winning", "minimum_winning", "surplus", "weight", "winning"]
 

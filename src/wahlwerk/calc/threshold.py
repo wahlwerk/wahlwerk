@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from wahlwerk_calc._input import Number, PerKey, Values, div, prepare, to_number
+from wahlwerk.calc._input import Number, PerKey, Values, div, prepare, to_number
 
 __all__ = ["count_threshold", "effective_threshold", "seat_threshold", "share_threshold"]
 

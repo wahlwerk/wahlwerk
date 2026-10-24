@@ -344,7 +344,7 @@ class Chamber(Model):
         by: Literal["caucus", "party"] | None = None,
         **kwargs: Any,
     ) -> Any:
-        """A formula of ``wahlwerk_calc`` on this chamber's seats, in one line:
+        """A formula of ``wahlwerk.calc`` on this chamber's seats, in one line:
         ``formula(self.seats_by(by), *args, **kwargs)``.
 
         ``chamber.apply(ww.calc.power.banzhaf)``, ``chamber.apply(ww.calc.coalition.minimal_winning)``,

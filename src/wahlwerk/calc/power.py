@@ -28,8 +28,8 @@ from typing import Any
 
 import numpy as np
 
-from wahlwerk_calc._input import Number, PerKey, Values, prepare, to_number
-from wahlwerk_calc.majority import majority_of
+from wahlwerk.calc._input import Number, PerKey, Values, prepare, to_number
+from wahlwerk.calc.majority import majority_of
 
 __all__ = ["banzhaf", "penrose", "shapley_shubik", "swings"]
 

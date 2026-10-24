@@ -1,8 +1,8 @@
 """Divisor methods (highest averages): each key's weight is divided by a sequence of
 divisors, and the seats go to the largest quotients.
 
-The formula is :func:`wahlwerk_calc.divisor.highest_averages`; a method here names its
-signposts (:class:`wahlwerk_calc.divisor.Signposts`), the rounding that tells the
+The formula is :func:`wahlwerk.calc.divisor.highest_averages`; a method here names its
+signposts (:class:`wahlwerk.calc.divisor.Signposts`), the rounding that tells the
 methods apart.
 """
 
@@ -16,8 +16,8 @@ from typing import Any
 from pydantic import Field, field_validator
 
 from wahlwerk.apportionment.method import ApportionmentMethod
-from wahlwerk_calc import divisor as calc
-from wahlwerk_calc.result import SeatResult
+from wahlwerk.calc import divisor as calc
+from wahlwerk.calc.result import SeatResult
 
 __all__ = ["DHondt", "DivisorMethod", "LinearDivisor", "SainteLague"]
 
@@ -29,7 +29,7 @@ class DivisorMethod(ApportionmentMethod):
     @property
     @abstractmethod
     def signposts(self) -> calc.Signposts:
-        """The method's rounding, as ``wahlwerk_calc`` names it."""
+        """The method's rounding, as ``wahlwerk.calc`` names it."""
 
     def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
         return calc.highest_averages(weights, seats, self.signposts)

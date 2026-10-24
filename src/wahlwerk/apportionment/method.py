@@ -1,6 +1,6 @@
 """The interface every apportionment method shares, and the checks its families run.
 
-The arithmetic is not here: every method calls its formula in ``wahlwerk_calc``
+The arithmetic is not here: every method calls its formula in ``wahlwerk.calc``
 (:meth:`ApportionmentMethod.calculate`), which the engine only checks and wraps. So a
 step in a law and a formula called by hand give the same seats by construction.
 """
@@ -12,8 +12,8 @@ from collections.abc import Mapping
 from fractions import Fraction
 
 from wahlwerk.apportionment.result import Apportionment
+from wahlwerk.calc.result import SeatResult
 from wahlwerk.model import Model
-from wahlwerk_calc.result import SeatResult
 
 __all__ = ["ApportionmentMethod"]
 
@@ -39,7 +39,7 @@ class ApportionmentMethod(Model):
 
     @abstractmethod
     def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
-        """The seats by this method's formula in ``wahlwerk_calc``, unchecked: the
+        """The seats by this method's formula in ``wahlwerk.calc``, unchecked: the
         plain-number face of the method, which :class:`~wahlwerk.apportionment.ausgleich.Ausgleich`
         also uses."""
 

@@ -3,7 +3,7 @@ from fractions import Fraction
 
 import pytest
 
-from wahlwerk_calc import coalition, power
+from wahlwerk.calc import coalition, power
 
 from reference import shapley_shubik, swings
 

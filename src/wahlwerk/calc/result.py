@@ -5,7 +5,7 @@ seats are exactly equal, it decides what it can and reports the rest: which keys
 tied and how many seats they share, one each. That is a result, not an error; a law
 that cannot go on without the lot raises on it, a person exploring a formula reads it.
 
->>> from wahlwerk_calc import divisor
+>>> from wahlwerk.calc import divisor
 >>> divisor.d_hondt({"a": 2, "b": 2, "c": 1}, 1)
 SeatResult({'a': 0, 'b': 0, 'c': 0}, tied=['a', 'b'], open=1)
 """

@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from pydantic import Field, SerializeAsAny
 
+from wahlwerk.calc import quota
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.model import Model, Share
 from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
-from wahlwerk_calc import quota
 
 __all__ = ["FraktionSize", "RaiseForAusgleich", "RepeatForMehrsitze"]
 

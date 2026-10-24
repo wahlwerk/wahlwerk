@@ -18,14 +18,14 @@ from typing import Any
 
 import numpy as np
 
-from wahlwerk_calc._input import PerKey, Values, prepare_pair
-from wahlwerk_calc.divisor import sainte_lague
-from wahlwerk_calc.result import SeatResult
+from wahlwerk.calc._input import PerKey, Values, prepare_pair
+from wahlwerk.calc.divisor import sainte_lague
+from wahlwerk.calc.result import SeatResult
 
 __all__ = ["SeatRule", "overhang", "remaining", "smallest_house"]
 
 SeatRule = Callable[[Any, int], SeatResult]
-"""A seat formula of votes and seats, e.g. :func:`wahlwerk_calc.divisor.sainte_lague`."""
+"""A seat formula of votes and seats, e.g. :func:`wahlwerk.calc.divisor.sainte_lague`."""
 
 
 def overhang(seats: Values, minimum: Values) -> PerKey:

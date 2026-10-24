@@ -50,9 +50,9 @@ from typing import Any, Literal
 
 import numpy as np
 
-from wahlwerk_calc._input import Number, Values, div, prepare, to_number
-from wahlwerk_calc._select import largest
-from wahlwerk_calc.result import SeatResult
+from wahlwerk.calc._input import Number, Values, div, prepare, to_number
+from wahlwerk.calc._select import largest
+from wahlwerk.calc.result import SeatResult
 
 __all__ = [
     "ADAMS",

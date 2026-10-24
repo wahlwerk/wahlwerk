@@ -27,7 +27,7 @@ def test_nothing_is_flattened():
 
 
 def test_calc_is_the_formula_package():
-    import wahlwerk_calc
+    from wahlwerk import calc
 
-    assert ww.calc is wahlwerk_calc
+    assert ww.calc is calc
     assert ww.calc.divisor.sainte_lague({"a": 3, "b": 1}, 4).seats == {"a": 3, "b": 1}

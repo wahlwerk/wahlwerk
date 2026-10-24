@@ -6,6 +6,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from wahlwerk.apportionment.tie import Tie
+from wahlwerk.calc import plurality as calc
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import (
     Allocation,
@@ -14,7 +15,6 @@ from wahlwerk.process.allocation.base import (
     total_fact,
 )
 from wahlwerk.vote.popular.tally import TallyKind
-from wahlwerk_calc import plurality as calc
 
 __all__ = ["ElectDistricts"]
 
@@ -58,7 +58,7 @@ class ElectDistricts(AllocationStep):
 
 
 def _elect(unit: str, nominees: dict[tuple[str | None, str | None], int]) -> DistrictResult:
-    """The winner of one unit by :func:`wahlwerk_calc.plurality.plurality`."""
+    """The winner of one unit by :func:`wahlwerk.calc.plurality.plurality`."""
     names = list(nominees)
     counts = [nominees[name] for name in names]
     most = max(counts)

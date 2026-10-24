@@ -1,16 +1,16 @@
-# Formulas (wahlwerk-calc)
+# Formulas (wahlwerk.calc)
 
-`wahlwerk_calc` holds every formula of the engine, each written once: seat formulas,
+`wahlwerk.calc` holds every formula of the engine, each written once: seat formulas,
 quotas, thresholds, majorities, Überhang and Ausgleich, measures of a result, coalitions
-and power. It is its own distribution, `wahlwerk-calc`, depending on numpy alone and on
-nothing of wahlwerk; the engine computes with it, and `ww.calc` is the same package.
+and power. It is a subpackage of the engine that imports numpy and nothing else of
+wahlwerk; the rest of the engine computes with it (`ww.calc`).
 
 **Inputs and outputs are plain.** A mapping of key to number gives a mapping back, an
 array gives an array, a 2-D array (or a mapping of key to a sequence) is several
 scenarios at once:
 
 ```python
-import wahlwerk_calc as wc
+import wahlwerk.calc as wc
 
 wc.divisor.sainte_lague({"a": 4160, "b": 3380, "c": 2200}, 10).seats   # {'a': 4, 'b': 4, 'c': 2}
 wc.fragmentation.effective_number([0.40, 0.35, 0.15, 0.10])            # 3.17...
@@ -21,13 +21,13 @@ chamber.apply(wc.coalition.minimal_winning)                            # on a Ch
 **Exact in, exact out.** `int`, `Fraction`, decimal strings (`"32.5"`) and integer arrays
 are computed exactly (a seat formula ranks in floating point and checks the last seat
 exactly); floats in floating point. **Ties are results**: a seat formula returns a
-{class}`~wahlwerk_calc.result.SeatResult` naming the tied keys and the open seats; the
+{class}`~wahlwerk.calc.result.SeatResult` naming the tied keys and the open seats; the
 engine's law steps stop on it until the lot is applied.
 
 ## Notation
 
 Every formula on this page and on the website uses these symbols, from
-{mod}`wahlwerk_calc.notation`.
+{mod}`wahlwerk.calc.notation`.
 
 ```{include} ../_notation.md
 ```
@@ -35,43 +35,43 @@ Every formula on this page and on the website uses these symbols, from
 ## Layer 1: shares, quotas, the seat result
 
 ```{eval-rst}
-.. automodule:: wahlwerk_calc.share
-.. automodule:: wahlwerk_calc.quota
-.. automodule:: wahlwerk_calc.result
+.. automodule:: wahlwerk.calc.share
+.. automodule:: wahlwerk.calc.quota
+.. automodule:: wahlwerk.calc.result
 ```
 
 ## Layer 2: seat formulas
 
 ```{eval-rst}
-.. automodule:: wahlwerk_calc.divisor
-.. automodule:: wahlwerk_calc.remainder
-.. automodule:: wahlwerk_calc.plurality
+.. automodule:: wahlwerk.calc.divisor
+.. automodule:: wahlwerk.calc.remainder
+.. automodule:: wahlwerk.calc.plurality
 ```
 
 ## Layer 3: clauses around them
 
 ```{eval-rst}
-.. automodule:: wahlwerk_calc.majority
-.. automodule:: wahlwerk_calc.threshold
-.. automodule:: wahlwerk_calc.compensation
+.. automodule:: wahlwerk.calc.majority
+.. automodule:: wahlwerk.calc.threshold
+.. automodule:: wahlwerk.calc.compensation
 ```
 
 ## Layer 4: measures of a result
 
 ```{eval-rst}
-.. automodule:: wahlwerk_calc.proportionality
-.. automodule:: wahlwerk_calc.fragmentation
+.. automodule:: wahlwerk.calc.proportionality
+.. automodule:: wahlwerk.calc.fragmentation
 ```
 
 ## Layer 5: coalitions and power
 
 ```{eval-rst}
-.. automodule:: wahlwerk_calc.coalition
-.. automodule:: wahlwerk_calc.power
+.. automodule:: wahlwerk.calc.coalition
+.. automodule:: wahlwerk.calc.power
 ```
 
 ## Notation as data
 
 ```{eval-rst}
-.. automodule:: wahlwerk_calc.notation
+.. automodule:: wahlwerk.calc.notation
 ```

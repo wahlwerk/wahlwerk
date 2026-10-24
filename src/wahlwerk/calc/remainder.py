@@ -22,15 +22,15 @@ from typing import Any
 
 import numpy as np
 
-from wahlwerk_calc import quota as quotas
-from wahlwerk_calc._input import Number, Values, div, prepare
-from wahlwerk_calc._select import largest
-from wahlwerk_calc.result import SeatResult
+from wahlwerk.calc import quota as quotas
+from wahlwerk.calc._input import Number, Values, div, prepare
+from wahlwerk.calc._select import largest
+from wahlwerk.calc.result import SeatResult
 
 __all__ = ["QuotaRule", "hare_niemeyer", "largest_remainder"]
 
 QuotaRule = Callable[[Number, int], Number]
-"""A quota as a function of the total votes and the seats, e.g. :func:`wahlwerk_calc.quota.hare`."""
+"""A quota as a function of the total votes and the seats, e.g. :func:`wahlwerk.calc.quota.hare`."""
 
 
 def largest_remainder(

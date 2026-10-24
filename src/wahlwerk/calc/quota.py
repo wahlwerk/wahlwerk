@@ -10,7 +10,7 @@ Imperiali                 :math:`V / (S + 2)`
 ========================  ==========================================
 
 Each is a plain function of two numbers, ``quota(V, S)``, exact for exact input; the
-largest remainder methods (:mod:`wahlwerk_calc.remainder`) take any of them.
+largest remainder methods (:mod:`wahlwerk.calc.remainder`) take any of them.
 
 >>> hare(100, 8), droop(100, 8)
 (Fraction(25, 2), 12)
@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import math
 
-from wahlwerk_calc._input import Number, div, to_number
+from wahlwerk.calc._input import Number, div, to_number
 
 __all__ = ["droop", "hagenbach_bischoff", "hare", "imperiali", "whole_seats"]
 

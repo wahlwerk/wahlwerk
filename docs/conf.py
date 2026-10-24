@@ -18,7 +18,6 @@ from importlib.metadata import version as _version
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "calc" / "src"))
 
 project = "wahlwerk"
 author = "Julius Sommer"
@@ -30,7 +29,7 @@ extensions = [
     "sphinx.ext.autodoc",  # docstrings
     "sphinx.ext.viewcode",  # [source] links next to every object
     "sphinx.ext.intersphinx",  # links into the Python and pydantic docs
-    "sphinx.ext.mathjax",  # the formulas of wahlwerk_calc, from their docstrings
+    "sphinx.ext.mathjax",  # the formulas of wahlwerk.calc, from their docstrings
     "sphinxcontrib.autodoc_pydantic",  # fields, defaults, descriptions, validators
     "sphinxcontrib.bibtex",  # references from the Zotero export
 ]
@@ -109,9 +108,9 @@ _write_statutes()
 
 
 def _write_notation() -> None:
-    """``docs/_notation.md``: the symbol table of ``wahlwerk_calc.notation``, the one
+    """``docs/_notation.md``: the symbol table of ``wahlwerk.calc.notation``, the one
     the site prints too, so a formula reads the same in both."""
-    from wahlwerk_calc.notation import SYMBOLS
+    from wahlwerk.calc.notation import SYMBOLS
 
     here = Path(__file__).parent
     lines = ["| Symbol | Meaning |", "| --- | --- |"]

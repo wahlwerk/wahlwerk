@@ -3,7 +3,7 @@ from fractions import Fraction
 
 import pytest
 
-from wahlwerk_calc import compensation, majority, quota, remainder, threshold
+from wahlwerk.calc import compensation, majority, quota, remainder, threshold
 
 from reference import largest_remainder_seats
 
@@ -77,7 +77,7 @@ def test_compensation():
 
 
 def test_plurality_and_whole_seats():
-    from wahlwerk_calc import plurality
+    from wahlwerk.calc import plurality
 
     assert plurality.plurality({"a": 3, "b": 5}).seats == {"a": 0, "b": 1}
     tied = plurality.plurality({"a": 5, "b": 5, "c": 1})

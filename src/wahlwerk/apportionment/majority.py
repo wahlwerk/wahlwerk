@@ -10,8 +10,8 @@ from pydantic import Field, SerializeAsAny
 
 from wahlwerk.apportionment.method import ApportionmentMethod
 from wahlwerk.apportionment.remainder import LargestRemainder
-from wahlwerk_calc import majority as calc
-from wahlwerk_calc.result import SeatResult
+from wahlwerk.calc import majority as calc
+from wahlwerk.calc.result import SeatResult
 
 __all__ = ["MajorityFirst"]
 
@@ -23,7 +23,7 @@ class MajorityFirst(ApportionmentMethod):
     This is the majority clause of Sec. 35 (6) LWG LSA: the other remainder seats then
     go by the method as usual, and the total stays the same. When the clause applies,
     the key cannot have won a remainder seat already, so the seat it takes first always
-    gives it a majority. The formula is :func:`wahlwerk_calc.majority.majority_first`.
+    gives it a majority. The formula is :func:`wahlwerk.calc.majority.majority_first`.
     """
 
     method: SerializeAsAny[LargestRemainder] = Field(

@@ -528,7 +528,7 @@ def test_real_caucus_may_not_use_the_reserved_id():
 def test_apply_a_formula_to_the_chamber():
     from fractions import Fraction
 
-    import wahlwerk_calc as wc
+    import wahlwerk.calc as wc
     from wahlwerk.law.de.bund.gobt import CAUCUS_PROTOCOL
 
     chamber = Chamber.from_seats({"cdu": 30, "csu": 10, "spd": 35, "afd": 25}, caucus_protocol=CAUCUS_PROTOCOL)

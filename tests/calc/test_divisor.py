@@ -5,8 +5,8 @@ from fractions import Fraction
 import numpy as np
 import pytest
 
-from wahlwerk_calc import divisor as d
-from wahlwerk_calc.result import SeatResult
+from wahlwerk.calc import divisor as d
+from wahlwerk.calc.result import SeatResult
 
 from reference import divisor_seats
 

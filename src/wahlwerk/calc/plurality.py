@@ -12,9 +12,9 @@ array([1, 0, 0])
 
 from __future__ import annotations
 
-from wahlwerk_calc._input import Values, prepare
-from wahlwerk_calc._select import largest
-from wahlwerk_calc.result import SeatResult
+from wahlwerk.calc._input import Values, prepare
+from wahlwerk.calc._select import largest
+from wahlwerk.calc.result import SeatResult
 
 __all__ = ["plurality"]
 

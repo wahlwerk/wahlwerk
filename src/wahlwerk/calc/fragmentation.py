@@ -25,8 +25,8 @@ from typing import Any
 
 import numpy as np
 
-from wahlwerk_calc._input import Values, div, prepare
-from wahlwerk_calc.share import share_array
+from wahlwerk.calc._input import Values, div, prepare
+from wahlwerk.calc.share import share_array
 
 __all__ = ["effective_number", "fractionalization", "golosov", "herfindahl", "largest_share"]
 

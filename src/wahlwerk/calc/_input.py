@@ -33,7 +33,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from wahlwerk_calc.types import Exact, Number, PerKey, Values
+from wahlwerk.calc.types import Exact, Number, PerKey, Values
 
 __all__ = [
     "Exact",

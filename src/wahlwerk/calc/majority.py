@@ -24,10 +24,10 @@ from typing import Any
 
 import numpy as np
 
-from wahlwerk_calc import quota as quotas
-from wahlwerk_calc._input import Number, Values, prepare, to_number
-from wahlwerk_calc.remainder import QuotaRule, largest_remainder
-from wahlwerk_calc.result import SeatResult
+from wahlwerk.calc import quota as quotas
+from wahlwerk.calc._input import Number, Values, prepare, to_number
+from wahlwerk.calc.remainder import QuotaRule, largest_remainder
+from wahlwerk.calc.result import SeatResult
 
 __all__ = ["is_majority", "majority_first", "majority_of", "qualified_majority"]
 

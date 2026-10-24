@@ -7,8 +7,8 @@ from collections.abc import Iterable
 from pydantic import Field, model_validator
 
 from wahlwerk.apportionment.tie import Tie
+from wahlwerk.calc.result import SeatResult
 from wahlwerk.model import Model, Seats
-from wahlwerk_calc.result import SeatResult
 
 __all__ = ["Apportionment"]
 
@@ -43,7 +43,7 @@ class Apportionment(Model):
 
     @classmethod
     def from_seat_result(cls, result: SeatResult) -> Apportionment:
-        """The apportionment a ``wahlwerk_calc`` formula gave, for keyed input of one
+        """The apportionment a ``wahlwerk.calc`` formula gave, for keyed input of one
         scenario: its decided seats, and its tie as a :class:`Tie`."""
         seats = result.as_dict()
         tie = None

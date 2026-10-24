@@ -1,8 +1,8 @@
 """Largest remainder methods (quota methods): each key gets the whole part of its weight
 over a quota, and the seats left go to the largest remainders.
 
-The formula is :func:`wahlwerk_calc.remainder.largest_remainder`; a method here names
-its quota from :mod:`wahlwerk_calc.quota`.
+The formula is :func:`wahlwerk.calc.remainder.largest_remainder`; a method here names
+its quota from :mod:`wahlwerk.calc.quota`.
 """
 
 from __future__ import annotations
@@ -12,10 +12,10 @@ from collections.abc import Mapping
 from fractions import Fraction
 
 from wahlwerk.apportionment.method import ApportionmentMethod
-from wahlwerk_calc import quota as quotas
-from wahlwerk_calc import remainder as calc
-from wahlwerk_calc.result import SeatResult
-from wahlwerk_calc.types import Number
+from wahlwerk.calc import quota as quotas
+from wahlwerk.calc import remainder as calc
+from wahlwerk.calc.result import SeatResult
+from wahlwerk.calc.types import Number
 
 __all__ = ["HareNiemeyer", "LargestRemainder"]
 

@@ -39,8 +39,8 @@ gets there by composition, not by classification.
   read it. The methods of dividing seats (`apportionment`) depend only on the foundation
   and know no law.
 - **Every formula once, below everything.** The arithmetic itself (divisors, quotas,
-  thresholds, majorities, measures, power) is `wahlwerk-calc` (`wahlwerk_calc`, in
-  `calc/`), its own distribution: numpy only, nothing of wahlwerk, plain numbers or arrays
+  thresholds, majorities, measures, power) is `wahlwerk.calc` (`wahlwerk.calc`, in
+  `src/wahlwerk/calc/`), a subpackage that imports numpy and nothing else of wahlwerk, plain numbers or arrays
   in and out. The engine computes only through it, so a law's step and a formula called by
   hand give the same seats; `ww.calc` is the same package.
 - **Relations, not labels.** What separates one system of government from another is
@@ -361,9 +361,9 @@ Built one small step at a time; each step leaves the package importable.
   list seats; and the Landtag Mecklenburg-Vorpommern 2011, 2016 (71 each) and 2021 (79,
   with Überhang and Ausgleich), equal to the official Mandate der Parteien Wahlkreis by
   Wahlkreis; fixtures and sources in `tests/golden/`
-- Measures of disproportionality, exact, after votelib (now in `wahlwerk_calc.proportionality`)
-- **wahlwerk-calc** (decision 0006): every formula as a plain function in its own
-  distribution, `calc/` (numpy only, nothing of wahlwerk), in layers: shares, quotas, the
+- Measures of disproportionality, exact, after votelib (now in `wahlwerk.calc.proportionality`)
+- **wahlwerk.calc** (decision 0006): every formula as a plain function in its own
+  subpackage, `wahlwerk.calc` (numpy only, nothing else of wahlwerk), in layers: shares, quotas, the
   seat result; divisor methods (D'Hondt, Sainte-Laguë, Adams, Danish, Imperiali, modified
   Sainte-Laguë, Dean, Huntington-Hill, `divisor_range`, `seats_at`), largest remainder,
   plurality; majorities, thresholds, Überhang and Ausgleich; proportionality and
@@ -405,7 +405,7 @@ Then, toward laws built by hand (decision 0004 in `.github-private`):
 - The engine in the browser (Pyodide) on wahlwerk-site, a law editor there; a
   standalone app or a server for parameter sweeps only if it is needed
 
-Then, the rest of wahlwerk-calc (decision 0006 in `.github-private`; F0, F1, most of F2
+Then, the rest of wahlwerk.calc (decision 0006 in `.github-private`; F0, F1, most of F2
 to F5 are done, see above):
 
 - F2, the rest: turnout, wasted votes, change (Pedersen volatility, uniform and

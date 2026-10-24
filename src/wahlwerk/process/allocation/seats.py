@@ -6,9 +6,9 @@ from __future__ import annotations
 from pydantic import Field, SerializeAsAny
 
 from wahlwerk.apportionment.method import ApportionmentMethod
+from wahlwerk.calc import compensation
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
-from wahlwerk_calc import compensation
 
 __all__ = ["ApportionSeats", "DeductDistrictSeats"]
 

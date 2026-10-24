@@ -4,9 +4,9 @@ from fractions import Fraction
 import numpy as np
 import pytest
 
-from wahlwerk_calc import divisor
-from wahlwerk_calc import fragmentation as f
-from wahlwerk_calc import proportionality as p
+from wahlwerk.calc import divisor
+from wahlwerk.calc import fragmentation as f
+from wahlwerk.calc import proportionality as p
 
 # Reference values from the test suite of votelib (github.com/simberaj/votelib, MIT).
 PERFECT = {
@@ -80,3 +80,24 @@ def test_fragmentation():
     assert f.largest_share([3, 1]) == Fraction(3, 4)
     assert f.effective_number(np.array([[1, 1], [1, 0]])).tolist() == [2, 1]
     assert f.effective_number([0.5, 0.5]) == 2.0
+
+
+def test_shares_and_counts_both_ways():
+    from wahlwerk.calc import share
+
+    assert share.shares({"a": 3, "b": 1}, per=100) == {"a": 75, "b": 25}
+    assert share.shares([0.3, 0.1]).tolist() == pytest.approx([0.75, 0.25])  # floats stay floats
+    # exact from floats: as decimals, never binary noise
+    assert share.counts({"a": 32.5, "b": 67.5}, 1000, per=100) == {"a": 325, "b": 675}
+    assert share.counts([0.1, 0.7], 10).tolist() == [1, 7]
+    assert share.counts(np.array([0.1, 0.2]), 3).tolist() == [Fraction(3, 10), Fraction(3, 5)]
+    assert share.counts(["32.5", "67.5"], "1000", per="100").tolist() == [325, 675]
+    # several scenarios, one total each
+    assert share.counts([[0.5, 0.5], [0.25, 0.75]], [10, 8]).tolist() == [[5, 5], [2, 6]]
+    # and back again
+    votes = {"a": 1234, "b": 4321, "c": 999}
+    assert share.counts(share.shares(votes), sum(votes.values())) == votes
+    with pytest.raises(ValueError, match="share above"):
+        share.counts([1.5], 10)
+    with pytest.raises(ValueError, match="negative"):
+        share.counts([0.5], -1)
