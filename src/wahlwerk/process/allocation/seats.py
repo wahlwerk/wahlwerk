@@ -22,7 +22,7 @@ __all__ = ["ApportionSeats", "DeductUnitSeats"]
 
 
 class ApportionSeats(AllocationStep):
-    """Apportion ``seat_total`` among the eligible options of ``section`` by ``method``, on their
+    """Apportion ``seat_total`` among the eligible parties of ``section`` by ``method``, on their
     valid votes in ``section`` summed at ``level``: their ``entitlement``.
 
     A tie in the apportionment stays in the entitlement; the lot is applied before the

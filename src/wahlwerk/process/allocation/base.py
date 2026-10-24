@@ -15,8 +15,8 @@ Facts are named by strings: ``tally`` (the input); a table of counts is named by
 what it counts and by what: ``<section> by <level> × <by>`` (the valid votes of one
 section per unit and per option or party, e.g. ``erststimme by wahlkreis × option``, a
 :class:`Counts` made by :class:`~wahlwerk.process.allocation.count.SumGroupBy`);
-``<section>:eligible_options`` (the options past the threshold of one vote, e.g.
-``zweitstimme:eligible_options``); and one per optional field of :class:`Allocation`,
+``eligible parties of <section>`` (the parties past the threshold of one vote, e.g.
+``eligible parties of zweitstimme``); and one per optional field of :class:`Allocation`,
 named like it: ``unit_mandates``, ``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
 ``overhang``, ``chamber``.
 
@@ -89,9 +89,9 @@ def counts_fact(section: str, level: str, by: str = "option") -> str:
 
 
 def eligible_fact(section: str) -> str:
-    """The name of the fact holding the options past the threshold of ``section``:
-    ``<section>:eligible_options``, e.g. ``zweitstimme:eligible_options``."""
-    return f"{section}:eligible_options"
+    """The name of the fact holding the parties past the threshold of ``section``:
+    ``eligible parties of <section>``, e.g. ``eligible parties of zweitstimme``."""
+    return f"eligible parties of {section}"
 
 
 class Counts(Model):
@@ -208,11 +208,11 @@ class Allocation(Model):
         default=None,
         description="The result of each single-seat unit; ``None`` until decided.",
     )
-    eligible_options: tuple[tuple[Slug, frozenset[OptionId]], ...] = Field(
+    eligible_parties: tuple[tuple[Slug, frozenset[PartyId]], ...] = Field(
         default_factory=tuple,
         description=(
-            "Per section, the options past its threshold, taking part in the proportional "
-            "allocation, e.g. the parties of the Zweitstimme; in the order established."
+            "Per section, the parties past its threshold, taking part in the proportional "
+            "allocation (the fact ``eligible parties of <section>``); in the order established."
         ),
     )
     chamber_size: Seats | None = Field(
@@ -262,9 +262,9 @@ class Allocation(Model):
         tables = [table.fact for table in self.counts]
         if len(set(tables)) != len(tables):
             raise ValueError(f"allocation holds a table more than once: {tables}")
-        sections = [section for section, _ in self.eligible_options]
+        sections = [section for section, _ in self.eligible_parties]
         if len(set(sections)) != len(sections):
-            raise ValueError(f"allocation has eligible options of a section more than once: {sections}")
+            raise ValueError(f"allocation has eligible parties of a section more than once: {sections}")
         return self
 
     @property
@@ -272,7 +272,7 @@ class Allocation(Model):
         """The names of the facts established so far."""
         facts = set(INPUT_FACTS)
         facts.update(table.fact for table in self.counts)
-        facts.update(eligible_fact(section) for section, _ in self.eligible_options)
+        facts.update(eligible_fact(section) for section, _ in self.eligible_parties)
         facts.update(name for name in OPTIONAL_FACTS if getattr(self, name) is not None)
         return frozenset(facts)
 
@@ -300,14 +300,14 @@ class Allocation(Model):
         raise KeyError(f"allocation has no table {fact!r}; made: {[t.fact for t in self.counts]}")
 
     def eligible(self, section: str) -> frozenset[str]:
-        """The options past the threshold of ``section``; raises ``KeyError`` naming the
+        """The parties past the threshold of ``section``; raises ``KeyError`` naming the
         section if no threshold was applied to it."""
-        for name, options in self.eligible_options:
+        for name, options in self.eligible_parties:
             if name == section:
                 return options
         raise KeyError(
-            f"allocation has no eligible options of section {section!r}; "
-            f"applied: {[n for n, _ in self.eligible_options]}"
+            f"allocation has no eligible parties of section {section!r}; "
+            f"applied: {[n for n, _ in self.eligible_parties]}"
         )
 
     def with_values(self, **changes: Any) -> Allocation:

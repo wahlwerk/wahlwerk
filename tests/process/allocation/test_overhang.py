@@ -124,16 +124,16 @@ def test_caucus_size_counts_a_fictitious_five_percent_party():
         for p, n in {"a": 450, "b": 450, "c": 100}.items()
     )
     allocation = SumGroupBy(section="zweitstimme", level="land", by="party")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
-    allocation = allocation.with_values(eligible_options=(("zweitstimme", frozenset({"a", "b"})),), seat_total=20)
+    allocation = allocation.with_values(eligible_parties=(("zweitstimme", frozenset({"a", "b"})),), seat_total=20)
     assert CAUCUS(allocation).caucus_size == 1
     assert CAUCUS(allocation.with_values(seat_total=97)).caucus_size == 5  # 97 * 50 / 950 = 5.1
-    assert CAUCUS.reads == {"zweitstimme by land × party", "zweitstimme:eligible_options", "seat_total"}
+    assert CAUCUS.reads == {"zweitstimme by land × party", "eligible parties of zweitstimme", "seat_total"}
     assert CAUCUS.writes == {"caucus_size"}
 
 
 def test_loop_declares_what_it_reads_and_writes():
     # It checks the overhang the allocation before it left, before any round.
-    assert {"chamber_size", "unit_mandates", "zweitstimme:eligible_options", "zweitstimme by land × party", "overhang"} <= LOOP.reads
+    assert {"chamber_size", "unit_mandates", "eligible parties of zweitstimme", "zweitstimme by land × party", "overhang"} <= LOOP.reads
     assert "caucus_size" in LOOP.optional_reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= LOOP.writes
 
@@ -218,7 +218,7 @@ def test_no_ueberhang_leaves_the_chamber_size_even_if_odd_is_required():
 
 def test_step_declares_what_it_reads_and_writes():
     step = raise_for_ausgleich(limit=2, has_odd_size=True)
-    assert {"chamber_size", "unit_mandates", "zweitstimme:eligible_options", "zweitstimme by land × party"} <= step.reads
+    assert {"chamber_size", "unit_mandates", "eligible parties of zweitstimme", "zweitstimme by land × party"} <= step.reads
     assert "overhang" not in step.reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes
 

@@ -370,7 +370,7 @@ def _parameters(step: AllocationStep) -> tuple[tuple[str, str], ...]:
     """The settings that differ from their defaults, the ones a reader needs. A
     ``section`` or ``level`` is left out when an argument's fact names it already
     (``votes=erststimme by wahlkreis × option`` says both)."""
-    named = {part for fact in step.inputs.values() for part in re.split(r" by | × |:", fact)}
+    named = {part for fact in step.inputs.values() for part in re.split(r" by | × | of |:", fact)}
     return tuple(
         (name, _short(getattr(step, name)))
         for name in _set_fields(step)

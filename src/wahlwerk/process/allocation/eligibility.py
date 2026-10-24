@@ -24,8 +24,8 @@ __all__ = ["ApplyThresholdToOptions", "SetChamberSize", "SetSeatTotal"]
 
 class ApplyThresholdToOptions(AllocationStep):
     """Apply ``threshold`` to the options, here the parties: those that pass it on their valid
-    votes in ``section``, summed at ``level``, become the eligible options of that
-    section, the fact ``<section>:eligible_options`` (``zweitstimme:eligible_options``).
+    votes in ``section``, summed at ``level``, become the eligible parties of that
+    section, the fact ``eligible parties of <section>`` (``eligible parties of zweitstimme``).
     A law with thresholds on two votes keeps two such facts.
 
     The share is of all valid votes in the section, of every party. A threshold that
@@ -64,9 +64,9 @@ class ApplyThresholdToOptions(AllocationStep):
     def _apply(self, allocation: Allocation) -> Allocation:
         votes = allocation.count(self.section, self.level, "party").per_column()
         won = allocation.unit_wins() if self.threshold.uses_won else None
-        others = tuple((s, o) for s, o in allocation.eligible_options if s != self.section)
+        others = tuple((s, o) for s, o in allocation.eligible_parties if s != self.section)
         passed = self.threshold.select(votes, won)
-        return allocation.with_values(eligible_options=(*others, (self.section, passed)))
+        return allocation.with_values(eligible_parties=(*others, (self.section, passed)))
 
 
 class SetChamberSize(AllocationStep):
@@ -104,7 +104,7 @@ class SetChamberSize(AllocationStep):
 class SetSeatTotal(AllocationStep):
     """The seats the proportional allocation divides: the ``chamber_size`` less the Wahlkreis
     seats of winners who take no part in it, i.e. Einzelbewerber and parties that are
-    not eligible options of ``section``.
+    not eligible parties of ``section``.
 
     Their seats are theirs regardless; the rest of the chamber size is divided among the
     eligible parties, whose own Wahlkreis seats are deducted later.
@@ -113,7 +113,7 @@ class SetSeatTotal(AllocationStep):
     formulas: ClassVar[tuple[Callable[..., Any], ...]] = (compensation.remaining,)
 
     section: Slug = Field(
-        description="The vote whose eligible options the seats are divided among, e.g. ``zweitstimme``.",
+        description="The vote whose eligible parties the seats are divided among, e.g. ``zweitstimme``.",
     )
 
     @property

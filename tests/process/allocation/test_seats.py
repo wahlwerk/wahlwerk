@@ -222,12 +222,12 @@ def test_each_section_keeps_its_own_eligible_options():
     allocation = by_party[1](by_party[0](start))
     on_lists = ApplyThresholdToOptions(threshold=FIVE_PERCENT, section="zweitstimme", level="land")
     on_units = ApplyThresholdToOptions(threshold=FIVE_PERCENT, section="erststimme", level="land")
-    assert on_lists.writes == {"zweitstimme:eligible_options"}
+    assert on_lists.writes == {"eligible parties of zweitstimme"}
     both = on_units(on_lists(allocation))
     assert both.eligible("zweitstimme") == {"afd", "cdu", "linke"}
     # Counted by party, the Einzelbewerber's Erststimmen count for no party.
     assert "afd" in both.eligible("erststimme") and "de.st.wk.002.eb" not in both.eligible("erststimme")
-    assert {"zweitstimme:eligible_options", "erststimme:eligible_options"} <= both.facts
+    assert {"eligible parties of zweitstimme", "eligible parties of erststimme"} <= both.facts
     assert on_lists(both).eligible("erststimme") == both.eligible("erststimme")  # replaced, not stacked
-    with pytest.raises(KeyError, match="no eligible options of section 'stimme'"):
+    with pytest.raises(KeyError, match="no eligible parties of section 'stimme'"):
         both.eligible("stimme")
