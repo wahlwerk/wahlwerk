@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field
 from wahlwerk.model import Model
 from wahlwerk.process.allocation.base import (
     INPUT_FACTS,
+    OPTIONAL_FACTS,
     AllocationProtocol,
     AllocationStep,
 )
@@ -215,7 +216,7 @@ def describe(
                 citation=step.citation,
                 reads=tuple(sorted(step.reads)),
                 optional_reads=tuple(sorted(step.optional_reads)),
-                writes=tuple(sorted(step.writes)),
+                writes=_in_order(step.writes),
                 stage=stage[position],
                 depends_on=tuple(sorted({w for w in read_from[position].values() if w is not None})),
                 holds=holds,
@@ -371,6 +372,13 @@ _HIDDEN = {"citation", "name", "steps", "protocol"}  # shown otherwise, or held 
 _NAMEABLE = ("section", "level", "to", "by")
 """Settings an argument's fact can name: ``erststimme by wahlkreis × option`` names a
 section, a level and what is counted by."""
+
+
+def _in_order(facts: frozenset[str]) -> tuple[str, ...]:
+    """``facts`` in the order the allocation lists them (``unit_mandates`` before
+    ``independent_mandates``), the rest after, by name."""
+    rank = {fact: i for i, fact in enumerate(OPTIONAL_FACTS)}
+    return tuple(sorted(facts, key=lambda fact: (rank.get(fact, len(rank)), fact)))
 
 
 def _named_by_inputs(step: AllocationStep) -> set[str]:
