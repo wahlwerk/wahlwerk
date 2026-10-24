@@ -61,7 +61,7 @@ INPUT_FACTS = frozenset({"tally"})
 
 OPTIONAL_FACTS = (
     "unit_mandates",
-    "caucus_size",
+    "minimum_caucus_size",
     "chamber_size",
     "minimum_mandates",
     "seat_total",
@@ -181,7 +181,7 @@ class Allocation(Model):
         default=None,
         description="The seats each eligible party fills from its list, after its Wahlkreis seats.",
     )
-    caucus_size: Seats | None = Field(
+    minimum_caucus_size: Seats | None = Field(
         default=None,
         description="The seats a party needs for a caucus, as a law measures it (Sec. 35 (8a) LWG LSA).",
     )

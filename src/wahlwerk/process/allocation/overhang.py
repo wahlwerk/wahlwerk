@@ -2,7 +2,7 @@
 entitlement, and allocating again. Two ways a law does it: by a multiple of the overhang
 for a few rounds (:class:`RaiseByOverhang`; the Mehrsitze of Sec. 35 (8), (8a) LWG LSA),
 or a seat at a time until it is balanced (:class:`RaiseUntilBalanced`; the Überhang- and
-Ausgleichsmandate of Sec. 58 (6) LKWG M-V). :class:`SetCaucusSize` is a step for the
+Ausgleichsmandate of Sec. 58 (6) LKWG M-V). :class:`SetMinimumCaucusSize` is a step for the
 block the first repeats: it measures the yardstick for whether another round is due."""
 
 from __future__ import annotations
@@ -27,11 +27,11 @@ from wahlwerk.process.allocation.base import (
     written_by,
 )
 
-__all__ = ["RaiseByOverhang", "RaiseChamberSize", "RaiseUntilBalanced", "SetCaucusSize"]
+__all__ = ["RaiseByOverhang", "RaiseChamberSize", "RaiseUntilBalanced", "SetMinimumCaucusSize"]
 
 
-class SetCaucusSize(AllocationStep):
-    """Set ``caucus_size``: the seats a party needs for a caucus (a Fraktion), measured as
+class SetMinimumCaucusSize(AllocationStep):
+    """Set ``minimum_caucus_size``: the seats a party needs for a caucus (a Fraktion), measured as
     the seats a fictitious party would at least win with ``share`` of all valid votes in
     ``section``, at this stage of the allocation (Sec. 35 (8a) LWG LSA). Put in the block
     a :class:`RaiseByOverhang` repeats, it is measured again each round, and the loop
@@ -66,7 +66,7 @@ class SetCaucusSize(AllocationStep):
 
     @property
     def writes(self) -> frozenset[str]:
-        return frozenset({"caucus_size"})
+        return frozenset({"minimum_caucus_size"})
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
@@ -84,10 +84,10 @@ class SetCaucusSize(AllocationStep):
         fictitious = self.share * sum(votes.values())
         counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
         if not counted or not allocation.seat_total:
-            return allocation.with_values(caucus_size=0)
+            return allocation.with_values(minimum_caucus_size=0)
         (whole_seats,) = self.formulas
         seats: int = whole_seats(fictitious, self.quota.of(counted, allocation.seat_total))
-        return allocation.with_values(caucus_size=seats)
+        return allocation.with_values(minimum_caucus_size=seats)
 
 
 class RaiseChamberSize(AllocationStep):
@@ -128,8 +128,8 @@ class RaiseByOverhang(AllocationStep):
     does nothing, and the chamber is filled from the lists.
 
     The condition, as in Sec. 35 (8) LWG LSA: in the first ``full_rounds`` rounds, any
-    overhang is balanced; after that only overhang exceeding half the ``caucus_size``
-    the last round measured (a :class:`SetCaucusSize` step); overhang left then is kept
+    overhang is balanced; after that only overhang exceeding half the ``minimum_caucus_size``
+    the last round measured (a :class:`SetMinimumCaucusSize` step); overhang left then is kept
     unbalanced (the chamber has that many seats more). Every seat won in a unit is kept
     throughout.
     """
@@ -149,7 +149,7 @@ class RaiseByOverhang(AllocationStep):
         """When another round runs, in words."""
         return (
             f"while overhang > 0; after {self.full_rounds} rounds, "
-            "while 2 × overhang > caucus_size"
+            "while 2 × overhang > minimum_caucus_size"
         )
 
     @property
@@ -158,7 +158,7 @@ class RaiseByOverhang(AllocationStep):
 
     @property
     def optional_reads(self) -> frozenset[str]:
-        return outside_reads(self.protocol, optional=True) | {"caucus_size"}
+        return outside_reads(self.protocol, optional=True) | {"minimum_caucus_size"}
 
     @property
     def writes(self) -> frozenset[str]:
@@ -170,7 +170,7 @@ class RaiseByOverhang(AllocationStep):
             return False
         if done < self.full_rounds:
             return True
-        limit = allocation.caucus_size  # measured by the last round, if the law does
+        limit = allocation.minimum_caucus_size  # measured by the last round, if the law does
         return limit is not None and 2 * excess > limit
 
     def rounds(self, allocation: Allocation) -> tuple[Allocation, ...]:

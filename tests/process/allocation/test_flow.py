@@ -89,17 +89,17 @@ def test_a_sequence_in_the_wrong_place_is_refused():
 def test_describe_and_the_table():
     nodes = flow.describe(P)
     assert [n.kind for n in nodes] == [
-        "SetChamberSize", "CountVotes", "ElectAndQualify", "AllocateSeats", "SetCaucusSize",
+        "SetChamberSize", "CountVotes", "ElectAndQualify", "AllocateSeats", "SetMinimumCaucusSize",
         "RaiseByOverhang", "FillVacantSeatsFromLists",
     ]
     assert [c.kind for c in nodes[1].children] == ["SumVotes", "SumVotes"]
     assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThresholdToOptions"]
     loop = nodes[5]
     assert loop.citation == "Sec. 35 (8), (8a)"
-    assert loop.condition == "while overhang > 0; after 2 rounds, while 2 × overhang > caucus_size"
+    assert loop.condition == "while overhang > 0; after 2 rounds, while 2 × overhang > minimum_caucus_size"
     raise_, sequence, caucus = loop.children
     assert raise_.kind == "RaiseChamberSize" and raise_.writes == ("chamber_size",)
-    assert caucus.kind == "SetCaucusSize" and caucus.writes == ("caucus_size",)
+    assert caucus.kind == "SetMinimumCaucusSize" and caucus.writes == ("minimum_caucus_size",)
     assert sequence.kind == "AllocateSeats"
     assert [c.path for c in sequence.children] == [(5, "protocol", 1, "steps", i) for i in range(3)]
     assert nodes[0].parameters == (("seats", "83"),)  # defaults left out

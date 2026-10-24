@@ -33,7 +33,7 @@ from wahlwerk.process.allocation.eligibility import (
 from wahlwerk.process.allocation.overhang import (
     RaiseByOverhang,
     RaiseChamberSize,
-    SetCaucusSize,
+    SetMinimumCaucusSize,
 )
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
@@ -84,7 +84,7 @@ ALLOCATE = StepSequence(
 )
 """Sec. 35 (4) to (7): the seats of one chamber size, which Sec. 35 (8) repeats."""
 
-CAUCUS = SetCaucusSize(
+CAUCUS = SetMinimumCaucusSize(
     share=_FIVE_PERCENT,
     section="zweitstimme",
     level="land",
