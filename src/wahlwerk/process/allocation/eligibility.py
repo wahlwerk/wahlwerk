@@ -53,7 +53,7 @@ class ApplyThresholdTo(AllocationStep):
     def inputs(self) -> dict[str, str]:
         given = {"votes": counts_fact(self.section, self.level, self.to)}
         if self.threshold.uses_won:
-            given["won"] = "unit_mandates"
+            given["winners"] = "unit_mandates"
         return given
 
     @property
@@ -64,7 +64,7 @@ class ApplyThresholdTo(AllocationStep):
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
         given: tuple[tuple[str, str], ...] = (("votes", f"votes per {self.to}, summed over the units"),)
         if self.threshold.uses_won:
-            given += (("won", "units won per party"),)
+            given += (("won", "winners per party"),)
         return {"threshold": given}
 
     def _apply(self, allocation: Allocation) -> Allocation:
@@ -125,14 +125,14 @@ class SetSeatsToApportion(AllocationStep):
     @property
     def inputs(self) -> dict[str, str]:
         return {
-            "seats": "chamber_size",
-            "won": "unit_mandates",
+            "size": "chamber_size",
+            "winners": "unit_mandates",
             "eligible": eligible_fact(self.section),
         }
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"": (("seats", "seats"), ("won", "units won by Einzelbewerber and by parties not eligible"))}
+        return {"": (("seats", "size"), ("won", "winners of no party or of a party not eligible"))}
 
     @property
     def writes(self) -> frozenset[str]:

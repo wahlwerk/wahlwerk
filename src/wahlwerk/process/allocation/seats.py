@@ -73,13 +73,13 @@ class DeductUnitSeats(AllocationStep):
 
     @property
     def inputs(self) -> dict[str, str]:
-        return {"entitlement": "entitlement", "won": "unit_mandates"}
+        return {"entitlement": "entitlement", "winners": "unit_mandates"}
 
     formulas: ClassVar[tuple[Callable[..., Any], ...]] = (compensation.remaining, compensation.overhang)
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"": (("seats", "entitlement per party"), ("won", "units won per party"))}
+        return {"": (("seats", "entitlement"), ("won", "winners per party"))}
 
     @property
     def writes(self) -> frozenset[str]:

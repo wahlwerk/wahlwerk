@@ -117,7 +117,7 @@ class RaiseChamberSize(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"": (("size", "chamber_size"), ("overhang", "per party"), ("factor", str(self.factor)))}
+        return {"": (("size", "size"), ("overhang", "overhang"), ("factor", str(self.factor)))}
 
     def _apply(self, allocation: Allocation) -> Allocation:
         (raised,) = self.formulas
