@@ -88,10 +88,11 @@ def counts_fact(section: str, level: str, by: str = "option") -> str:
     return f"{section} by {level} × {by}"
 
 
-def eligible_fact(section: str) -> str:
-    """The name of the fact holding the parties past the threshold of ``section``:
-    ``eligible parties of <section>``, e.g. ``eligible parties of zweitstimme``."""
-    return f"eligible parties of {section}"
+def eligible_fact(section: str, to: str = "party") -> str:
+    """The name of the fact holding the parties (or options) past the threshold of
+    ``section``: ``eligible parties of <section>``, e.g. ``eligible parties of
+    zweitstimme``, or ``eligible options of <section>``."""
+    return f"eligible {'parties' if to == 'party' else 'options'} of {section}"
 
 
 class Counts(Model):
@@ -208,11 +209,12 @@ class Allocation(Model):
         default=None,
         description="The result of each single-seat unit; ``None`` until decided.",
     )
-    eligible_parties: tuple[tuple[Slug, frozenset[PartyId]], ...] = Field(
+    passed: tuple[tuple[str, frozenset[OptionId]], ...] = Field(
         default_factory=tuple,
         description=(
-            "Per section, the parties past its threshold, taking part in the proportional "
-            "allocation (the fact ``eligible parties of <section>``); in the order established."
+            "Per threshold applied, the fact it established (``eligible parties of "
+            "zweitstimme``) and the parties or options that passed, taking part in the "
+            "proportional allocation; in the order established."
         ),
     )
     chamber_size: Seats | None = Field(
@@ -262,9 +264,9 @@ class Allocation(Model):
         tables = [table.fact for table in self.counts]
         if len(set(tables)) != len(tables):
             raise ValueError(f"allocation holds a table more than once: {tables}")
-        sections = [section for section, _ in self.eligible_parties]
-        if len(set(sections)) != len(sections):
-            raise ValueError(f"allocation has eligible parties of a section more than once: {sections}")
+        established = [fact for fact, _ in self.passed]
+        if len(set(established)) != len(established):
+            raise ValueError(f"allocation holds a threshold's result more than once: {established}")
         return self
 
     @property
@@ -272,7 +274,7 @@ class Allocation(Model):
         """The names of the facts established so far."""
         facts = set(INPUT_FACTS)
         facts.update(table.fact for table in self.counts)
-        facts.update(eligible_fact(section) for section, _ in self.eligible_parties)
+        facts.update(fact for fact, _ in self.passed)
         facts.update(name for name in OPTIONAL_FACTS if getattr(self, name) is not None)
         return frozenset(facts)
 
@@ -299,16 +301,15 @@ class Allocation(Model):
                 return table
         raise KeyError(f"allocation has no table {fact!r}; made: {[t.fact for t in self.counts]}")
 
-    def eligible(self, section: str) -> frozenset[str]:
-        """The parties past the threshold of ``section``; raises ``KeyError`` naming the
-        section if no threshold was applied to it."""
-        for name, options in self.eligible_parties:
-            if name == section:
-                return options
-        raise KeyError(
-            f"allocation has no eligible parties of section {section!r}; "
-            f"applied: {[n for n, _ in self.eligible_parties]}"
-        )
+    def eligible(self, section: str, to: str = "party") -> frozenset[str]:
+        """The parties (or, with ``to="option"``, the options) past the threshold of
+        ``section``; raises ``KeyError`` naming the fact if no such threshold was
+        applied."""
+        fact = eligible_fact(section, to)
+        for name, passed in self.passed:
+            if name == fact:
+                return passed
+        raise KeyError(f"allocation has no {fact!r}; applied: {[n for n, _ in self.passed]}")
 
     def with_values(self, **changes: Any) -> Allocation:
         """This allocation with ``changes`` in place of its fields, validated."""

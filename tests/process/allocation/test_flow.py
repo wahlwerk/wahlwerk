@@ -93,7 +93,7 @@ def test_describe_and_the_table():
         "RaiseByOverhang", "FillVacantSeatsFromLists",
     ]
     assert [c.kind for c in nodes[1].children] == ["SumGroupBy", "SumGroupBy"]
-    assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThresholdToOptions"]
+    assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThresholdTo"]
     loop = nodes[5]
     assert loop.citation == "Sec. 35 (8), (8a)"
     assert loop.condition == "while overhang > 0; after 2 rounds, while 2 × overhang > caucus_size"

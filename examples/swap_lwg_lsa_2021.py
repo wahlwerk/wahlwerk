@@ -23,7 +23,7 @@ from wahlwerk.law.de.st.lwg import LWG_2021, QUALIFY
 from wahlwerk.law.edit import find, replace
 from wahlwerk.process.allocation.allocate import derive
 from wahlwerk.process.allocation.base import AllocationProtocol, check_protocol
-from wahlwerk.process.allocation.eligibility import ApplyThresholdToOptions
+from wahlwerk.process.allocation.eligibility import ApplyThresholdTo
 from wahlwerk.process.allocation.flow import can_swap
 from wahlwerk.process.allocation.overhang import RaiseByOverhang
 from wahlwerk.process.allocation.seats import ApportionSeats
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     print(row("method: Sainte-Lague", replace(P, ApportionSeats, method=SainteLague())))
     print(row("method: D'Hondt", replace(P, ApportionSeats, method=DHondt())))
     print(row("method: Hare/Niemeyer, no majority clause", replace(P, ApportionSeats, method=HareNiemeyer())))
-    print(row("threshold 3 %", replace(P, ApplyThresholdToOptions, threshold=RelativeThreshold(share=Fraction(3, 100)))))
+    print(row("threshold 3 %", replace(P, ApplyThresholdTo, threshold=RelativeThreshold(share=Fraction(3, 100)))))
     # The law allocates once before the loop, so dropping the loop leaves that allocation.
     print(row("no overhang balancing", (*P[:LOOP], *P[LOOP + 1 :])))
     # Reorders: the chamber size and the counting need nothing of each other, nor do the

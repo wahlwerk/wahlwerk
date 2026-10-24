@@ -15,22 +15,24 @@ from wahlwerk.model import Seats
 from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationStep,
+    GroupBy,
     counts_fact,
     eligible_fact,
 )
 
-__all__ = ["ApplyThresholdToOptions", "SetChamberSize", "SetSeatTotal"]
+__all__ = ["ApplyThresholdTo", "SetChamberSize", "SetSeatTotal"]
 
 
-class ApplyThresholdToOptions(AllocationStep):
-    """Apply ``threshold`` to the options, here the parties: those that pass it on their valid
-    votes in ``section``, summed at ``level``, become the eligible parties of that
-    section, the fact ``eligible parties of <section>`` (``eligible parties of zweitstimme``).
-    A law with thresholds on two votes keeps two such facts.
+class ApplyThresholdTo(AllocationStep):
+    """Apply ``threshold`` to the parties (or, ``to="option"``, the options) of a vote:
+    those that pass it on their valid votes in ``section``, summed at ``level``, become
+    the fact ``eligible parties of <section>`` (``eligible parties of zweitstimme``), or
+    ``eligible options of <section>``. A law with thresholds on two votes keeps two such
+    facts.
 
-    The share is of all valid votes in the section, of every party. A threshold that
-    counts seats already won (a Grundmandatsklausel) is given each party's Wahlkreis
-    wins, so the step then also reads ``unit_mandates``.
+    It takes the table ``<section> by <level> × <to>``. The share is of all valid votes
+    counted there. A threshold that counts seats already won (a Grundmandatsklausel) is
+    given each party's Wahlkreis wins, so the step then also reads ``unit_mandates``.
     """
 
     threshold: SerializeAsAny[Threshold] = Field(
@@ -42,31 +44,35 @@ class ApplyThresholdToOptions(AllocationStep):
     level: LevelName = Field(
         description="The level it is measured at, e.g. ``land``.",
     )
+    to: GroupBy = Field(
+        default="party",
+        description="What the threshold is applied to: each ``party``, or each ``option``.",
+    )
 
     @property
     def inputs(self) -> dict[str, str]:
-        given = {"votes": counts_fact(self.section, self.level, "party")}
+        given = {"votes": counts_fact(self.section, self.level, self.to)}
         if self.threshold.uses_won:
             given["won"] = "unit_mandates"
         return given
 
     @property
     def writes(self) -> frozenset[str]:
-        return frozenset({eligible_fact(self.section)})
+        return frozenset({eligible_fact(self.section, self.to)})
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        given: tuple[tuple[str, str], ...] = (("votes", "votes per party, summed over the units"),)
+        given: tuple[tuple[str, str], ...] = (("votes", f"votes per {self.to}, summed over the units"),)
         if self.threshold.uses_won:
             given += (("won", "units won per party"),)
         return {"threshold": given}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.count(self.section, self.level, "party").per_column()
+        votes = allocation.count(self.section, self.level, self.to).per_column()
         won = allocation.unit_wins() if self.threshold.uses_won else None
-        others = tuple((s, o) for s, o in allocation.eligible_parties if s != self.section)
-        passed = self.threshold.select(votes, won)
-        return allocation.with_values(eligible_parties=(*others, (self.section, passed)))
+        fact = eligible_fact(self.section, self.to)
+        others = tuple((f, p) for f, p in allocation.passed if f != fact)
+        return allocation.with_values(passed=(*others, (fact, self.threshold.select(votes, won))))
 
 
 class SetChamberSize(AllocationStep):

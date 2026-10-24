@@ -13,7 +13,7 @@ from wahlwerk.process.allocation.allocate import allocate
 from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumGroupBy
 from wahlwerk.process.allocation.eligibility import (
-    ApplyThresholdToOptions,
+    ApplyThresholdTo,
     SetChamberSize,
 )
 from wahlwerk.process.allocation.overhang import RaiseByOverhang
@@ -61,7 +61,7 @@ def test_replace_validates_and_names_what_is_wrong():
 
 
 def test_substitute_insert_remove():
-    threshold = ApplyThresholdToOptions(
+    threshold = ApplyThresholdTo(
         threshold=RelativeThreshold(share=Fraction(1, 10)), section="zweitstimme", level="land"
     )
     assert step_at(substitute(P, (2, "steps", 1), threshold), (2, "steps", 1)) == threshold

@@ -13,7 +13,7 @@ from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumGroupBy
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
-    ApplyThresholdToOptions,
+    ApplyThresholdTo,
     SetChamberSize,
     SetSeatTotal,
 )
@@ -56,7 +56,7 @@ def law(base, repeat, *, is_measured=True):
         SumGroupBy(section="erststimme", level="wahlkreis"),
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumGroupBy(section="zweitstimme", level="land", by="party"),
-        ApplyThresholdToOptions(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
+        ApplyThresholdTo(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
         *ALLOCATE,
         *((CAUCUS,) if is_measured else ()),
@@ -124,7 +124,7 @@ def test_caucus_size_counts_a_fictitious_five_percent_party():
         for p, n in {"a": 450, "b": 450, "c": 100}.items()
     )
     allocation = SumGroupBy(section="zweitstimme", level="land", by="party")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
-    allocation = allocation.with_values(eligible_parties=(("zweitstimme", frozenset({"a", "b"})),), seat_total=20)
+    allocation = allocation.with_values(passed=(("eligible parties of zweitstimme", frozenset({"a", "b"})),), seat_total=20)
     assert CAUCUS(allocation).caucus_size == 1
     assert CAUCUS(allocation.with_values(seat_total=97)).caucus_size == 5  # 97 * 50 / 950 = 5.1
     assert CAUCUS.reads == {"zweitstimme by land × party", "eligible parties of zweitstimme", "seat_total"}
