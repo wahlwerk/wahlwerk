@@ -201,6 +201,13 @@ foundation  <-  entities  <-  state  <-  process
                                      law  ----+  (uses process and apportionment)
 ```
 
+**A core concept is always wrapped in a step.** A method, a threshold or a quota
+(`apportionment/`) never reads the tally or the allocation: a step holds it, reads what
+it needs, and hands it plain numbers (`passes` says what, in words). So `apportionment`
+imports no vote, process or law, and a concept has no `apply`
+(`tests/apportionment/test_concepts_need_a_step.py`). A rule that has to read the
+allocation is a step itself, as `SetCaucusSize` is.
+
 **A formula is written once, in `wahlwerk.calc`.** A model, a step or a state method that
 needs arithmetic (a quota, a divisor, a threshold, a majority, a share) calls the
 function there; arithmetic written again in the engine is a bug. Validation (exact
