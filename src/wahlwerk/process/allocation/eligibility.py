@@ -53,7 +53,7 @@ class ApplyThresholdTo(AllocationStep):
     def inputs(self) -> dict[str, str]:
         given = {"votes": counts_fact(self.section, self.level, self.to)}
         if self.threshold.uses_won:
-            given["winners"] = "unit_mandates"
+            given["mandates"] = "unit_mandates"
         return given
 
     @property
@@ -64,7 +64,7 @@ class ApplyThresholdTo(AllocationStep):
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
         given: tuple[tuple[str, str], ...] = (("votes", f"votes per {self.to}, summed over the units"),)
         if self.threshold.uses_won:
-            given += (("won", "winners per party"),)
+            given += (("won", "mandates per party"),)
         return {"threshold": given}
 
     def _apply(self, allocation: Allocation) -> Allocation:
@@ -109,7 +109,7 @@ class SetChamberSize(AllocationStep):
 
 class SetSeatsToApportion(AllocationStep):
     """The seats the proportional allocation divides: the ``chamber_size`` less the Wahlkreis
-    seats of winners who take no part in it, read off ``unit_mandates``: those of no party
+    seats whose mandates take no part in it, read off ``unit_mandates``: those of no party
     (Einzelbewerber) and those of parties that are not eligible parties of ``section``.
 
     Their seats are theirs regardless; the rest of the chamber size is divided among the
@@ -126,13 +126,13 @@ class SetSeatsToApportion(AllocationStep):
     def inputs(self) -> dict[str, str]:
         return {
             "size": "chamber_size",
-            "winners": "unit_mandates",
+            "mandates": "unit_mandates",
             "eligible": eligible_fact(self.section),
         }
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"": (("seats", "size"), ("won", "winners of no party or of a party not eligible"))}
+        return {"": (("seats", "size"), ("won", "mandates of no party or of a party not eligible"))}
 
     @property
     def writes(self) -> frozenset[str]:
@@ -142,8 +142,8 @@ class SetSeatsToApportion(AllocationStep):
         wins = allocation.unit_wins()
         eligible = allocation.eligible(self.section)
         size = allocation.chamber_size or 0
-        winners = allocation.unit_mandates or ()
-        outside = sum(1 for d in winners if d.party is None) + sum(
+        mandates = allocation.unit_mandates or ()
+        outside = sum(1 for d in mandates if d.party is None) + sum(
             n for party, n in wins.items() if party not in eligible
         )
         if outside > size:

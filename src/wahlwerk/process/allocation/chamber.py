@@ -35,7 +35,7 @@ class FillVacantSeatsFromLists(AllocationStep):
 
     @property
     def inputs(self) -> dict[str, str]:
-        return {"winners": "unit_mandates", "lists": "list_seats"}
+        return {"mandates": "unit_mandates", "lists": "list_seats"}
 
     @property
     def optional_reads(self) -> frozenset[str]:
