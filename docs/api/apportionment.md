@@ -44,6 +44,12 @@ How seats are divided among keys, free of any law.
 .. automodule:: wahlwerk.apportionment.plurality
 ```
 
+## `wahlwerk.apportionment.quota`
+
+```{eval-rst}
+.. automodule:: wahlwerk.apportionment.quota
+```
+
 ## `wahlwerk.apportionment.threshold`
 
 ```{eval-rst}

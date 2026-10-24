@@ -56,7 +56,7 @@ if __name__ == "__main__":
     print(row("method: Hare/Niemeyer, no majority clause", replace(P, ApportionSeats, method=HareNiemeyer())))
     print(row("threshold 3 %", replace(P, ApplyThreshold, threshold=RelativeThreshold(share=Fraction(3, 100)))))
     # The loop holds the allocation, so dropping it means putting the sequence in its place.
-    print(row("no Mehrsitze balancing", (*P[:LOOP], ALLOCATE, *P[LOOP + 1 :])))
+    print(row("no overhang balancing", (*P[:LOOP], ALLOCATE, *P[LOOP + 1 :])))
     # Reorders: the chamber size and the counting need nothing of each other, nor do the
     # Wahlkreis winners and the threshold; what the counts decide needs the counts.
     print(f"can swap steps 1 and 2: {can_swap(P, 0, 1)}")

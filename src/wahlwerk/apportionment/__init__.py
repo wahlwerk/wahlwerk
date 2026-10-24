@@ -31,6 +31,7 @@ Modules, one per family or piece:
 - ``divisor``: divisor methods; ``remainder``: largest remainder methods
 - ``majority``: majority clauses around a method (:class:`MajorityFirst`)
 - ``plurality``: the most weight wins (:class:`Plurality`), the single-winner choice
+- ``quota``: what one seat is worth (:class:`HareQuota`)
 - ``threshold``: which keys take part at all
 - ``ausgleich``: Überhang, and adding seats until it is covered
 
@@ -50,6 +51,7 @@ from wahlwerk.apportionment import (
     majority,
     method,
     plurality,
+    quota,
     remainder,
     result,
     threshold,
@@ -64,6 +66,7 @@ __all__ = [
     "majority",
     "method",
     "plurality",
+    "quota",
     "remainder",
     "result",
     "threshold",

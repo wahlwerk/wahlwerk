@@ -58,6 +58,7 @@ INPUT_FACTS = frozenset({"tally"})
 
 OPTIONAL_FACTS = (
     "unit_winners",
+    "caucus_size",
     "eligible",
     "chamber_size",
     "minimum_mandates",
@@ -171,6 +172,10 @@ class Allocation(Model):
     list_seats: tuple[tuple[PartyId, Seats], ...] | None = Field(
         default=None,
         description="The seats each eligible party fills from its list, after its Wahlkreis seats.",
+    )
+    caucus_size: Seats | None = Field(
+        default=None,
+        description="The seats a party needs for a caucus, as a law measures it (Sec. 35 (8a) LWG LSA).",
     )
     overhang: tuple[tuple[PartyId, Seats], ...] | None = Field(
         default=None,

@@ -117,10 +117,11 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
                     DeductUnitSeats(),                              # § 35 (7)
                 ),
             ),
+            SetCaucusSize(share="5/100", section="zweitstimme",     # § 35 (8a): measured
+                          level="land", quota=HareQuota()),         # after each round
         ),
         factor=2,
         full_rounds=2,
-        caucus_size=CaucusSize(share="5/100", section="zweitstimme", level="land"),
     ),
     FormChamber(),                                                  # stage 3
 )
@@ -265,7 +266,7 @@ Stimmkreise inside Wahlkreise still nest by prefix.
    Sachsen-Anhalt 2026 against the official Sitzverteilung
    (`tests/golden/test_de_landtag_st.py`). **Done**: equal party by party, 41
    Wahlkreis and 42 list seats, 83 in all.
-6. `RaiseByOverhang` and `CaucusSize`, on constructed tallies (balanced within
+6. `RaiseByOverhang` and `SetCaucusSize`, on constructed tallies (balanced within
    the full rounds, kept after them, further rounds beyond half a Fraktion), then the
    Landtag 2021 as a second golden test. **Done**: 2021 gives 97 seats, CDU 40 (all from
    Wahlkreise), AfD 23, Linke 12, SPD 9, FDP 7, Grüne 6, as published. The law moved to

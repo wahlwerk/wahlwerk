@@ -2,8 +2,8 @@
 entitlement, and allocating again. Two ways a law does it: by a multiple of the overhang
 for a few rounds (:class:`RaiseByOverhang`; the Mehrsitze of Sec. 35 (8), (8a) LWG LSA),
 or a seat at a time until it is balanced (:class:`RaiseUntilBalanced`; the Überhang- and
-Ausgleichsmandate of Sec. 58 (6) LKWG M-V). :class:`CaucusSize` is the yardstick the
-first uses to decide whether another round is due."""
+Ausgleichsmandate of Sec. 58 (6) LKWG M-V). :class:`SetCaucusSize` is a step for the
+block the first repeats: it measures the yardstick for whether another round is due."""
 
 from __future__ import annotations
 
@@ -12,9 +12,10 @@ from typing import Any, ClassVar
 
 from pydantic import Field, SerializeAsAny
 
-from wahlwerk.calc import quota
+from wahlwerk.apportionment.quota import Quota
+from wahlwerk.calc import quota as calc_quota
 from wahlwerk.ids import LevelName, Slug
-from wahlwerk.model import Model, Share
+from wahlwerk.model import Share
 from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationProtocol,
@@ -24,21 +25,25 @@ from wahlwerk.process.allocation.base import (
     written_by,
 )
 
-__all__ = ["CaucusSize", "RaiseByOverhang", "RaiseUntilBalanced"]
+__all__ = ["RaiseByOverhang", "RaiseUntilBalanced", "SetCaucusSize"]
 
 
-class CaucusSize(Model):
-    """The size of a caucus (a Fraktion), as Sec. 35 (8a) LWG LSA measures it for
-    :class:`RaiseByOverhang`: the seats a fictitious party would at least get with
-    ``share`` of all valid votes in ``section``, at the current stage of the allocation.
+class SetCaucusSize(AllocationStep):
+    """Set ``caucus_size``: the seats a party needs for a caucus (a Fraktion), measured as
+    the seats a fictitious party would at least win with ``share`` of all valid votes in
+    ``section``, at this stage of the allocation (Sec. 35 (8a) LWG LSA). Put in the block
+    a :class:`RaiseByOverhang` repeats, it is measured again each round, and the loop
+    asks for another round only while the overhang left exceeds half of it.
 
-    The law does not say how the fictitious party enters the count (wahlrecht.de calls
-    it unclear). Read here: it joins the eligible parties with ``share`` of all valid
-    votes, and "at least" means the whole part of its Hare share of ``seat_total``, since
-    a remainder seat is not certain.
+    How: the fictitious party joins the eligible parties with ``share`` of all valid
+    votes; ``quota`` gives the votes one of the ``seat_total`` seats is worth among them;
+    the caucus size is the whole seats the fictitious party's votes make of it. The law
+    does not say how the fictitious party enters the count (wahlrecht.de calls it
+    unclear); this is the reading, and "at least" is the whole part, since a remainder
+    seat is not certain.
     """
 
-    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (quota.hare, quota.whole_seats)
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc_quota.whole_seats,)
 
     share: Share = Field(
         description="The fictitious party's share of all valid votes, e.g. ``Fraction(5, 100)``.",
@@ -49,25 +54,37 @@ class CaucusSize(Model):
     level: LevelName = Field(
         description="The level the votes are summed at, e.g. ``land``.",
     )
+    quota: SerializeAsAny[Quota] = Field(
+        description="What one seat is worth among the votes counted, e.g. ``HareQuota()``.",
+    )
 
     @property
     def reads(self) -> frozenset[str]:
-        """The facts it needs from the allocation."""
         return frozenset({total_fact(self.level), "eligible", "seat_total"})
 
-    def seats(self, allocation: Allocation) -> int:
-        """The seats needed for a caucus at this stage of ``allocation``: the Hare quota
-        of the votes counted (the eligible parties and the fictitious one) for the seat
-        total, and the whole seats the fictitious party's votes make of it."""
+    @property
+    def writes(self) -> frozenset[str]:
+        return frozenset({"caucus_size"})
+
+    @property
+    def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        return {
+            "quota": (
+                ("votes", f"{self.section} of the eligible parties and the fictitious one"),
+                ("seats", "seat_total"),
+            )
+        }
+
+    def _apply(self, allocation: Allocation) -> Allocation:
         votes = allocation.votes_by_party(self.level, self.section)
         eligible = allocation.eligible or frozenset()
         fictitious = self.share * sum(votes.values())
         counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
         if not counted or not allocation.seat_total:
-            return 0
-        hare, whole_seats = self.formulas
-        seats: int = whole_seats(fictitious, hare(counted, allocation.seat_total))
-        return seats
+            return allocation.with_values(caucus_size=0)
+        (whole_seats,) = self.formulas
+        seats: int = whole_seats(fictitious, self.quota.of(counted, allocation.seat_total))
+        return allocation.with_values(caucus_size=seats)
 
 
 class RaiseByOverhang(AllocationStep):
@@ -79,8 +96,9 @@ class RaiseByOverhang(AllocationStep):
     As in Sec. 35 (8) LWG LSA: the first ``full_rounds`` times, the chamber size grows by
     ``factor`` times the overhang and the allocation is repeated. After that, overhang
     that remains is kept unbalanced (the chamber then has that many seats more) unless
-    it exceeds half of ``caucus_size``, in which case another round follows. Every seat
-    won in a Wahlkreis is kept throughout.
+    it exceeds half of the ``caucus_size`` the block measured (a
+    :class:`SetCaucusSize` step in ``protocol``); a block without one has no further
+    rounds. Every seat won in a Wahlkreis is kept throughout.
     """
 
     protocol: tuple[SerializeAsAny[AllocationStep], ...] = Field(
@@ -97,18 +115,10 @@ class RaiseByOverhang(AllocationStep):
         ge=0,
         description="How many rounds are repeated whatever the overhang.",
     )
-    caucus_size: CaucusSize | None = Field(
-        default=None,
-        description=(
-            "The caucus size limiting further rounds; ``None`` for no further rounds "
-            "after the full ones."
-        ),
-    )
 
     @property
     def reads(self) -> frozenset[str]:
-        extra = self.caucus_size.reads if self.caucus_size else frozenset()
-        return _loop_reads(self.protocol) | (extra - written_by(self.protocol))
+        return _loop_reads(self.protocol)
 
     @property
     def optional_reads(self) -> frozenset[str]:
@@ -118,16 +128,12 @@ class RaiseByOverhang(AllocationStep):
     def writes(self) -> frozenset[str]:
         return written_by(self.protocol) | {"chamber_size"}
 
-    @property
-    def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"caucus_size": (("seats", "seat_total"),)} if self.caucus_size else {}
-
     def _apply(self, allocation: Allocation) -> Allocation:
         allocation = _run(self.protocol, allocation)
         rounds = 0
         while excess := sum(n for _, n in allocation.overhang or ()):
             if rounds >= self.full_rounds:
-                limit = self.caucus_size.seats(allocation) if self.caucus_size else None
+                limit = allocation.caucus_size  # measured by the block, if it has the step
                 if limit is None or 2 * excess <= limit:
                     break
             size = (allocation.chamber_size or 0) + self.factor * excess

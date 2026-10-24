@@ -5,6 +5,7 @@ Ausgleich of Sec. 58 (6) LKWG M-V."""
 from fractions import Fraction
 
 from wahlwerk.apportionment.plurality import Plurality
+from wahlwerk.apportionment.quota import HareQuota
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.process.allocation.base import Allocation, check_protocol
@@ -17,16 +18,16 @@ from wahlwerk.process.allocation.eligibility import (
     SetSeatTotal,
 )
 from wahlwerk.process.allocation.overhang import (
-    CaucusSize,
     RaiseByOverhang,
     RaiseUntilBalanced,
+    SetCaucusSize,
 )
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
 LEVELS = (Level(name="land", depth=2), Level(name="wahlkreis", depth=4))
 FIVE = Fraction(5, 100)
-CAUCUS = CaucusSize(share=FIVE, section="zweitstimme", level="land")
+CAUCUS = SetCaucusSize(share=FIVE, section="zweitstimme", level="land", quota=HareQuota())
 ALLOCATE = (
     SetSeatTotal(),
     ApportionSeats(method=HareNiemeyer(), section="zweitstimme", level="land"),
@@ -69,7 +70,7 @@ def run(protocol, winners, zweit):
 
 
 ZWEIT = {"afd": 500, "cdu": 300, "linke": 170, "fdp": 30}
-LOOP = RaiseByOverhang(protocol=ALLOCATE, factor=2, full_rounds=2, caucus_size=CAUCUS)
+LOOP = RaiseByOverhang(protocol=(*ALLOCATE, CAUCUS), factor=2, full_rounds=2)
 
 
 def test_balanced_within_the_full_rounds():
@@ -106,7 +107,7 @@ def test_further_rounds_run_while_overhang_exceeds_half_a_caucus():
     unlimited = run(law(10, RaiseByOverhang(protocol=ALLOCATE)), MANY, SMALL)
     limited = run(law(10, LOOP), MANY, SMALL)
     kept = sum(n for _, n in limited.overhang)
-    assert 2 * kept <= CAUCUS.seats(limited)
+    assert 2 * kept <= limited.caucus_size  # measured in the last round
     assert limited.chamber_size > unlimited.chamber_size
     assert limited.chamber.size == limited.chamber_size + kept
 
@@ -119,8 +120,10 @@ def test_caucus_size_counts_a_fictitious_five_percent_party():
     )
     allocation = SumVotes(level="land")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
     allocation = allocation.with_values(eligible=frozenset({"a", "b"}), seat_total=20)
-    assert CAUCUS.seats(allocation) == 1
-    assert CAUCUS.seats(allocation.with_values(seat_total=97)) == 5  # 97 * 50 / 950 = 5.1
+    assert CAUCUS(allocation).caucus_size == 1
+    assert CAUCUS(allocation.with_values(seat_total=97)).caucus_size == 5  # 97 * 50 / 950 = 5.1
+    assert CAUCUS.reads == {"total:land", "eligible", "seat_total"}
+    assert CAUCUS.writes == {"caucus_size"}
 
 
 def test_loop_declares_what_it_reads_and_writes():

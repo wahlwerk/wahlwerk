@@ -95,7 +95,8 @@ def test_describe_and_the_table():
     loop = nodes[3]
     assert loop.citation == "Sec. 35 (8), (8a)"
     assert loop.depends_on == (0, 1, 2)
-    (sequence,) = loop.children
+    sequence, caucus = loop.children
+    assert caucus.kind == "SetCaucusSize" and caucus.writes == ("caucus_size",)
     assert sequence.title == "allocate the seats of one chamber size"
     assert [c.path for c in sequence.children] == [(3, "protocol", 0, "steps", i) for i in range(3)]
     assert nodes[0].parameters == (("seats", "83"),)  # defaults left out
@@ -164,6 +165,8 @@ def test_a_concept_shows_what_the_step_hands_it():
     threshold = flow.describe(P)[2].children[1].uses[0]
     assert threshold.arguments == (("votes", "zweitstimme per party"),)
     assert threshold.parameters == (("share", "1/20"),)
-    caucus = flow.describe(P)[3].uses[0]
-    assert caucus.kind == "CaucusSize" and caucus.arguments == (("seats", "seat_total"),)
-    assert [c.formula.rsplit(".", 1)[1] for c in caucus.calls] == ["hare", "whole_seats"]
+    caucus = flow.describe(P)[3].children[1]  # a step of its own, in the repeated block
+    (quota,) = caucus.uses
+    assert quota.kind == "HareQuota" and dict(quota.arguments)["seats"] == "seat_total"
+    assert [c.formula for c in quota.calls] == ["wahlwerk.calc.quota.hare"]
+    assert [c.formula for c in caucus.calls] == ["wahlwerk.calc.quota.whole_seats"]

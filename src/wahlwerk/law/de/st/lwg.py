@@ -18,6 +18,7 @@ from fractions import Fraction
 
 from wahlwerk.apportionment.majority import MajorityFirst
 from wahlwerk.apportionment.plurality import Plurality
+from wahlwerk.apportionment.quota import HareQuota
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.law.base import Law
@@ -29,11 +30,11 @@ from wahlwerk.process.allocation.eligibility import (
     SetChamberSize,
     SetSeatTotal,
 )
-from wahlwerk.process.allocation.overhang import CaucusSize, RaiseByOverhang
+from wahlwerk.process.allocation.overhang import RaiseByOverhang, SetCaucusSize
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
 
-__all__ = ["ALLOCATE", "COUNT", "LWG_2021", "QUALIFY"]
+__all__ = ["ALLOCATE", "CAUCUS", "COUNT", "LWG_2021", "QUALIFY"]
 
 _FIVE_PERCENT = Fraction(5, 100)
 
@@ -79,6 +80,15 @@ ALLOCATE = StepSequence(
 )
 """Sec. 35 (4) to (7): the seats of one chamber size, which Sec. 35 (8) repeats."""
 
+CAUCUS = SetCaucusSize(
+    share=_FIVE_PERCENT,
+    section="zweitstimme",
+    level="land",
+    quota=HareQuota(),
+    citation="Sec. 35 (8a)",
+)
+"""Sec. 35 (8a): the seats needed for a Fraktion, measured after each round of Sec. 35 (8)."""
+
 LWG_2021 = Law(
     id="de.st.lwg.2021",
     title="Wahlgesetz des Landes Sachsen-Anhalt (LWG)",
@@ -100,10 +110,9 @@ LWG_2021 = Law(
         COUNT,
         QUALIFY,
         RaiseByOverhang(
-            protocol=(ALLOCATE,),
+            protocol=(ALLOCATE, CAUCUS),
             factor=2,
             full_rounds=2,
-            caucus_size=CaucusSize(share=_FIVE_PERCENT, section="zweitstimme", level="land"),
             citation="Sec. 35 (8), (8a)",
         ),
         FormChamber(),
