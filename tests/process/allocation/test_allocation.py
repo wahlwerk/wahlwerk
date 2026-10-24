@@ -9,7 +9,7 @@ from wahlwerk.process.allocation.base import (
     UnitResult,
     check_protocol,
 )
-from wahlwerk.process.allocation.count import SumVotes
+from wahlwerk.process.allocation.count import SumGroupBy
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
@@ -66,33 +66,39 @@ ELECT = SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wa
 def test_start_has_only_the_tally():
     assert START.facts == {"tally"}
     assert START.unit_mandates is None
-    with pytest.raises(KeyError, match="no total at level 'wahlkreis'"):
-        START.total("wahlkreis")
+    with pytest.raises(KeyError, match="no table 'wahlkreis:option:erststimme'"):
+        START.count("wahlkreis", "erststimme")
 
 
-def test_sum_votes_adds_a_total():
-    summed = SumVotes(level="wahlkreis")(START)
-    assert summed.facts == {"tally", "wahlkreis:votes"}
-    assert summed.total("wahlkreis").filter(party="afd").sum_by("unit") == {"de.st.wk.001": 65}
+def test_sum_group_by_makes_a_table_of_counts():
+    summed = SumGroupBy(section="erststimme", level="wahlkreis")(START)
+    assert summed.facts == {"tally", "wahlkreis:option:erststimme"}
+    table = summed.count("wahlkreis", "erststimme")
+    # A row per unit, a counter per option, Urne and Brief summed; nothing else in it.
+    assert table.per_unit()["de.st.wk.001"] == {"afd": 65, "cdu": 60}
+    assert table.party_of("afd") == "afd"
+    assert table.party_of("de.st.wk.002.einzelbewerber") is None
+    assert "fdp" not in table.per_option()  # a Zweitstimme, not counted here
     assert START.facts == {"tally"}  # the input is untouched
 
 
-def test_summing_a_level_again_replaces_it():
-    twice = SumVotes(level="wahlkreis")(SumVotes(level="wahlkreis")(START))
-    assert [level for level, _ in twice.totals] == ["wahlkreis"]
+def test_making_a_table_again_replaces_it():
+    step = SumGroupBy(section="erststimme", level="wahlkreis")
+    twice = step(step(START))
+    assert [t.fact for t in twice.counts] == ["wahlkreis:option:erststimme"]
 
 
-def test_allocation_rejects_a_level_summed_twice():
-    total = TALLY.sum_to("land")
+def test_allocation_rejects_a_table_held_twice():
+    table = SumGroupBy(section="erststimme", level="wahlkreis")(START).counts[0]
     with pytest.raises(ValidationError, match="more than once"):
-        Allocation(tally=TALLY, totals=(("land", total), ("land", total)))
+        Allocation(tally=TALLY, counts=(table, table))
 
 
 # ===========================================================
 # SingleMandatePerUnit
 # ===========================================================
 def unit_mandates():
-    return {d.unit: d for d in ELECT(SumVotes(level="wahlkreis")(START)).unit_mandates}
+    return {d.unit: d for d in ELECT(SumGroupBy(section="erststimme", level="wahlkreis")(START)).unit_mandates}
 
 
 def test_winner_counts_both_channels():
@@ -116,14 +122,16 @@ def test_tie_is_a_result():
 
 
 def test_elect_needs_its_total():
-    with pytest.raises(ValueError, match=r"reads \['wahlkreis:votes'\], which are not established"):
+    with pytest.raises(ValueError, match=r"reads \['wahlkreis:option:erststimme'\], which are not established"):
         ELECT(START)
 
 
 def test_elect_without_votes_in_section():
     other = SingleMandatePerUnit(method=Plurality(), section="stimme", level="wahlkreis")
-    with pytest.raises(ValueError, match="no 'stimme' votes"):
-        other(SumVotes(level="wahlkreis")(START))
+    with pytest.raises(ValueError, match="no 'wahlkreis:option:stimme' votes"):
+        other(SumGroupBy(section="stimme", level="wahlkreis")(START))  # an empty table
+    with pytest.raises(ValueError, match=r"reads \['wahlkreis:option:stimme'\]"):
+        other(SumGroupBy(section="erststimme", level="wahlkreis")(START))  # no table at all
 
 
 def test_unit_result_needs_winner_xor_tie():
@@ -141,22 +149,22 @@ def test_unit_result_needs_winner_xor_tie():
 # Protocols
 # ===========================================================
 def test_check_protocol_returns_the_facts_at_the_end():
-    protocol = (SumVotes(level="wahlkreis"), ELECT)
-    assert check_protocol(protocol) == {"tally", "wahlkreis:votes", "unit_mandates"}
+    protocol = (SumGroupBy(section="erststimme", level="wahlkreis"), ELECT)
+    assert check_protocol(protocol) == {"tally", "wahlkreis:option:erststimme", "unit_mandates"}
 
 
 def test_check_protocol_refuses_a_misordered_law():
-    with pytest.raises(ValueError, match=r"step 1 .*SingleMandatePerUnit.* reads \['wahlkreis:votes'\]"):
-        check_protocol((ELECT, SumVotes(level="wahlkreis")))
+    with pytest.raises(ValueError, match=r"step 1 .*SingleMandatePerUnit.* reads \['wahlkreis:option:erststimme'\]"):
+        check_protocol((ELECT, SumGroupBy(section="erststimme", level="wahlkreis")))
 
 
 def test_check_protocol_sees_the_wrong_level():
-    with pytest.raises(ValueError, match="wahlkreis:votes"):
-        check_protocol((SumVotes(level="land"), ELECT))
+    with pytest.raises(ValueError, match="wahlkreis:option:erststimme"):
+        check_protocol((SumGroupBy(section="zweitstimme", level="land"), ELECT))
 
 
 def test_steps_are_data():
-    assert SumVotes(level="wahlkreis") == SumVotes(level="wahlkreis")
+    assert SumGroupBy(section="erststimme", level="wahlkreis") == SumGroupBy(section="erststimme", level="wahlkreis")
     assert hash(ELECT) == hash(SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"))
     assert "SingleMandatePerUnit" in repr(ELECT)
 
@@ -180,10 +188,8 @@ def test_a_step_must_write_what_it_declares():
 
 def test_each_unit_is_a_contest_the_method_decides():
     # The step only turns the tally into contests; the method alone picks the winner.
-    from wahlwerk.process.allocation.elect import contests
-
-    allocation = SumVotes(level="wahlkreis")(START)
-    per_unit = contests(allocation, "erststimme", "wahlkreis")
+    allocation = SumGroupBy(section="erststimme", level="wahlkreis")(START)
+    per_unit = allocation.count("wahlkreis", "erststimme").per_unit()
     assert per_unit and all(isinstance(v, int) for unit in per_unit.values() for v in unit.values())
     assert per_unit["de.st.wk.001"] == {"afd": 65, "cdu": 60}  # options and votes, nothing else
     elected = ELECT(allocation)

@@ -23,7 +23,7 @@ from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.law.base import Law
 from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
-from wahlwerk.process.allocation.count import SumVotes
+from wahlwerk.process.allocation.count import SumGroupBy
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThresholdToOptions,
@@ -46,11 +46,12 @@ COUNT = StepSequence(
     name="CountVotes",
     citation="Sec. 31, 32, 35 (2)",
     steps=(
-        SumVotes(level="wahlkreis", citation="Sec. 31, 32"),
-        SumVotes(level="land", citation="Sec. 35 (2)"),
+        SumGroupBy(section="erststimme", level="wahlkreis", citation="Sec. 31, 32"),
+        SumGroupBy(section="zweitstimme", level="land", citation="Sec. 35 (2)"),
     ),
 )
-"""The counting: the votes summed per Wahlkreis and for the Land. Reads only the tally."""
+"""The counting: the Erststimmen per Wahlkreis and option, the Zweitstimmen in the Land per
+option, two tables. Reads only the tally."""
 
 QUALIFY = StepSequence(
     name="ElectAndQualify",

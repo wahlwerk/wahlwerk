@@ -18,7 +18,7 @@ from wahlwerk.apportionment.threshold import (
 from wahlwerk.process.allocation.allocate import allocate
 from wahlwerk.process.allocation.base import Allocation, check_protocol
 from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
-from wahlwerk.process.allocation.count import SumVotes
+from wahlwerk.process.allocation.count import SumGroupBy
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThresholdToOptions,
@@ -64,9 +64,9 @@ def tally(winners, zweit=ZWEIT):
 
 def law(base, threshold=FIVE_PERCENT, method=HARE):
     return (
-        SumVotes(level="wahlkreis"),
+        SumGroupBy(section="erststimme", level="wahlkreis"),
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
-        SumVotes(level="land"),
+        SumGroupBy(section="zweitstimme", level="land"),
         ApplyThresholdToOptions(threshold=threshold, section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
         SetSeatTotal(section="zweitstimme"),
@@ -113,7 +113,7 @@ def test_grundmandatsklausel_reads_the_wahlkreise():
 def test_a_grundmandatsklausel_before_the_wahlkreise_is_refused():
     rule = AlternativeThresholds(thresholds=(FIVE_PERCENT, SeatThreshold(seats=3)))
     misordered = (
-        SumVotes(level="land"),
+        SumGroupBy(section="zweitstimme", level="land"),
         ApplyThresholdToOptions(threshold=rule, section="zweitstimme", level="land"),
     )
     with pytest.raises(ValueError, match=r"reads \['unit_mandates'\]"):
@@ -214,7 +214,8 @@ def test_the_minimum_is_written_once_unless_it_differs():
 
 def test_each_section_keeps_its_own_eligible_options():
     # A threshold on the Erststimme as well as on the Zweitstimme: two facts, apart.
-    allocation = SumVotes(level="land")(Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"])))
+    start = Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"]))
+    allocation = SumGroupBy(section="erststimme", level="land")(SumGroupBy(section="zweitstimme", level="land")(start))
     on_lists = ApplyThresholdToOptions(threshold=FIVE_PERCENT, section="zweitstimme", level="land")
     on_units = ApplyThresholdToOptions(threshold=FIVE_PERCENT, section="erststimme", level="land")
     assert on_lists.writes == {"zweitstimme:eligible_options"}

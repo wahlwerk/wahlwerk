@@ -15,8 +15,8 @@ from wahlwerk.model import Seats
 from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationStep,
+    counts_fact,
     eligible_fact,
-    votes_fact,
 )
 
 __all__ = ["ApplyThresholdToOptions", "SetChamberSize", "SetSeatTotal"]
@@ -44,11 +44,11 @@ class ApplyThresholdToOptions(AllocationStep):
     )
 
     @property
-    def reads(self) -> frozenset[str]:
-        needed = {votes_fact(self.level)}
+    def inputs(self) -> dict[str, str]:
+        given = {"votes": counts_fact(self.level, self.section)}
         if self.threshold.uses_won:
-            needed.add("unit_mandates")
-        return frozenset(needed)
+            given["won"] = "unit_mandates"
+        return given
 
     @property
     def writes(self) -> frozenset[str]:
@@ -56,13 +56,13 @@ class ApplyThresholdToOptions(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        given: tuple[tuple[str, str], ...] = (("options", "parties"), ("votes", f"{self.section} per party"))
+        given: tuple[tuple[str, str], ...] = (("votes", "votes per option, summed over the units"),)
         if self.threshold.uses_won:
             given += (("won", "units won per party"),)
         return {"threshold": given}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.votes_by_option(self.level, self.section)
+        votes = allocation.count(self.level, self.section).per_option()
         won = allocation.unit_wins() if self.threshold.uses_won else None
         others = tuple((s, o) for s, o in allocation.eligible_options if s != self.section)
         passed = self.threshold.select(votes, won)
@@ -89,7 +89,7 @@ class SetChamberSize(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({"tally"})
+        return frozenset()
 
     @property
     def writes(self) -> frozenset[str]:
@@ -117,8 +117,8 @@ class SetSeatTotal(AllocationStep):
     )
 
     @property
-    def reads(self) -> frozenset[str]:
-        return frozenset({"chamber_size", "unit_mandates", eligible_fact(self.section)})
+    def inputs(self) -> dict[str, str]:
+        return {"seats": "chamber_size", "won": "unit_mandates", "eligible": eligible_fact(self.section)}
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:

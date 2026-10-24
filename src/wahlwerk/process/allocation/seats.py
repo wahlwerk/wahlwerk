@@ -14,8 +14,8 @@ from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationStep,
+    counts_fact,
     eligible_fact,
-    votes_fact,
 )
 
 __all__ = ["ApportionSeats", "DeductUnitSeats"]
@@ -40,8 +40,12 @@ class ApportionSeats(AllocationStep):
     )
 
     @property
-    def reads(self) -> frozenset[str]:
-        return frozenset({votes_fact(self.level), eligible_fact(self.section), "seat_total"})
+    def inputs(self) -> dict[str, str]:
+        return {
+            "votes": counts_fact(self.level, self.section),
+            "eligible": eligible_fact(self.section),
+            "seats": "seat_total",
+        }
 
     @property
     def writes(self) -> frozenset[str]:
@@ -49,10 +53,10 @@ class ApportionSeats(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"method": (("votes", f"{self.section} per eligible party"), ("seats", "seat_total"))}
+        return {"method": (("votes", "votes of the eligible options"), ("seats", "seats"))}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.votes_by_option(self.level, self.section)
+        votes = allocation.count(self.level, self.section).per_option()
         eligible = allocation.eligible(self.section)
         weights = {party: n for party, n in votes.items() if party in eligible}
         seats = allocation.seat_total or 0
@@ -68,8 +72,8 @@ class DeductUnitSeats(AllocationStep):
     """
 
     @property
-    def reads(self) -> frozenset[str]:
-        return frozenset({"entitlement", "unit_mandates"})
+    def inputs(self) -> dict[str, str]:
+        return {"entitlement": "entitlement", "won": "unit_mandates"}
 
     formulas: ClassVar[tuple[Callable[..., Any], ...]] = (compensation.remaining, compensation.overhang)
 

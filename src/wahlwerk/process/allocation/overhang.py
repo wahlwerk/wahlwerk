@@ -21,9 +21,9 @@ from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationProtocol,
     AllocationStep,
+    counts_fact,
     eligible_fact,
     outside_reads,
-    votes_fact,
     written_by,
 )
 
@@ -61,8 +61,12 @@ class SetMinimumCaucusSize(AllocationStep):
     )
 
     @property
-    def reads(self) -> frozenset[str]:
-        return frozenset({votes_fact(self.level), eligible_fact(self.section), "seat_total"})
+    def inputs(self) -> dict[str, str]:
+        return {
+            "votes": counts_fact(self.level, self.section),
+            "eligible": eligible_fact(self.section),
+            "seats": "seat_total",
+        }
 
     @property
     def writes(self) -> frozenset[str]:
@@ -72,14 +76,14 @@ class SetMinimumCaucusSize(AllocationStep):
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
         return {
             "quota": (
-                ("votes", f"{self.section} of the eligible parties and the fictitious one"),
-                ("seats", "seat_total"),
+                ("votes", "votes of the eligible options and of the fictitious one"),
+                ("seats", "seats"),
             ),
             "": (("votes", "the fictitious party's"), ("quota", "the quota")),
         }
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.votes_by_option(self.level, self.section)
+        votes = allocation.count(self.level, self.section).per_option()
         eligible = allocation.eligible(self.section)
         fictitious = self.share * sum(votes.values())
         counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
@@ -104,8 +108,8 @@ class RaiseChamberSize(AllocationStep):
     )
 
     @property
-    def reads(self) -> frozenset[str]:
-        return frozenset({"chamber_size", "overhang"})
+    def inputs(self) -> dict[str, str]:
+        return {"size": "chamber_size", "overhang": "overhang"}
 
     @property
     def writes(self) -> frozenset[str]:

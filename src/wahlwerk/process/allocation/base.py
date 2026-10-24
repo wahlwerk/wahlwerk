@@ -11,9 +11,10 @@ protocol and refuses one that reads a fact before any step writes it, so a law w
 in the wrong order fails when it is checked, not halfway through a run; each step checks
 its own facts again when applied.
 
-Facts are named by strings: ``tally`` (the input); scope first for a fact held per
-level or per section, ``<level>:votes`` (the tally summed to a level, e.g.
-``wahlkreis:votes``, see :class:`~wahlwerk.process.allocation.count.SumVotes`) and
+Facts are named by strings: ``tally`` (the input); a table of counts is named by its
+headers, rows, columns and values: ``<level>:option:<section>`` (the valid votes of one
+section per unit and option, e.g. ``wahlkreis:option:erststimme``, a :class:`Counts`
+made by :class:`~wahlwerk.process.allocation.count.SumGroupBy`);
 ``<section>:eligible_options`` (the options past the threshold of one vote, e.g.
 ``zweitstimme:eligible_options``); and one per optional field of :class:`Allocation`,
 named like it: ``unit_mandates``, ``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
@@ -39,7 +40,7 @@ from wahlwerk.apportionment.tie import Tie
 from wahlwerk.ids import LevelName, OptionId, PartyId, Slug, UnitId
 from wahlwerk.model import Count, Model, Seats
 from wahlwerk.state.chamber import Chamber
-from wahlwerk.vote.popular.tally import Tally, TallyKind
+from wahlwerk.vote.popular.tally import Tally
 
 __all__ = [
     "INPUT_FACTS",
@@ -47,11 +48,12 @@ __all__ = [
     "Allocation",
     "AllocationProtocol",
     "AllocationStep",
+    "Counts",
     "UnitResult",
     "check_protocol",
+    "counts_fact",
     "eligible_fact",
     "outside_reads",
-    "votes_fact",
 ]
 
 logger = logging.getLogger(__name__)
@@ -73,16 +75,63 @@ OPTIONAL_FACTS = (
 """The facts held by an optional field of :class:`Allocation` of the same name."""
 
 
-def votes_fact(level: str) -> str:
-    """The name of the fact holding the tally summed to ``level``: ``<level>:votes``,
-    e.g. ``wahlkreis:votes``."""
-    return f"{level}:votes"
+def counts_fact(level: str, section: str) -> str:
+    """The name of the table of ``section``'s valid votes per unit of ``level`` and
+    option, by its headers: ``<level>:option:<section>``, e.g.
+    ``wahlkreis:option:erststimme``."""
+    return f"{level}:option:{section}"
 
 
 def eligible_fact(section: str) -> str:
     """The name of the fact holding the options past the threshold of ``section``:
     ``<section>:eligible_options``, e.g. ``zweitstimme:eligible_options``."""
     return f"{section}:eligible_options"
+
+
+class Counts(Model):
+    """A table of valid votes: one row per unit of ``level``, one column per option, the
+    votes cast in ``section``, summed over channels; each row a counter per option. Its
+    name is its headers, ``<level>:option:<section>`` (:attr:`fact`).
+
+    Beside the counts, each option's party (``None`` for an Einzelbewerber or an
+    answer), as the tally records it: the party a seat won by the option goes to.
+    """
+
+    level: LevelName = Field(description="The level of the rows' units, e.g. ``wahlkreis``.")
+    section: Slug = Field(description="The vote counted, e.g. ``erststimme``.")
+    rows: tuple[tuple[UnitId, tuple[tuple[OptionId, Count], ...]], ...] = Field(
+        default_factory=tuple,
+        description="Per unit, in order of first appearance, each option and its votes.",
+    )
+    parties: tuple[tuple[OptionId, PartyId | None], ...] = Field(
+        default_factory=tuple,
+        description="Each option counted and the party it stands for.",
+    )
+
+    @property
+    def fact(self) -> str:
+        """The table's name: ``<level>:option:<section>``."""
+        return counts_fact(self.level, self.section)
+
+    def per_unit(self) -> dict[str, dict[str, int]]:
+        """Each unit's row: its options and their votes."""
+        return {unit: dict(row) for unit, row in self.rows}
+
+    def per_option(self) -> dict[str, int]:
+        """The votes per option, summed over the units, in order of first appearance."""
+        votes: dict[str, int] = {}
+        for _, row in self.rows:
+            for option, count in row:
+                votes[option] = votes.get(option, 0) + count
+        return votes
+
+    def party_of(self, option: str) -> str | None:
+        """The party ``option`` stands for; ``None`` for an Einzelbewerber or an answer.
+        Raises ``KeyError`` for an option not counted."""
+        for name, party in self.parties:
+            if name == option:
+                return party
+        raise KeyError(f"option {option!r} is not counted in {self.fact}")
 
 
 class UnitResult(Model):
@@ -140,9 +189,9 @@ class Allocation(Model):
     tally: Tally = Field(
         description="The tally of the popular vote, as recorded.",
     )
-    totals: tuple[tuple[LevelName, Tally], ...] = Field(
+    counts: tuple[Counts, ...] = Field(
         default_factory=tuple,
-        description="The tally summed to each level a step asked for, in the order summed.",
+        description="The tables of valid votes a step made, one per level and section, in the order made.",
     )
     unit_mandates: tuple[UnitResult, ...] | None = Field(
         default=None,
@@ -199,9 +248,9 @@ class Allocation(Model):
 
     @model_validator(mode="after")
     def _check_totals(self) -> Allocation:
-        levels = [level for level, _ in self.totals]
-        if len(set(levels)) != len(levels):
-            raise ValueError(f"allocation sums a level more than once: {levels}")
+        tables = [table.fact for table in self.counts]
+        if len(set(tables)) != len(tables):
+            raise ValueError(f"allocation holds a table more than once: {tables}")
         sections = [section for section, _ in self.eligible_options]
         if len(set(sections)) != len(sections):
             raise ValueError(f"allocation has eligible options of a section more than once: {sections}")
@@ -211,7 +260,7 @@ class Allocation(Model):
     def facts(self) -> frozenset[str]:
         """The names of the facts established so far."""
         facts = set(INPUT_FACTS)
-        facts.update(votes_fact(level) for level, _ in self.totals)
+        facts.update(table.fact for table in self.counts)
         facts.update(eligible_fact(section) for section, _ in self.eligible_options)
         facts.update(name for name in OPTIONAL_FACTS if getattr(self, name) is not None)
         return frozenset(facts)
@@ -230,13 +279,14 @@ class Allocation(Model):
                 wins[result.party] = wins.get(result.party, 0) + 1
         return wins
 
-    def total(self, level: str) -> Tally:
-        """The tally summed to ``level``; raises ``KeyError`` naming the level if it was
-        not summed."""
-        for name, tally in self.totals:
-            if name == level:
-                return tally
-        raise KeyError(f"allocation has no total at level {level!r}; summed: {[n for n, _ in self.totals]}")
+    def count(self, level: str, section: str) -> Counts:
+        """The table ``<level>:option:<section>``; raises ``KeyError`` naming it if no
+        step made it."""
+        fact = counts_fact(level, section)
+        for table in self.counts:
+            if table.fact == fact:
+                return table
+        raise KeyError(f"allocation has no table {fact!r}; made: {[t.fact for t in self.counts]}")
 
     def eligible(self, section: str) -> frozenset[str]:
         """The options past the threshold of ``section``; raises ``KeyError`` naming the
@@ -249,13 +299,6 @@ class Allocation(Model):
             f"applied: {[n for n, _ in self.eligible_options]}"
         )
 
-    def votes_by_option(self, level: str, section: str) -> dict[str, int]:
-        """The valid votes in ``section`` per option, from the total at ``level``, summed
-        over units and channels: on a list vote (the Zweitstimme) the options are the
-        parties' lists."""
-        votes = self.total(level).filter(kind=TallyKind.VOTES, section=section)
-        return {option: n for option, n in votes.sum_by("option").items() if option is not None}
-
     def with_values(self, **changes: Any) -> Allocation:
         """This allocation with ``changes`` in place of its fields, validated."""
         return type(self).model_validate({**dict(self), **changes})
@@ -264,9 +307,12 @@ class Allocation(Model):
 class AllocationStep(Model):
     """One rule of an electoral law: an allocation in, an allocation out.
 
-    Subclasses implement :meth:`_apply` and declare :attr:`reads` and :attr:`writes`
-    (and :attr:`optional_reads`, facts used when present). Callable, so
-    ``step(allocation)`` is ``step.apply(allocation)``.
+    A step is a function of the facts it reads: :attr:`inputs` names each argument and
+    the fact it takes (``votes`` takes ``wahlkreis:option:erststimme``), its fields are
+    its settings, and :attr:`writes` are its results. Subclasses implement :meth:`_apply`
+    and declare :attr:`inputs` (or, for a step holding others, :attr:`reads` directly)
+    and :attr:`writes` (and :attr:`optional_reads`, facts used when present). Callable,
+    so ``step(allocation)`` is ``step.apply(allocation)``.
     """
 
     formulas: ClassVar[tuple[Callable[..., Any], ...]] = ()
@@ -282,9 +328,15 @@ class AllocationStep(Model):
     )
 
     @property
-    @abstractmethod
+    def inputs(self) -> dict[str, str]:
+        """The step's arguments: each name and the fact it takes, e.g.
+        ``{"votes": "wahlkreis:option:erststimme"}``."""
+        return {}
+
+    @property
     def reads(self) -> frozenset[str]:
-        """The facts this step needs."""
+        """The facts this step needs: those its :attr:`inputs` take."""
+        return frozenset(self.inputs.values())
 
     @property
     @abstractmethod

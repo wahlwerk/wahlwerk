@@ -16,9 +16,9 @@ Sachsen-Anhalt (LWG LSA) as amended on 6 July 2021.
 | `Hierarchy` | `vote/popular/` | an alternative hierarchy (administrative) as an explicit tree; `PopularVote.hierarchies` |
 | thresholds, Ausgleich | `apportionment/threshold.py`, `apportionment/ausgleich.py` | `RelativeThreshold`, `SeatThreshold`, `Exempt`, `AlternativeThresholds`; `overhang`, `Ausgleich` |
 | apportionment methods | `apportionment/` | `DHondt`, `SainteLague`, `LinearDivisor` (`divisor.py`), `HareNiemeyer` (`remainder.py`), `MajorityFirst` (`majority.py`): models with no German content; `Tie` in `tie.py` |
-| `Allocation` | `process/allocation/base.py` | the working record of one allocation: the tally, totals per level, Wahlkreis results, eligible parties, seat total, entitlement, list seats, overhang |
+| `Allocation` | `process/allocation/base.py` | the working record of one allocation: the tally, tables of counts per level and section, Wahlkreis results, eligible parties, seat total, entitlement, list seats, overhang |
 | `AllocationStep`, `AllocationProtocol` | `process/allocation/base.py` | one rule of the law, and the law as an ordered tuple of them; `check_protocol` refuses a law that reads a fact before it is written |
-| steps | `process/allocation/count.py`, `elect.py`, `eligibility.py`, `seats.py` | `SumVotes`, `SingleMandatePerUnit`, `ApplyThresholdToOptions`, `SetSeatTotal`, `ApportionSeats`, `DeductUnitSeats`; each names the section and level it counts |
+| steps | `process/allocation/count.py`, `elect.py`, `eligibility.py`, `seats.py` | `SumGroupBy`, `SingleMandatePerUnit`, `ApplyThresholdToOptions`, `SetSeatTotal`, `ApportionSeats`, `DeductUnitSeats`; each names the section and level it counts |
 | `StepSequence`, flow | `process/allocation/sequence.py`, `flow.py` | several steps used as one; the structure derived from reads and writes (below) |
 | `allocate(vote, protocol)`, `FillVacantSeatsFromLists` | `process/allocation/allocate.py`, `chamber.py` | the process: applies the protocol, returns a `Chamber` |
 
@@ -53,12 +53,15 @@ protocol of steps over one working model**. The six slots survive as the modules
 steps are grouped in, not as types.
 
 - **`Allocation` is the working model.** It holds what the law establishes along the
-  way: totals per unit, Wahlkreis winners, the parties past the threshold, the seat
+  way: tables of counts (`wahlkreis:option:erststimme`), Wahlkreis winners, the parties past the threshold, the seat
   total, each party's entitlement, and its Wahlkreis and list seats. It sits in
   `process/`, not `state/`, since it exists only while a result is being derived.
 - **Each step declares what it reads and what it writes.** A protocol that apportions
   before applying the threshold then fails when the law is written, not in the middle
-  of a run.
+  of a run. A step reads like a function: `inputs` names each argument and the fact it
+  takes (`SingleMandatePerUnit(votes=wahlkreis:option:erststimme)`), its fields are
+  its settings, the facts it writes its results. A table of counts is named by its
+  headers, rows, columns and values: `wahlkreis:option:erststimme`.
 - **A step may hold a protocol.** § 35 (8) is a step whose field is the sub-protocol it
   repeats; there is no other way to write it without special cases.
 - **Apportionment methods have no German content.** Opaque options, exact weights, a seat
@@ -95,8 +98,8 @@ Sketched as a protocol:
 LWG_LSA_2021: AllocationProtocol = (                                # in stage order
     SetChamberSize(seats=83),                                       # § 1 (1): size and minimum
     StepSequence(name="CountVotes", steps=(                         # stage 0
-        SumVotes(level="wahlkreis"),                                # §§ 31, 32
-        SumVotes(level="land"),                                     # § 35 (2)
+        SumGroupBy(section="erststimme", level="wahlkreis"),       # §§ 31, 32
+        SumGroupBy(section="zweitstimme", level="land"),           # § 35 (2)
     )),
     StepSequence(name="ElectAndQualify", steps=(                    # stage 1
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),  # § 33
@@ -211,7 +214,7 @@ briefwahlbezirk = 8
   has exactly the listed number of segments.
 - `sum_to` takes the level alone: `tally.sum_to("wahlkreis")`. A schema-1 bundle has no
   `[levels]`, so its tally needs the depth given: `sum_to("wahlkreis", depth=4)`.
-- Which levels the *law* counts at stays in the protocol, as `SumVotes(level=...)`:
+- Which levels the *law* counts at stays in the protocol, as `SumGroupBy(section=..., level=...)`:
   the data says what levels exist, the law says which ones it uses.
 
 ### Alternative hierarchies: an explicit tree
@@ -259,7 +262,7 @@ Stimmkreise inside Wahlkreise still nest by prefix.
    `LinearDivisor`) and `LargestRemainder` (`HareNiemeyer`); tested by hand, on the 2026
    numbers, and by properties (house monotonicity, quota rule). **Done.**
 4. `Allocation`, `AllocationStep`, `AllocationProtocol`, the read/write check
-   (`check_protocol`), and the linear steps: `SumVotes`, `SingleMandatePerUnit`,
+   (`check_protocol`), and the linear steps: `SumVotes` (now `SumGroupBy`), `SingleMandatePerUnit`,
    `ApplyThresholdToOptions`, `SetSeatTotal`, `ApportionSeats`, `DeductUnitSeats`. **Done**:
    on 2026 they give AfD 38 Wahlkreise, Linke 3, six eligible parties, 83 seats, the
    entitlement AfD 39, CDU 15, SPD 8, Grüne 8, Linke 8, BSW 5, list seats AfD 1 and

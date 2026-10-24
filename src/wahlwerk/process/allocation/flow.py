@@ -170,7 +170,8 @@ class StepNode(Model):
     path: tuple[int | str, ...] = Field(description="Where it sits, as for :mod:`wahlwerk.law.edit`, e.g. ``(5, \"protocol\", 0)``.")
     kind: str = Field(description="The step's class, e.g. ``ApportionSeats``, or a sequence's name, e.g. ``AllocateSeats``.")
     title: str = Field(description="What it does, in a few words: a sequence's title, else the first sentence of its class.")
-    parameters: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="Its settings, each as (field, short value), e.g. ``(\"seats\", \"83\")``.")
+    inputs: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="Its arguments, each as (name, the fact it takes), e.g. ``(\"votes\", \"wahlkreis:option:erststimme\")``; what it reads, named.")
+    parameters: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="Its settings, each as (field, short value), e.g. ``(\"seats\", \"83\")``; a ``section`` or ``level`` an argument's fact already names is left out.")
     citation: str | None = Field(default=None, description="The provision it follows, if recorded.")
     reads: tuple[str, ...] = Field(default_factory=tuple, description="The facts it needs.")
     optional_reads: tuple[str, ...] = Field(default_factory=tuple, description="The facts it uses when present.")
@@ -207,6 +208,7 @@ def describe(
                 path=path,
                 kind=_kind(step),
                 title=_title(step),
+                inputs=tuple(step.inputs.items()),
                 parameters=_parameters(step),
                 citation=step.citation,
                 reads=tuple(sorted(step.reads)),
@@ -288,6 +290,8 @@ def protocol_table(protocol: AllocationProtocol) -> str:
     rows = [("", "step", "follows", "reads", "writes")]
     for node, depth in _walk(describe(protocol)):
         label = "  " * depth + node.kind
+        if node.inputs:
+            label += "(" + ", ".join(f"{k}={v}" for k, v in node.inputs) + ")"
         if node.parameters:
             label += " " + ", ".join(f"{k}={v}" for k, v in node.parameters)
         rows.append(
@@ -363,11 +367,15 @@ _HIDDEN = {"citation", "name", "steps", "protocol"}  # shown otherwise, or held 
 
 
 def _parameters(step: AllocationStep) -> tuple[tuple[str, str], ...]:
-    """The settings that differ from their defaults, the ones a reader needs."""
+    """The settings that differ from their defaults, the ones a reader needs. A
+    ``section`` or ``level`` is left out when an argument's fact names it already
+    (``votes=wahlkreis:option:erststimme`` says both)."""
+    named = {part for fact in step.inputs.values() for part in fact.split(":")}
     return tuple(
         (name, _short(getattr(step, name)))
         for name in _set_fields(step)
         if name not in _HIDDEN
+        and not (name in ("section", "level") and getattr(step, name) in named)
     )
 
 

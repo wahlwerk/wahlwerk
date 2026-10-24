@@ -11,7 +11,7 @@ from wahlwerk.law.de.st.lwg import LWG_2021
 from wahlwerk.law.edit import find, insert, remove, replace, step_at, steps, substitute
 from wahlwerk.process.allocation.allocate import allocate
 from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
-from wahlwerk.process.allocation.count import SumVotes
+from wahlwerk.process.allocation.count import SumGroupBy
 from wahlwerk.process.allocation.eligibility import (
     ApplyThresholdToOptions,
     SetChamberSize,
@@ -57,7 +57,7 @@ def test_replace_validates_and_names_what_is_wrong():
     with pytest.raises(KeyError, match="no FillVacantSeatsFromLists at"):
         replace(P, FillVacantSeatsFromLists, at=(3,), minimum_mandates=1)
     with pytest.raises(KeyError, match="has no"):
-        replace((SumVotes(level="land"),), SetChamberSize, seats=1)
+        replace((SumGroupBy(section="zweitstimme", level="land"),), SetChamberSize, seats=1)
 
 
 def test_substitute_insert_remove():
@@ -65,7 +65,7 @@ def test_substitute_insert_remove():
         threshold=RelativeThreshold(share=Fraction(1, 10)), section="zweitstimme", level="land"
     )
     assert step_at(substitute(P, (2, "steps", 1), threshold), (2, "steps", 1)) == threshold
-    longer = insert(P, (5, "protocol", 1, "steps", 0), SumVotes(level="land"))
+    longer = insert(P, (5, "protocol", 1, "steps", 0), SumGroupBy(section="zweitstimme", level="land"))
     assert len(step_at(longer, (5, "protocol", 1)).steps) == 4
     shorter = remove(P, (5, "protocol", 1, "steps", 2))
     assert len(step_at(shorter, (5, "protocol", 1)).steps) == 2

@@ -1,7 +1,7 @@
 """Units that elect one member each: a winner per unit of a level.
 
 Two parts, kept apart so each is visible. The step turns the tally into one small
-contest per unit: the options standing there and their votes. A method then chooses
+contest per unit: the options standing there and their votes, a row of the table of counts. A method then chooses
 the winner from that list alone, knowing nothing of units, sections or law; usually
 :class:`~wahlwerk.apportionment.plurality.Plurality`, the most votes win. In Germany
 the units are Wahlkreise and the vote is the Erststimme (Sec. 33 LWG LSA: the most
@@ -20,23 +20,24 @@ from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationStep,
+    Counts,
     UnitResult,
-    votes_fact,
+    counts_fact,
 )
-from wahlwerk.vote.popular.tally import TallyKind
 
-__all__ = ["SingleMandatePerUnit", "contests", "parties_of"]
+__all__ = ["SingleMandatePerUnit"]
+
 
 class SingleMandatePerUnit(AllocationStep):
     """One mandate per unit: elect one option in each unit of ``level`` by ``method``, from
     the valid votes in ``section`` summed over channels (Urne and Brief).
 
-    Each unit is one contest (:func:`contests`): its options and their votes, an option
-    being a candidate, or a party's nominee where the tally names no candidate.
-    ``method`` chooses one winner from that list. Where it cannot (equal votes at the
-    top, or no votes at all), the unit's result is a
-    :class:`~wahlwerk.apportionment.tie.Tie`, since the law decides it by lot; nothing is
-    guessed. The winner's party comes from the tally (:func:`parties_of`).
+    Its argument ``votes`` is the table ``<level>:option:<section>``: each row one unit's
+    contest, its options and their votes, an option being a candidate, or a party's
+    nominee where the tally names no candidate. ``method`` chooses one winner from a row
+    alone. Where it cannot (equal votes at the top, or no votes at all), the unit's
+    result is a :class:`~wahlwerk.apportionment.tie.Tie`, since the law decides it by
+    lot; nothing is guessed. The winner's party is the option's, from the table.
     """
 
     SEATS: ClassVar[int] = 1
@@ -56,8 +57,8 @@ class SingleMandatePerUnit(AllocationStep):
     )
 
     @property
-    def reads(self) -> frozenset[str]:
-        return frozenset({votes_fact(self.level)})
+    def inputs(self) -> dict[str, str]:
+        return {"votes": counts_fact(self.level, self.section)}
 
     @property
     def writes(self) -> frozenset[str]:
@@ -65,20 +66,17 @@ class SingleMandatePerUnit(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"method": (("votes", f"{self.section} per option"), ("seats", str(self.SEATS)))}
+        return {"method": (("votes", "one row of votes"), ("seats", str(self.SEATS)))}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        per_unit = contests(allocation, self.section, self.level)
-        if not per_unit:
-            raise ValueError(
-                f"{type(self).__name__}: no {self.section!r} votes at level {self.level!r} to elect from"
-            )
-        parties = parties_of(allocation, self.section, self.level)
+        table = allocation.count(self.level, self.section)
+        if not table.rows:
+            raise ValueError(f"{type(self).__name__}: no {table.fact!r} votes to elect from")
         return allocation.with_values(
-            unit_mandates=tuple(self._elect(unit, votes, parties) for unit, votes in per_unit.items())
+            unit_mandates=tuple(self._elect(unit, votes, table) for unit, votes in table.per_unit().items())
         )
 
-    def _elect(self, unit: str, votes: dict[str, int], parties: dict[str, str | None]) -> UnitResult:
+    def _elect(self, unit: str, votes: dict[str, int], table: Counts) -> UnitResult:
         """The winner of one unit's contest, chosen by ``method``."""
         most = max(votes.values())
         if most:
@@ -92,28 +90,5 @@ class SingleMandatePerUnit(AllocationStep):
             return UnitResult.model_validate({"unit": unit, "votes": most, "tie": tie})
         (option,) = winners
         return UnitResult.model_validate(
-            {"unit": unit, "option": option, "party": parties.get(option), "votes": votes[option]}
+            {"unit": unit, "option": option, "party": table.party_of(option), "votes": votes[option]}
         )
-
-
-def contests(allocation: Allocation, section: str, level: str) -> dict[str, dict[str, int]]:
-    """The tally as one contest per unit of ``level``: each option in ``section`` and
-    the valid votes for it, summed over channels. A plain list of options and votes,
-    which is all a method needs."""
-    votes = allocation.total(level).filter(kind=TallyKind.VOTES, section=section)
-    per_unit: dict[str, dict[str, int]] = {}
-    for (unit, option), count in votes.sum_by("unit", "option").items():
-        per_unit.setdefault(unit, {})[option] = count
-    return per_unit
-
-
-def parties_of(allocation: Allocation, section: str, level: str) -> dict[str, str | None]:
-    """Each option's party in ``section`` at ``level``, as the tally records it; ``None``
-    for an Einzelbewerber. Raises ``ValueError`` for an option recorded with two
-    parties."""
-    votes = allocation.total(level).filter(kind=TallyKind.VOTES, section=section)
-    parties: dict[str, str | None] = {}
-    for option, party in votes.sum_by("option", "party"):
-        if parties.setdefault(option, party) != party:
-            raise ValueError(f"option {option!r} stands for {parties[option]!r} and {party!r}")
-    return parties

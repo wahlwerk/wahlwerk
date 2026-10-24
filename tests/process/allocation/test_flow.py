@@ -10,7 +10,7 @@ from wahlwerk.law.de.st.lwg import ALLOCATE, COUNT, LWG_2021, QUALIFY
 from wahlwerk.process.allocation import flow
 from wahlwerk.process.allocation.allocate import derive
 from wahlwerk.process.allocation.base import check_protocol
-from wahlwerk.process.allocation.count import SumVotes
+from wahlwerk.process.allocation.count import SumGroupBy
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.sequence import StepSequence
 
@@ -30,7 +30,7 @@ def test_stages_follow_the_facts():
 def test_sources_name_the_last_writer():
     read = flow.sources(P)
     assert read[1] == {"tally": None}
-    assert read[2] == {"land:votes": 1, "wahlkreis:votes": 1}
+    assert read[2] == {"land:option:zweitstimme": 1, "wahlkreis:option:erststimme": 1}
     assert read[3]["chamber_size"] == 0 and read[3]["unit_mandates"] == 2
     assert read[5]["overhang"] == 3 and read[5]["chamber_size"] == 0
     assert read[6] == {"unit_mandates": 2, "list_seats": 5, "minimum_mandates": 0}
@@ -53,8 +53,8 @@ def test_a_swap_that_keeps_the_flow_keeps_the_result():
 
 
 def test_two_writers_of_one_fact_cannot_trade_places():
-    # Both write land:votes; the later one is the one that counts.
-    twice = (SumVotes(level="land"), SumVotes(level="land", citation="again"))
+    # Both write land:option:zweitstimme; the later one is the one that counts.
+    twice = (SumGroupBy(section="zweitstimme", level="land"), SumGroupBy(section="zweitstimme", level="land", citation="again"))
     assert not flow.can_swap(twice, 0, 1)
 
 
@@ -65,7 +65,7 @@ def test_movable_gives_the_range_a_step_can_go():
 
 
 def test_a_sequence_is_one_step():
-    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "zweitstimme:eligible_options", "land:votes"}
+    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "zweitstimme:eligible_options", "land:option:zweitstimme"}
     assert ALLOCATE.writes == {"seat_total", "entitlement", "list_seats", "overhang"}
     inline = (*P[:3], ALLOCATE, P[4])
     flat = (*P[:3], *ALLOCATE.steps, P[4])
@@ -78,7 +78,7 @@ def test_a_sequence_needs_its_steps_and_a_title():
     with pytest.raises(ValueError):
         StepSequence(name="DoNothing", steps=())
     with pytest.raises(ValueError):
-        StepSequence(name="count the votes", steps=(SumVotes(level="land"),))  # named like a step
+        StepSequence(name="count the votes", steps=(SumGroupBy(section="zweitstimme", level="land"),))  # named like a step
 
 
 def test_a_sequence_in_the_wrong_place_is_refused():
@@ -92,7 +92,7 @@ def test_describe_and_the_table():
         "SetChamberSize", "CountVotes", "ElectAndQualify", "AllocateSeats", "SetMinimumCaucusSize",
         "RaiseByOverhang", "FillVacantSeatsFromLists",
     ]
-    assert [c.kind for c in nodes[1].children] == ["SumVotes", "SumVotes"]
+    assert [c.kind for c in nodes[1].children] == ["SumGroupBy", "SumGroupBy"]
     assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThresholdToOptions"]
     loop = nodes[5]
     assert loop.citation == "Sec. 35 (8), (8a)"
@@ -167,12 +167,24 @@ def test_the_formula_named_is_the_one_called(monkeypatch):
 
 def test_a_concept_shows_what_the_step_hands_it():
     elect = flow.describe(P)[2].children[0]
-    assert elect.uses[0].arguments == (("votes", "erststimme per option"), ("seats", "1"))
+    assert elect.uses[0].arguments == (("votes", "one row of votes"), ("seats", "1"))
     threshold = flow.describe(P)[2].children[1].uses[0]
-    assert threshold.arguments == (("options", "parties"), ("votes", "zweitstimme per party"))
+    assert threshold.arguments == (("votes", "votes per option, summed over the units"),)
     assert threshold.parameters == (("share", "1/20"),)
     caucus = flow.describe(P)[4]  # a step of its own, before the loop and in each round
     (quota,) = caucus.uses
-    assert quota.kind == "HareQuota" and dict(quota.arguments)["seats"] == "seat_total"
+    assert quota.kind == "HareQuota" and dict(quota.arguments)["seats"] == "seats"
     assert [c.formula for c in quota.calls] == ["wahlwerk.calc.quota.hare"]
     assert [c.formula for c in caucus.calls] == ["wahlwerk.calc.quota.whole_seats"]
+
+
+def test_a_step_reads_like_a_function():
+    # Its arguments are the facts it reads, named; settings the table names are not repeated.
+    elect, threshold = flow.describe(P)[2].children
+    assert elect.inputs == (("votes", "wahlkreis:option:erststimme"),)
+    assert elect.parameters == (("method", "Plurality"),)
+    assert threshold.inputs == (("votes", "land:option:zweitstimme"),)
+    count = flow.describe(P)[1].children[0]
+    assert count.inputs == (("tally", "tally"),)
+    assert count.parameters == (("section", "erststimme"), ("level", "wahlkreis"))  # its own settings
+    assert "SingleMandatePerUnit(votes=wahlkreis:option:erststimme) method=Plurality" in flow.protocol_table(P)
