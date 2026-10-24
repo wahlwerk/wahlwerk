@@ -15,12 +15,12 @@ path, depth first.
     from wahlwerk.apportionment.divisor import SainteLague
     from wahlwerk.apportionment.threshold import RelativeThreshold
     from wahlwerk.law.edit import replace
-    from wahlwerk.process.allocation.eligibility import ApplyThreshold, SetHouse
+    from wahlwerk.process.allocation.eligibility import ApplyThreshold, SetChamberSize
     from wahlwerk.process.allocation.seats import ApportionSeats
 
     protocol = replace(LWG_2021.protocol, ApplyThreshold,
                        threshold=RelativeThreshold(share=Fraction(3, 100)))
-    protocol = replace(protocol, SetHouse, seats=101)
+    protocol = replace(protocol, SetChamberSize, seats=101)
     protocol = replace(protocol, ApportionSeats, method=SainteLague())
     law = LWG_2021.revise(id="example.st.lwg.sainte-lague", title="...", protocol=protocol)
 """
@@ -141,7 +141,7 @@ def replace(
     """``protocol`` with ``changes`` made to every step of type ``kind``, nested ones
     included, or only to the one at ``at``.
 
-    ``replace(protocol, SetHouse, seats=101)`` raises the legal size of the house;
+    ``replace(protocol, SetChamberSize, seats=101)`` raises the legal size of the chamber size;
     ``replace(protocol, ApportionSeats, method=SainteLague())`` swaps the method in every
     place the law apportions. Raises ``KeyError`` if no step of that type is there.
     """

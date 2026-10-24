@@ -12,7 +12,7 @@ from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.district import ElectDistricts
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
-    SetHouse,
+    SetChamberSize,
     SetSeatTotal,
 )
 from wahlwerk.process.allocation.mehrsitze import (
@@ -26,7 +26,7 @@ from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 LEVELS = (Level(name="land", depth=2), Level(name="wahlkreis", depth=4))
 FIVE = Fraction(5, 100)
 FRAKTION = FraktionSize(share=FIVE, section="zweitstimme", level="land")
-ALLOCATE_HOUSE = (
+ALLOCATE = (
     SetSeatTotal(),
     ApportionSeats(method=HareNiemeyer(), section="zweitstimme", level="land"),
     DeductDistrictSeats(),
@@ -52,8 +52,8 @@ def law(base, repeat):
         ElectDistricts(section="erststimme", level="wahlkreis"),
         SumVotes(level="land"),
         ApplyThreshold(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
-        SetHouse(seats=base),
-        *ALLOCATE_HOUSE,
+        SetChamberSize(seats=base),
+        *ALLOCATE,
         repeat,
         FormChamber(minimum_mandates=base),
     )
@@ -68,22 +68,22 @@ def run(protocol, winners, zweit):
 
 
 ZWEIT = {"afd": 500, "cdu": 300, "linke": 170, "fdp": 30}
-LOOP = RepeatForMehrsitze(protocol=ALLOCATE_HOUSE, factor=2, full_rounds=2, fraktion=FRAKTION)
+LOOP = RepeatForMehrsitze(protocol=ALLOCATE, factor=2, full_rounds=2, fraktion=FRAKTION)
 
 
 def test_balanced_within_the_full_rounds():
-    # Hare on 10: Linke 1.75 -> 2 against 3 Wahlkreise: 1 Mehrsitz, house 12.
-    # On 12 Linke gets 2 again (cdu takes the remainder seat): house 14; on 14 Linke gets 3.
+    # Hare on 10: Linke 1.75 -> 2 against 3 Wahlkreise: 1 Mehrsitz, chamber size 12.
+    # On 12 Linke gets 2 again (cdu takes the remainder seat): chamber size 14; on 14 Linke gets 3.
     result = run(law(10, LOOP), ["linke"] * 3, ZWEIT)
-    assert result.house == 14
+    assert result.chamber_size == 14
     assert result.overhang == ()
     assert result.entitlement.as_dict() == {"afd": 7, "cdu": 4, "linke": 3}
     assert result.chamber.size == 14
 
 
-def test_no_mehrsitze_leaves_the_house():
+def test_no_mehrsitze_leaves_the_chamber_size():
     result = run(law(10, LOOP), ["afd"], ZWEIT)
-    assert result.house == 10
+    assert result.chamber_size == 10
     assert result.chamber.size == 10
 
 
@@ -93,21 +93,21 @@ SMALL = {"afd": 540, "cdu": 400, "linke": 60}
 
 
 def test_without_a_fraktion_rule_mehrsitze_left_after_the_full_rounds_are_kept():
-    loop = RepeatForMehrsitze(protocol=ALLOCATE_HOUSE, factor=2, full_rounds=2)
+    loop = RepeatForMehrsitze(protocol=ALLOCATE, factor=2, full_rounds=2)
     result = run(law(10, loop), MANY, SMALL)
     kept = sum(n for _, n in result.overhang)
     assert kept > 0
-    assert result.chamber.size == result.house + kept
+    assert result.chamber.size == result.chamber_size + kept
     assert dict(result.list_seats)["linke"] == 0
 
 
 def test_further_rounds_run_while_mehrsitze_exceed_half_a_fraktion():
-    unlimited = run(law(10, RepeatForMehrsitze(protocol=ALLOCATE_HOUSE)), MANY, SMALL)
+    unlimited = run(law(10, RepeatForMehrsitze(protocol=ALLOCATE)), MANY, SMALL)
     limited = run(law(10, LOOP), MANY, SMALL)
     kept = sum(n for _, n in limited.overhang)
     assert 2 * kept <= FRAKTION.seats(limited)
-    assert limited.house > unlimited.house
-    assert limited.chamber.size == limited.house + kept
+    assert limited.chamber_size > unlimited.chamber_size
+    assert limited.chamber.size == limited.chamber_size + kept
 
 
 def test_fraktion_size_counts_a_fictitious_five_percent_party():
@@ -123,25 +123,27 @@ def test_fraktion_size_counts_a_fictitious_five_percent_party():
 
 
 def test_loop_declares_what_it_reads_and_writes():
-    assert {"house", "overhang", "districts", "eligible", "total:land"} <= LOOP.reads
-    assert {"house", "seat_total", "entitlement", "list_seats", "overhang"} <= LOOP.writes
+    # It runs its allocation first, so the overhang it is driven by is its own.
+    assert {"chamber_size", "districts", "eligible", "total:land"} <= LOOP.reads
+    assert "overhang" not in LOOP.reads
+    assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= LOOP.writes
 
 
-# Sec. 58 (6) LKWG M-V: Ausgleich for Überhang, capped, and a raised house made odd.
+# Sec. 58 (6) LKWG M-V: Ausgleich for Überhang, capped, and a raised chamber size made odd.
 # The 2021 Landtag balances well within the cap, so the cap and a returning Überhang are
 # only reached here. Hare on 10 seats among afd, cdu, linke gives linke 2 against its 3
-# Wahlkreise: one seat of Überhang; linke first gets its third seat in a house of 14.
+# Wahlkreise: one seat of Überhang; linke first gets its third seat in a chamber size of 14.
 
 LINKE = ["linke"] * 3
 
 
 def raise_for_ausgleich(**fields):
-    return RaiseForAusgleich(protocol=ALLOCATE_HOUSE, **fields)
+    return RaiseForAusgleich(protocol=ALLOCATE, **fields)
 
 
-def test_without_a_limit_the_house_rises_until_the_ueberhang_is_balanced():
+def test_without_a_limit_the_chamber_size_rises_until_the_ueberhang_is_balanced():
     result = run(law(10, raise_for_ausgleich()), LINKE, ZWEIT)
-    assert result.house == 14
+    assert result.chamber_size == 14
     assert result.overhang == ()
     assert result.entitlement.as_dict() == {"afd": 7, "cdu": 4, "linke": 3}
     assert result.chamber.size == 14
@@ -149,9 +151,9 @@ def test_without_a_limit_the_house_rises_until_the_ueberhang_is_balanced():
 
 def test_the_limit_caps_the_ausgleichsmandate_and_keeps_the_ueberhang():
     # The chamber before Ausgleich is 10 + 1. Twice the Überhang allows a chamber of 13:
-    # house 12 with the Überhang kept; house 13 would need 3 Ausgleichsmandate.
+    # chamber size 12 with the Überhang kept; chamber size 13 would need 3 Ausgleichsmandate.
     result = run(law(10, raise_for_ausgleich(limit=2)), LINKE, ZWEIT)
-    assert result.house == 12
+    assert result.chamber_size == 12
     assert dict(result.overhang) == {"linke": 1}
     assert result.chamber.size == 13
     assert result.chamber.seats_by_party == {"afd": 6, "cdu": 4, "linke": 3}
@@ -159,42 +161,43 @@ def test_the_limit_caps_the_ausgleichsmandate_and_keeps_the_ueberhang():
 
 def test_a_limit_of_zero_keeps_the_ueberhang_unbalanced():
     result = run(law(10, raise_for_ausgleich(limit=0)), LINKE, ZWEIT)
-    assert result.house == 10
+    assert result.chamber_size == 10
     assert result.chamber.size == 11
 
 
 def test_an_even_raised_chamber_gains_one_seat():
     zweit = {"afd": 520, "cdu": 300, "linke": 180}
     even = run(law(11, raise_for_ausgleich()), LINKE, zweit)
-    odd = run(law(11, raise_for_ausgleich(has_odd_house=True)), LINKE, zweit)
+    odd = run(law(11, raise_for_ausgleich(has_odd_size=True)), LINKE, zweit)
     assert even.chamber.size == 14
-    assert odd.house == 15
+    assert odd.chamber_size == 15
     assert odd.overhang == ()
     assert odd.entitlement.as_dict() == {"afd": 8, "cdu": 4, "linke": 3}
 
 
 def test_the_odd_seat_is_added_under_the_cap_too():
-    # limit 1: house 11, Überhang kept, chamber 12; the odd seat makes house 12, chamber 13.
-    result = run(law(10, raise_for_ausgleich(limit=1, has_odd_house=True)), LINKE, ZWEIT)
-    assert result.house == 12
+    # limit 1: chamber size 11, Überhang kept, chamber 12; the odd seat makes chamber size 12, chamber 13.
+    result = run(law(10, raise_for_ausgleich(limit=1, has_odd_size=True)), LINKE, ZWEIT)
+    assert result.chamber_size == 12
     assert result.chamber.size == 13
 
 
 def test_an_ueberhang_brought_back_by_the_odd_seat_is_kept():
     # Balanced at 14; on 15 Hare gives linke 2 again, so its Überhang returns.
-    result = run(law(10, raise_for_ausgleich(has_odd_house=True)), LINKE, ZWEIT)
-    assert result.house == 15
+    result = run(law(10, raise_for_ausgleich(has_odd_size=True)), LINKE, ZWEIT)
+    assert result.chamber_size == 15
     assert dict(result.overhang) == {"linke": 1}
     assert result.chamber.size == 16
 
 
-def test_no_ueberhang_leaves_the_house_even_if_odd_is_required():
-    result = run(law(10, raise_for_ausgleich(limit=2, has_odd_house=True)), ["afd"], ZWEIT)
-    assert result.house == 10
+def test_no_ueberhang_leaves_the_chamber_size_even_if_odd_is_required():
+    result = run(law(10, raise_for_ausgleich(limit=2, has_odd_size=True)), ["afd"], ZWEIT)
+    assert result.chamber_size == 10
     assert result.chamber.size == 10
 
 
 def test_step_declares_what_it_reads_and_writes():
-    step = raise_for_ausgleich(limit=2, has_odd_house=True)
-    assert {"house", "overhang", "districts", "eligible", "total:land"} <= step.reads
-    assert {"house", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes
+    step = raise_for_ausgleich(limit=2, has_odd_size=True)
+    assert {"chamber_size", "districts", "eligible", "total:land"} <= step.reads
+    assert "overhang" not in step.reads
+    assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes

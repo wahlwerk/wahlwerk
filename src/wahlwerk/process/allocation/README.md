@@ -1,8 +1,8 @@
 # From a popular vote to a chamber
 
 This is the design for the first *external* process: turning the tally of a popular vote
-into a `Chamber`, under an electoral law written as a protocol. Only the first three steps
-(`PopularVote`, `Tally`, the hierarchies, and the apportionment methods) exist; everything else here is the plan. The case it is
+into a `Chamber`, under an electoral law written as a protocol. It was the plan and is
+now built; the order of work at the end says what was done when. The case it is
 built against is the Landtag of Sachsen-Anhalt, 2026, under the Wahlgesetz des Landes
 Sachsen-Anhalt (LWG LSA) as amended on 6 July 2021.
 
@@ -19,6 +19,7 @@ Sachsen-Anhalt (LWG LSA) as amended on 6 July 2021.
 | `Allocation` | `process/allocation/base.py` | the working record of one allocation: the tally, totals per level, Wahlkreis results, eligible parties, seat total, entitlement, list seats, overhang |
 | `AllocationStep`, `AllocationProtocol` | `process/allocation/base.py` | one rule of the law, and the law as an ordered tuple of them; `check_protocol` refuses a law that reads a fact before it is written |
 | steps | `process/allocation/count.py`, `district.py`, `eligibility.py`, `seats.py` | `SumVotes`, `ElectDistricts`, `ApplyThreshold`, `SetSeatTotal`, `ApportionSeats`, `DeductDistrictSeats`; each names the section and level it counts |
+| `StepSequence`, flow | `process/allocation/sequence.py`, `flow.py` | several steps used as one; the structure derived from reads and writes (below) |
 | `allocate(vote, protocol)`, `FormChamber` | `process/allocation/allocate.py`, `chamber.py` | the process: applies the protocol, returns a `Chamber` |
 
 The names follow the four terms of the README ("Approach"): the vote is *input*, the
@@ -100,31 +101,55 @@ LWG_LSA_2021: AllocationProtocol = (
         section="zweitstimme",
         level="land",
     ),
-    SetHouse(seats=83),                                             # § 1 (1)
-    SetSeatTotal(),                                                 # § 35 (4)
-    ApportionSeats(                                                 # § 35 (5), (6)
-        method=MajorityFirst(method=HareNiemeyer()),
-        section="zweitstimme",
-        level="land",
-    ),
-    DeductDistrictSeats(),                                          # § 35 (7)
+    SetChamberSize(seats=83),                                       # § 1 (1): size and minimum
     RepeatForMehrsitze(                                             # § 35 (8), (8a)
-        protocol=(                                                  # § 35 (4) to (7) again
-            SetSeatTotal(),
-            ApportionSeats(method=MajorityFirst(method=HareNiemeyer()), ...),
-            DeductDistrictSeats(),
+        protocol=(
+            StepSequence(                                           # § 35 (4) to (7)
+                title="allocate the seats of one chamber size",
+                steps=(
+                    SetSeatTotal(),                                 # § 35 (4)
+                    ApportionSeats(                                 # § 35 (5), (6)
+                        method=MajorityFirst(method=HareNiemeyer()),
+                        section="zweitstimme",
+                        level="land",
+                    ),
+                    DeductDistrictSeats(),                          # § 35 (7)
+                ),
+            ),
         ),
         factor=2,
         full_rounds=2,
         fraktion=FraktionSize(share="5/100", section="zweitstimme", level="land"),
     ),
-    FormChamber(minimum_mandates=83),                               # § 1 (1)
+    FormChamber(),                                                  # the minimum from SetChamberSize
 )
 ```
 
-All of it exists; the real protocol is `LWG_2021` in `wahlwerk/law/de/st/lwg.py`,
-where the house is set by `SetHouse(seats=83)` before `SetSeatTotal()` and the loop
-carries a `FraktionSize` for Sec. 35 (8a).
+All of it exists; the real protocol is `LWG_2021` in `wahlwerk/law/de/st/lwg.py`, each
+step with its paragraph as `citation`.
+
+## Structure: sequences, loops, flow
+
+Three things shape a protocol, and none is declared beyond what each step reads and
+writes:
+
+- **A sequence** (`StepSequence`, `sequence.py`) is a named row of steps that acts as one
+  step: it reads what its steps need from outside it and writes what they write. Sec. 35
+  (4) to (7) is one (`ALLOCATE` in the law module), written once and used by the loop.
+- **A loop holds its block.** `RepeatForMehrsitze` and `RaiseForAusgleich` run their
+  protocol first, then raise the chamber size and run it again while the law asks, so the
+  allocation of one chamber size is not written twice (once before the loop, once inside).
+- **A number the statute states once is written once.** `SetChamberSize(seats=83)` writes
+  the starting `chamber_size` and the `minimum_mandates` the chamber keeps; `FormChamber`
+  reads it unless given its own (`is_minimum=False` where a law gives two numbers).
+
+`flow.py` derives the rest: each step's **stage** (one more than the latest step it reads
+from, so stages are a layering, not a set of declared bands: a step can feed several later
+ones), `can_swap(protocol, i, j)` (true when every reader keeps the same writer of each
+fact), `movable(protocol, i)` (the positions a step can take without changing the result),
+and `describe`, `protocol_table`, `protocol_html`, `protocol_data` for display; `Law`
+prints as that table, and `Law.fancy_html()` draws it with wahlwerk-ui.
+`examples/swap_lwg_lsa_2021.py` replaces and reorders steps on the 2021 votes.
 
 ### What 2026 does and does not test
 
@@ -248,5 +273,8 @@ Stimmkreise inside Wahlkreise still nest by prefix.
    parts exist: `MajorityFirst` (§ 35 (6)), `RelativeThreshold` (§ 35 (3)), `overhang`
    and `Ausgleich`, all in `wahlwerk.apportionment` (computing since through `wahlwerk.calc`), and the measures, all
    after votelib (github.com/simberaj/votelib, MIT), the one outside reference used.
-7. Later: the § 32 S. 2 input, nominations, Ersatzpersonen and Nachrücken (§ 35 (9),
+7. Structure: `StepSequence`, loops holding their block, the minimum written once,
+   citations as data, and the derived flow (stages, swaps, move ranges) with its
+   drawing. **Done**; the golden results are unchanged.
+8. Later: the § 32 S. 2 input, nominations, Ersatzpersonen and Nachrücken (§ 35 (9),
    § 40), the recount of § 39.

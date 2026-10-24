@@ -14,6 +14,18 @@ Steps, protocols and the processes that apply them.
 .. automodule:: wahlwerk.process.allocation.base
 ```
 
+## `wahlwerk.process.allocation.sequence`
+
+```{eval-rst}
+.. automodule:: wahlwerk.process.allocation.sequence
+```
+
+## `wahlwerk.process.allocation.flow`
+
+```{eval-rst}
+.. automodule:: wahlwerk.process.allocation.flow
+```
+
 ## `wahlwerk.process.allocation.allocate`
 
 ```{eval-rst}

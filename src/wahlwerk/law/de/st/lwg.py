@@ -25,24 +25,32 @@ from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.district import ElectDistricts
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
-    SetHouse,
+    SetChamberSize,
     SetSeatTotal,
 )
 from wahlwerk.process.allocation.mehrsitze import FraktionSize, RepeatForMehrsitze
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductDistrictSeats
+from wahlwerk.process.allocation.sequence import StepSequence
 
-__all__ = ["LWG_2021"]
+__all__ = ["ALLOCATE", "LWG_2021"]
 
 _FIVE_PERCENT = Fraction(5, 100)
 
-# Sec. 35 (4) to (7): the seats allocated for a house of a given size.
-_ALLOCATE_HOUSE = (
-    SetSeatTotal(),  # Sec. 35 (4)
-    ApportionSeats(  # Sec. 35 (5), (6)
-        method=MajorityFirst(method=HareNiemeyer()), section="zweitstimme", level="land"
+ALLOCATE = StepSequence(
+    title="allocate the seats of one chamber size",
+    citation="Sec. 35 (4) to (7)",
+    steps=(
+        SetSeatTotal(citation="Sec. 35 (4)"),
+        ApportionSeats(
+            method=MajorityFirst(method=HareNiemeyer()),
+            section="zweitstimme",
+            level="land",
+            citation="Sec. 35 (5), (6)",
+        ),
+        DeductDistrictSeats(citation="Sec. 35 (7)"),
     ),
-    DeductDistrictSeats(),  # Sec. 35 (7)
 )
+"""Sec. 35 (4) to (7): the seats of one chamber size, which Sec. 35 (8) repeats."""
 
 LWG_2021 = Law(
     id="de.st.lwg.2021",
@@ -59,21 +67,24 @@ LWG_2021 = Law(
         "Gesetze_8.WP/2021_Wahlgesetz_LWG.pdf"
     ),
     protocol=(
-        SumVotes(level="wahlkreis"),  # Sec. 31, 32
-        ElectDistricts(section="erststimme", level="wahlkreis"),  # Sec. 33
-        SumVotes(level="land"),  # Sec. 35 (2)
-        ApplyThreshold(  # Sec. 35 (3)
-            threshold=RelativeThreshold(share=_FIVE_PERCENT), section="zweitstimme", level="land"
+        SumVotes(level="wahlkreis", citation="Sec. 31, 32"),
+        ElectDistricts(section="erststimme", level="wahlkreis", citation="Sec. 33"),
+        SumVotes(level="land", citation="Sec. 35 (2)"),
+        ApplyThreshold(
+            threshold=RelativeThreshold(share=_FIVE_PERCENT),
+            section="zweitstimme",
+            level="land",
+            citation="Sec. 35 (3)",
         ),
-        SetHouse(seats=83),  # Sec. 1 (1)
-        *_ALLOCATE_HOUSE,
-        RepeatForMehrsitze(  # Sec. 35 (8), (8a)
-            protocol=_ALLOCATE_HOUSE,
+        SetChamberSize(seats=83, citation="Sec. 1 (1)"),  # "mindestens 83": also the minimum
+        RepeatForMehrsitze(
+            protocol=(ALLOCATE,),
             factor=2,
             full_rounds=2,
             fraktion=FraktionSize(share=_FIVE_PERCENT, section="zweitstimme", level="land"),
+            citation="Sec. 35 (8), (8a)",
         ),
-        FormChamber(minimum_mandates=83),  # Sec. 1 (1): at least 83
+        FormChamber(),
     ),
 )
 """The LWG as it governed the Landtag elections of 2021 and 2026. The day it first

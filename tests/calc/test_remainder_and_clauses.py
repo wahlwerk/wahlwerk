@@ -71,9 +71,9 @@ def test_thresholds():
 
 def test_compensation():
     assert compensation.overhang({"a": 5, "b": 3}, {"a": 7}) == {"a": 2, "b": 0}
-    assert compensation.smallest_house({"a": 60, "b": 40}, 10, {"a": 7}).seats == {"a": 7, "b": 4}
+    assert compensation.smallest_size({"a": 60, "b": 40}, 10, {"a": 7}).seats == {"a": 7, "b": 4}
     with pytest.raises(ValueError, match="limit"):
-        compensation.smallest_house({"a": 60, "b": 40}, 10, {"a": 9}, limit=12)
+        compensation.smallest_size({"a": 60, "b": 40}, 10, {"a": 9}, limit=12)
 
 
 def test_plurality_and_whole_seats():

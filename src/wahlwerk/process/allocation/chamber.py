@@ -26,12 +26,20 @@ class FormChamber(AllocationStep):
 
     minimum_mandates: Seats | None = Field(
         default=None,
-        description="The seats the chamber has at least, by law, e.g. 83; ``None`` if the law sets none.",
+        description=(
+            "The seats the chamber has at least, by law, if it differs from the size "
+            ":class:`~wahlwerk.process.allocation.eligibility.SetChamberSize` set; "
+            "``None`` takes the allocation's ``minimum_mandates``, if any."
+        ),
     )
 
     @property
     def reads(self) -> frozenset[str]:
         return frozenset({"districts", "list_seats"})
+
+    @property
+    def optional_reads(self) -> frozenset[str]:
+        return frozenset() if self.minimum_mandates is not None else frozenset({"minimum_mandates"})
 
     @property
     def writes(self) -> frozenset[str]:
@@ -53,5 +61,8 @@ class FormChamber(AllocationStep):
                 )
                 for n in range(1, seats + 1)
             ]
-        chamber = Chamber(mandates=tuple(mandates), minimum_mandates=self.minimum_mandates)
+        minimum = self.minimum_mandates
+        if minimum is None:
+            minimum = allocation.minimum_mandates
+        chamber = Chamber(mandates=tuple(mandates), minimum_mandates=minimum)
         return allocation.with_values(chamber=chamber)

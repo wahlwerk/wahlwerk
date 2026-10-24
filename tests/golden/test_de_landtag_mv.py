@@ -3,7 +3,7 @@ law in force on election day, must equal the official Mandate der Parteien exact
 by party, Wahlkreis by Wahlkreis, Überhang and Ausgleich alike.
 
 2021 is the case for Sec. 58 (6) LKWG M-V: the SPD won 34 of 36 Wahlkreise, 3 more than
-its 31 seats of 71, and the house rose to 78 for Ausgleich and to 79 to be odd. 2011 and
+its 31 seats of 71, and the chamber size rose to 78 for Ausgleich and to 79 to be odd. 2011 and
 2016 have no Überhang. The 2026 result is still preliminary. The fixtures and their
 sources are in the ``de.landtag.mv.<year>/README.md`` files beside this one. Golden tests
 never skip and never xfail.
@@ -123,10 +123,10 @@ def test_each_wahlkreis_winner_equals_the_official_result(year, chamber):
 
 def test_ueberhang_and_ausgleich_equal_the_official_result(year, vote, law):
     """The Überhang of the first allocation of 71 seats, and the Ausgleichsmandate the
-    raised house gives each party beyond it."""
+    raised chamber size gives each party beyond it."""
     seats = official(year)
     raise_at = next(i for i, step in enumerate(law.protocol) if isinstance(step, RaiseForAusgleich))
-    first = derive(vote, law.protocol[:raise_at])
+    first = derive(vote, (*law.protocol[:raise_at], *law.protocol[raise_at].protocol))
     derived = derive(vote, law.protocol)
     ueberhang = {p: n for p, n in seats[LAND, "darunter Überhangmandate"].items() if n}
     assert dict(first.overhang) == ueberhang
@@ -134,7 +134,7 @@ def test_ueberhang_and_ausgleich_equal_the_official_result(year, vote, law):
     ausgleich = {p: after[p] - before[p] for p in after if p not in ueberhang and after[p] > before[p]}
     assert ausgleich == {p: n for p, n in seats[LAND, "darunter Ausgleichsmandate"].items() if n}
     assert derived.overhang == ()
-    assert derived.house == {2011: 71, 2016: 71, 2021: 79}[year]
+    assert derived.chamber_size == {2011: 71, 2016: 71, 2021: 79}[year]
 
 
 def test_chamber_meets_the_minimum(year, chamber):

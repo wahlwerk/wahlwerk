@@ -21,7 +21,7 @@ from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.district import ElectDistricts
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
-    SetHouse,
+    SetChamberSize,
     SetSeatTotal,
 )
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductDistrictSeats
@@ -67,7 +67,7 @@ def law(base, threshold=FIVE_PERCENT, method=HARE):
         ElectDistricts(section="erststimme", level="wahlkreis"),
         SumVotes(level="land"),
         ApplyThreshold(threshold=threshold, section="zweitstimme", level="land"),
-        SetHouse(seats=base),
+        SetChamberSize(seats=base),
         SetSeatTotal(),
         ApportionSeats(method=method, section="zweitstimme", level="land"),
         DeductDistrictSeats(),
@@ -196,5 +196,16 @@ def test_allocate_sets_the_term():
     term = Term(body="de.st.landtag")
     chamber = allocate(vote, (*law(10), FormChamber()), term=term)
     assert chamber.body == "de.st.landtag"
-    assert chamber.minimum_mandates is None
+    assert chamber.minimum_mandates == 10  # "at least 10": SetChamberSize set it
     assert allocate(vote, (*law(10), FormChamber())).term is None
+
+
+def test_the_minimum_is_written_once_unless_it_differs():
+    vote = PopularVote(source=SOURCE, tally=tally(["afd"]))
+    no_minimum = tuple(
+        step.model_copy(update={"is_minimum": False}) if isinstance(step, SetChamberSize) else step
+        for step in law(10)
+    )
+    assert allocate(vote, (*no_minimum, FormChamber())).minimum_mandates is None
+    assert allocate(vote, (*no_minimum, FormChamber(minimum_mandates=8))).minimum_mandates == 8
+    assert allocate(vote, (*law(10), FormChamber(minimum_mandates=8))).minimum_mandates == 8

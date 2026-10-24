@@ -3,7 +3,7 @@
 One object per version whose seat allocation differs. The allocation rules are Sec. 53,
 54, 57 and 58, with the seat count from Art. 20 (2) of the Verfassung: at least 71 seats,
 36 Wahlkreise, Hare/Niemeyer with a majority clause, Überhang balanced by Ausgleich up
-to twice its number, and a raised house made odd. Sec. 54 (2), 57 and 58 are unchanged
+to twice its number, and a raised chamber size made odd. Sec. 54 (2), 57 and 58 are unchanged
 since the law came into force on 1 January 2011, up to the Fassung of 1 September 2026
 (last amended 8 July 2026). The elections of 1994 to 2006 were held under the earlier
 Landeswahlgesetz, not recorded yet.
@@ -28,24 +28,32 @@ from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.district import ElectDistricts
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
-    SetHouse,
+    SetChamberSize,
     SetSeatTotal,
 )
 from wahlwerk.process.allocation.mehrsitze import RaiseForAusgleich
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductDistrictSeats
+from wahlwerk.process.allocation.sequence import StepSequence
 
-__all__ = ["LKWG_2011"]
+__all__ = ["ALLOCATE", "LKWG_2011"]
 
 _FIVE_PERCENT = Fraction(5, 100)
 
-# Sec. 58 (2) S. 3 to (5): the seats allocated for a house of a given size.
-_ALLOCATE_HOUSE = (
-    SetSeatTotal(),  # Sec. 58 (2) S. 3
-    ApportionSeats(  # Sec. 58 (3), (4)
-        method=MajorityFirst(method=HareNiemeyer()), section="zweitstimme", level="land"
+ALLOCATE = StepSequence(
+    title="allocate the seats of one chamber size",
+    citation="Sec. 58 (2) S. 3 to (5)",
+    steps=(
+        SetSeatTotal(citation="Sec. 58 (2) S. 3"),
+        ApportionSeats(
+            method=MajorityFirst(method=HareNiemeyer()),
+            section="zweitstimme",
+            level="land",
+            citation="Sec. 58 (3), (4)",
+        ),
+        DeductDistrictSeats(citation="Sec. 58 (5)"),
     ),
-    DeductDistrictSeats(),  # Sec. 58 (5)
 )
+"""Sec. 58 (2) S. 3 to (5): the seats of one chamber size, which Sec. 58 (6) repeats."""
 
 LKWG_2011 = Law(
     id="de.mv.lkwg.2011",
@@ -63,18 +71,20 @@ LKWG_2011 = Law(
     source="https://www.landesrecht-mv.de/bsmv/document/jlr-LKWGMVrahmen",
     in_force_from=date(2011, 1, 1),
     protocol=(
-        SumVotes(level="wahlkreis"),
-        ElectDistricts(section="erststimme", level="wahlkreis"),  # Sec. 57
-        SumVotes(level="land"),  # Sec. 58 (2) S. 1
-        ApplyThreshold(  # Sec. 58 (1)
-            threshold=RelativeThreshold(share=_FIVE_PERCENT), section="zweitstimme", level="land"
+        SumVotes(level="wahlkreis", citation="Sec. 57"),
+        ElectDistricts(section="erststimme", level="wahlkreis", citation="Sec. 57"),
+        SumVotes(level="land", citation="Sec. 58 (2) S. 1"),
+        ApplyThreshold(
+            threshold=RelativeThreshold(share=_FIVE_PERCENT),
+            section="zweitstimme",
+            level="land",
+            citation="Sec. 58 (1)",
         ),
-        SetHouse(seats=71),  # Art. 20 (2) Verf. M-V
-        *_ALLOCATE_HOUSE,
-        RaiseForAusgleich(  # Sec. 58 (6)
-            protocol=_ALLOCATE_HOUSE, limit=2, has_odd_house=True
+        SetChamberSize(seats=71, citation="Art. 20 (2) Verf. M-V"),  # "mindestens 71": also the minimum
+        RaiseForAusgleich(
+            protocol=(ALLOCATE,), limit=2, has_odd_size=True, citation="Sec. 58 (6)"
         ),
-        FormChamber(minimum_mandates=71),  # Art. 20 (2) Verf. M-V: at least 71
+        FormChamber(),
     ),
 )
 """The LKWG as it has governed the Landtag elections since 2011 (2011, 2016, 2021, 2026)."""

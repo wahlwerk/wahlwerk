@@ -83,8 +83,8 @@ def test_every_type_is_tagged_as_the_serializer_writes_it(
 
 
 def test_fields_keep_their_descriptions(schema: dict[str, Any]) -> None:
-    house = schema["$defs"]["SetHouse"]["properties"]["seats"]
-    assert house["description"]
+    size = schema["$defs"]["SetChamberSize"]["properties"]["seats"]
+    assert size["description"]
 
 
 @pytest.mark.parametrize("law_id", sorted(law.id for law in LAWS), ids=str)

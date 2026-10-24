@@ -8,7 +8,7 @@ The package exposes its modules, never their names, grouped by what the steps de
 - ``district``: who wins each single-seat unit
 - ``eligibility``: which parties take part, and how many seats they share
 - ``seats``: each party's entitlement, and its list seats after its Wahlkreis seats
-- ``mehrsitze``: raising the house for Mehrsitze and allocating again
+- ``mehrsitze``: raising the chamber size for Mehrsitze and allocating again
 - ``chamber``: forming the chamber, one mandate per seat
 - ``allocate``: the process, :func:`allocate` (vote and law to chamber) and :func:`derive`
 

@@ -6,7 +6,7 @@ from wahlwerk.law.de.st.lwg import LWG_2021
 from wahlwerk.law.edit import replace
 from wahlwerk.law.registry import LAWS
 from wahlwerk.law.serialize import from_data, law_from_json, law_to_json, to_data
-from wahlwerk.process.allocation.eligibility import SetHouse
+from wahlwerk.process.allocation.eligibility import SetChamberSize
 
 
 @pytest.mark.parametrize("law", list(LAWS), ids=lambda law: law.id)
@@ -15,7 +15,7 @@ def test_every_registered_law_round_trips(law):
 
 
 def test_a_revised_law_round_trips():
-    law = LWG_2021.revise(id="example.st.lwg.101", protocol=replace(LWG_2021.protocol, SetHouse, seats=101))
+    law = LWG_2021.revise(id="example.st.lwg.101", protocol=replace(LWG_2021.protocol, SetChamberSize, seats=101))
     assert law_from_json(law_to_json(law)) == law
 
 

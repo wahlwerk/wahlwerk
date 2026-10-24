@@ -31,7 +31,7 @@ Modules, one per family or piece:
 - ``divisor``: divisor methods; ``remainder``: largest remainder methods
 - ``majority``: majority clauses around a method (:class:`MajorityFirst`)
 - ``threshold``: which keys take part at all
-- ``ausgleich``: Überhang, and growing the house until it is covered
+- ``ausgleich``: Überhang, and adding seats until it is covered
 
 The package exposes these modules, never their names, so the family stays visible:
 ``wahlwerk.apportionment.divisor.SainteLague``. Everything here depends only on the

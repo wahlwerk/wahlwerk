@@ -14,7 +14,13 @@ its own facts again when applied.
 Facts are named by strings: ``tally`` (the input), ``total:<level>`` (the tally summed
 to a level, see :class:`~wahlwerk.process.allocation.count.SumVotes`), and one per
 optional field of :class:`Allocation`, named like it: ``districts``, ``eligible``,
-``house``, ``seat_total``, ``entitlement``, ``list_seats``, ``overhang``, ``chamber``.
+``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
+``overhang``, ``chamber``.
+
+Steps that belong together, one feeding the next, can be written as one step: a
+:class:`~wahlwerk.process.allocation.sequence.StepSequence`. Which step depends on which
+follows from the facts alone (:mod:`~wahlwerk.process.allocation.flow`); it is never
+declared.
 """
 
 from __future__ import annotations
@@ -40,6 +46,7 @@ __all__ = [
     "AllocationStep",
     "DistrictResult",
     "check_protocol",
+    "outside_reads",
     "total_fact",
 ]
 
@@ -51,7 +58,8 @@ INPUT_FACTS = frozenset({"tally"})
 OPTIONAL_FACTS = (
     "districts",
     "eligible",
-    "house",
+    "chamber_size",
+    "minimum_mandates",
     "seat_total",
     "entitlement",
     "list_seats",
@@ -137,11 +145,18 @@ class Allocation(Model):
         default=None,
         description="The parties taking part in the proportional allocation, past the threshold.",
     )
-    house: Seats | None = Field(
+    chamber_size: Seats | None = Field(
         default=None,
         description=(
-            "The number of seats the house has at this stage: the legal minimum, then "
-            "as raised for Mehrsitze."
+            "The number of seats the chamber has at this stage: the size the law sets, then "
+            "as raised for Mehrsitze or Ausgleich."
+        ),
+    )
+    minimum_mandates: Seats | None = Field(
+        default=None,
+        description=(
+            "The seats the chamber has at least, by law, e.g. 83; it stays when the chamber "
+            "size is raised."
         ),
     )
     seat_total: Seats | None = Field(
@@ -219,9 +234,18 @@ class Allocation(Model):
 class AllocationStep(Model):
     """One rule of an electoral law: an allocation in, an allocation out.
 
-    Subclasses implement :meth:`_apply` and declare :attr:`reads` and :attr:`writes`.
-    Callable, so ``step(allocation)`` is ``step.apply(allocation)``.
+    Subclasses implement :meth:`_apply` and declare :attr:`reads` and :attr:`writes`
+    (and :attr:`optional_reads`, facts used when present). Callable, so
+    ``step(allocation)`` is ``step.apply(allocation)``.
     """
+
+    citation: str | None = Field(
+        default=None,
+        description=(
+            "The provision this step follows, e.g. ``Sec. 35 (3)`` of its own law or "
+            "``Art. 20 (2) Verf. M-V``; ``None`` where none is recorded."
+        ),
+    )
 
     @property
     @abstractmethod
@@ -232,6 +256,11 @@ class AllocationStep(Model):
     @abstractmethod
     def writes(self) -> frozenset[str]:
         """The facts this step establishes or replaces."""
+
+    @property
+    def optional_reads(self) -> frozenset[str]:
+        """Facts this step uses when they are established, and does without otherwise."""
+        return frozenset()
 
     @abstractmethod
     def _apply(self, allocation: Allocation) -> Allocation:
@@ -258,6 +287,22 @@ AllocationProtocol = tuple[AllocationStep, ...]
 """An electoral law as an ordered protocol of allocation steps, applied first to last."""
 
 
+def outside_reads(steps: AllocationProtocol, *, optional: bool = False) -> frozenset[str]:
+    """The facts ``steps`` read that no earlier one of them writes: what they need from
+    outside when applied in order (with ``optional``, their optional reads instead)."""
+    written: set[str] = set()
+    needed: set[str] = set()
+    for step in steps:
+        needed |= (step.optional_reads if optional else step.reads) - written
+        written |= step.writes
+    return frozenset(needed)
+
+
+def written_by(steps: AllocationProtocol) -> frozenset[str]:
+    """Every fact one of ``steps`` writes."""
+    return frozenset().union(*(step.writes for step in steps))
+
+
 def check_protocol(
     protocol: AllocationProtocol, established: frozenset[str] = INPUT_FACTS
 ) -> frozenset[str]:
@@ -271,8 +316,10 @@ def check_protocol(
     for position, step in enumerate(protocol, start=1):
         missing = step.reads - facts
         if missing:
+            # The kind and the paragraph name the step; its repr can hold a whole law.
+            name = type(step).__name__ + (f" ({step.citation})" if step.citation else "")
             raise ValueError(
-                f"step {position} {step!r} reads {sorted(missing)}, "
+                f"step {position} {name} reads {sorted(missing)}, "
                 f"which no earlier step writes; established: {sorted(facts)}"
             )
         facts |= step.writes

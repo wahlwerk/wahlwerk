@@ -17,6 +17,11 @@ from pydantic import Field, SerializeAsAny, model_validator
 from wahlwerk.ids import BodyId, LawId
 from wahlwerk.model import Model
 from wahlwerk.process.allocation.base import AllocationStep, check_protocol
+from wahlwerk.process.allocation.flow import (
+    protocol_data,
+    protocol_html,
+    protocol_table,
+)
 
 __all__ = ["Law", "LawRegistry"]
 
@@ -90,8 +95,8 @@ class Law(Model):
 
             LWG_2021.revise(
                 id="example.st.lwg.101",
-                title="LWG LSA with a house of 101",
-                protocol=replace(LWG_2021.protocol, SetHouse, seats=101),
+                title="LWG LSA with a chamber size of 101",
+                protocol=replace(LWG_2021.protocol, SetChamberSize, seats=101),
             )
 
         Raises ``ValueError`` if ``id`` is this law's own, or the result fails a law's
@@ -109,6 +114,25 @@ class Law(Model):
             "in_force_until": None,
         }
         return type(self).model_validate({**dict(self), **defaults, **changes, "id": id})
+
+    # ===========================================================
+    # Display
+    # ===========================================================
+    def __repr__(self) -> str:
+        return f"Law {self.id}: {self.title}\n{protocol_table(self.protocol)}"
+
+    def _repr_html_(self) -> str:
+        return protocol_html(self.protocol, caption=f"{self.id}: {self.title}")
+
+    def fancy_html(self, width: int = 640) -> str:
+        """The protocol as a drawing: its steps in order, what each reads and writes,
+        the steps a sequence or loop holds inside it. Call explicitly in a notebook.
+        Needs the optional ``wahlwerk-ui`` package (``wahlwerk[ui]``)."""
+        try:
+            from wahlwerk_ui.plot.protocol import protocol_html as drawing
+        except ImportError as error:
+            raise ImportError("Law.fancy_html needs wahlwerk-ui: install wahlwerk[ui]") from error
+        return drawing(protocol_data(self.protocol), title=f"{self.id}: {self.title}", width=width)
 
     def is_in_force(self, on: date) -> bool:
         """Whether an election on ``on`` was held under this version; an open side

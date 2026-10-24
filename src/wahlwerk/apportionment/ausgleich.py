@@ -1,9 +1,9 @@
 """Überhang and Ausgleich: when keys hold more seats than their proportional share.
 
 In mixed systems a key (a party) may win more seats outright, in Wahlkreise, than an
-apportionment of the house gives it. Those seats are its Überhang (:func:`overhang`).
-Laws answer it in different ways: keep the Überhang and grow the house by it, or grow
-the house until the apportionment covers every key's seats (Ausgleich, :class:`Ausgleich`),
+apportionment of all the seats gives it. Those seats are its Überhang (:func:`overhang`).
+Laws answer it in different ways: keep the Überhang and add it to the seats, or add
+seats until the apportionment covers every key's seats (Ausgleich, :class:`Ausgleich`),
 or a mixture, as Sec. 35 (8) LWG LSA does. The pieces here are law-free; a law's steps
 combine them. Modelled on votelib's ``AllowOverhang`` and ``LevelOverhang``
 (github.com/simberaj/votelib). The formulas are :mod:`wahlwerk.calc.compensation`.
@@ -40,19 +40,19 @@ def overhang(apportionment: Apportionment, minimum: Mapping[str, int]) -> dict[s
 
 
 class Ausgleich(Model):
-    """Grow the house one seat at a time until the apportionment gives every key at
-    least its ``minimum``: the smallest house without Überhang.
+    """Add seats one at a time until the apportionment gives every key at least its
+    ``minimum``: the smallest number of seats without Überhang.
 
-    Each larger house is apportioned afresh by ``method``, so the result is proportional
-    in the enlarged house. If ``limit`` is set and reached first, it raises.
+    Each larger size is apportioned afresh by ``method``, so the result is proportional
+    in the larger size. If ``limit`` is set and reached first, it raises.
     """
 
     method: SerializeAsAny[ApportionmentMethod] = Field(
-        description="The method apportioning each house, e.g. ``SainteLague()``.",
+        description="The method apportioning each size, e.g. ``SainteLague()``.",
     )
     limit: Seats | None = Field(
         default=None,
-        description="The largest house to try; ``None`` for no limit.",
+        description="The largest size to try; ``None`` for no limit.",
     )
 
     def apportion(
@@ -61,10 +61,10 @@ class Ausgleich(Model):
         seats: int,
         minimum: Mapping[str, int],
     ) -> Apportionment:
-        """The apportionment of the smallest house of at least ``seats`` seats in which
+        """The apportionment of the smallest size of at least ``seats`` seats in which
         each key gets at least ``minimum[key]``.
 
-        A tie decides the house only if the lot could still cover every minimum: then
+        A tie decides the size only if the lot could still cover every minimum: then
         the tied apportionment is returned, to be decided by
         :meth:`~wahlwerk.apportionment.result.Apportionment.with_lot`; if the lot
         leaves an Überhang, apportion again from one seat more. Raises ``ValueError``
@@ -76,10 +76,10 @@ class Ausgleich(Model):
         for key, count in needed.items():
             if count and not exact.get(key):
                 raise ValueError(
-                    f"no house can give {key!r} its {count} seats: it has no weight"
+                    f"no size can give {key!r} its {count} seats: it has no weight"
                 )
         minimum_of = {key: needed.get(key, 0) for key in exact}
-        result = calc.smallest_house(
+        result = calc.smallest_size(
             exact, seats, minimum_of, self.method.calculate, limit=self.limit
         )
         return Apportionment.from_seat_result(result)

@@ -15,23 +15,23 @@ def test_overhang():
     assert overhang(result, {"x": 1}) == {"x": 1}
 
 
-def test_no_overhang_keeps_the_house():
+def test_no_overhang_keeps_the_size():
     assert Ausgleich(method=SainteLague()).apportion(WEIGHTS, 10, {"a": 6}) == SainteLague().apportion(
         WEIGHTS, 10
     )
 
 
 @pytest.mark.parametrize("method", [SainteLague(), DHondt(), HareNiemeyer()])
-def test_ausgleich_finds_the_smallest_house_that_covers(method):
+def test_ausgleich_finds_the_smallest_size_that_covers(method):
     result = Ausgleich(method=method).apportion(WEIGHTS, 10, {"a": 8})
-    house = result.total
-    assert house > 10
+    size = result.total
+    assert size > 10
     assert result["a"] >= 8
-    assert method.apportion(WEIGHTS, house - 1)["a"] < 8
+    assert method.apportion(WEIGHTS, size - 1)["a"] < 8
 
 
-def test_ausgleich_keeps_proportion_in_the_larger_house():
-    # a needs 9 seats at 60 %: the house grows to 15, b gets its 6 Ausgleich seats.
+def test_ausgleich_keeps_proportion_in_the_larger_size():
+    # a needs 9 seats at 60 %: the size grows to 15, b gets its 6 Ausgleich seats.
     result = Ausgleich(method=SainteLague()).apportion(WEIGHTS, 10, {"a": 9})
     assert result.as_dict() == {"a": 9, "b": 6}
 

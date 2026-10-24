@@ -2,7 +2,7 @@
 force on election day, must equal the official Sitzverteilung exactly, party by party,
 Wahlkreis and list seats alike.
 
-2021 is the case for Sec. 35 (8): the CDU won 40 of 41 Wahlkreise and the house rose
+2021 is the case for Sec. 35 (8): the CDU won 40 of 41 Wahlkreise and the chamber size rose
 from 83 to 97. 2026 has no Mehrsitze. The fixtures and their sources are in the
 ``de.landtag.st.<year>/README.md`` files beside this one. Golden tests never skip and
 never xfail.
@@ -112,7 +112,7 @@ def test_chamber_meets_the_minimum(year, chamber):
 
 def test_mehrsitze(year, vote, law):
     """2026 has none; in 2021 every Mehrsitz was balanced within the two full rounds of
-    Sec. 35 (8), so the house is 97 with no Mehrsitz left unbalanced."""
+    Sec. 35 (8), so the chamber size is 97 with no Mehrsitz left unbalanced."""
     derived = derive(vote, law.protocol)
     assert derived.overhang == ()
-    assert derived.house == {2021: 97, 2026: 83}[year]
+    assert derived.chamber_size == {2021: 97, 2026: 83}[year]

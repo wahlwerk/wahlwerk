@@ -208,7 +208,7 @@ def test_every_seat_is_given_or_tied(method):
 
 
 @pytest.mark.parametrize("method", [DHondt(), SainteLague()])
-def test_divisor_methods_never_take_a_seat_away_when_the_house_grows(method):
+def test_divisor_methods_never_take_a_seat_away_when_the_size_grows(method):
     """Divisor methods are house monotone: no Alabama paradox."""
     for weights, seats in cases(60):
         smaller, larger = method.apportion(weights, seats), method.apportion(weights, seats + 1)

@@ -344,13 +344,13 @@ Built one small step at a time; each step leaves the package importable.
   Sec. 35 (6) LWG LSA, around any largest remainder method
 - Thresholds (relative, absolute, seats won, exempt keys, and "or" over them) and
   Überhang/Ausgleich, in the same package
-  (`overhang`, `Ausgleich`: the smallest house covering every key's seats), after
+  (`overhang`, `Ausgleich`: the smallest chamber size covering every key's seats), after
   votelib
 - The allocation, `wahlwerk.process.allocation`: a law is a protocol of steps (count,
   Wahlkreis winners, threshold, seat total, entitlement, list seats, chamber) checked
   for order before it runs; `allocate(vote, protocol)` returns the `Chamber`
 - The Mehrsitze loop of Sec. 35 (8), (8a) LWG LSA (`RepeatForMehrsitze`, `FraktionSize`),
-  and the capped Ausgleich of Sec. 58 (6) LKWG M-V with its odd house (`RaiseForAusgleich`)
+  and the capped Ausgleich of Sec. 58 (6) LKWG M-V with its odd chamber size (`RaiseForAusgleich`)
 - `law/`: electoral laws as versioned protocols by jurisdiction, with a registry by body
   and date: `law/de/st/lwg.py` and `law/de/mv/lkwg.py`. Beside it, the caucus protocol of the
   Bundestag's Geschäftsordnung, `law/de/bund/gobt.py` (CDU and CSU form the `union`),
@@ -381,6 +381,13 @@ Built one small step at a time; each step leaves the package importable.
 - Laws can be edited: `Law.revise` makes a counterfactual law (`based_on`, in force on no
   date), `wahlwerk.law.edit` changes a protocol by step type or path, nested loops
   included, and `wahlwerk.law.serialize` writes a law as JSON and reads it back
+- The structure of a law (decision 0008): a `StepSequence` is a named row of steps used
+  as one step; a loop holds the block it repeats; the chamber size and the minimum are
+  written once (`SetChamberSize`) unless the law gives two numbers; each step carries the
+  paragraph it follows (`citation`). Stages, which steps can swap and where a step can
+  move are derived from reads and writes (`wahlwerk.process.allocation.flow`), never
+  declared; a `Law` prints as its protocol and draws with `fancy_html()`;
+  `examples/swap_lwg_lsa_2021.py` shows replacements and reorders on real votes
 - A law file has a JSON Schema, `wahlwerk.law.schema.law_schema()`, from the models:
   every step type, method and threshold with its fields and descriptions, the ground
   for a form-based law editor
@@ -399,7 +406,7 @@ The path from a popular vote to a chamber, and how it was built, is in
 
 Then, toward laws built by hand (decision 0004 in `.github-private`):
 
-- Allocations in milliseconds, the rest: find a divisor method's divisor, and the house
+- Allocations in milliseconds, the rest: find a divisor method's divisor, and the chamber size
   an Ausgleich needs, directly instead of a seat at a time, once a law needs it; cache
   results by (vote, law), both frozen and hashable
 - The engine in the browser (Pyodide) on wahlwerk-site, a law editor there; a
