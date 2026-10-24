@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from html import escape
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, model_validator
 
@@ -311,6 +311,47 @@ class Chamber(Model):
         if non_attached:
             seats[NON_ATTACHED] = non_attached
         return seats
+
+    def seats_by(self, by: Literal["caucus", "party"] | None = None) -> dict[str, int]:
+        """Filled seats per caucus or per party: what a chamber votes with.
+
+        ``by=None`` takes caucuses when membership is on record, else parties. Vacant
+        seats are left out. Raises ``ValueError`` when what is asked for is not on
+        record: caucus membership, or the party of a filled seat.
+        """
+        if by is None:
+            by = "caucus" if self.non_attached_seats is not None else "party"
+        if by == "caucus":
+            seats = self.seats_by_caucus
+            if seats is None:
+                raise ValueError("caucus membership is not on record; use by='party'")
+            return seats
+        if by != "party":
+            raise ValueError(f"by must be 'caucus' or 'party', got {by!r}")
+        by_party: dict[str, int] = {}
+        for mandate in self.mandates:
+            if mandate.is_vacant:
+                continue
+            if mandate.party is None:
+                raise ValueError(f"the party of seat {mandate.id!r} is not on record")
+            by_party[mandate.party] = by_party.get(mandate.party, 0) + 1
+        return by_party
+
+    def apply(
+        self,
+        formula: Callable[..., Any],
+        *args: Any,
+        by: Literal["caucus", "party"] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """A formula of ``wahlwerk_calc`` on this chamber's seats, in one line:
+        ``formula(self.seats_by(by), *args, **kwargs)``.
+
+        ``chamber.apply(ww.calc.power.banzhaf)``, ``chamber.apply(ww.calc.coalition.minimal_winning)``,
+        ``chamber.apply(ww.calc.fragmentation.effective_number, by="party")``. The chamber
+        knows nothing of the formula; any function of a mapping of key to seats works.
+        """
+        return formula(self.seats_by(by), *args, **kwargs)
 
     # ===========================================================
     # Display

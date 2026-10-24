@@ -7,7 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.13.5",
     "tomli>=2 ; python_full_version < '3.11'",
-    "votelib>=0.4.0",
+    "wahlwerk-calc",
 ]
 
 [project.optional-dependencies]
@@ -38,7 +38,21 @@ dev = [
 ]
 
 [tool.uv.sources]
+wahlwerk-calc = { workspace = true }
 wahlwerk-ui = { path = "../wahlwerk-ui", editable = true }
+
+[tool.uv.workspace]
+# wahlwerk-calc, the formulas: its own distribution (numpy only, nothing of wahlwerk),
+# developed here so the engine and its formulas change together.
+members = ["calc"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "calc/tests", "calc/src"]
+addopts = "--doctest-modules"
+
+[tool.ruff.lint.isort]
+known-first-party = ["wahlwerk", "wahlwerk_calc"]
+known-local-folder = ["reference"]
 
 [tool.mypy]
 # pydantic validates constructor arguments at runtime (ids against their patterns),

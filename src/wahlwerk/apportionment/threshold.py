@@ -6,7 +6,7 @@ won, e.g. in Wahlkreise), and they compose: :class:`AlternativeThresholds` passe
 that any of its thresholds passes, which is how "5 % or three Wahlkreis seats" is
 written, and :class:`Exempt` passes named keys regardless, as a party of a national
 minority is exempt. Modelled on the seatless selectors of votelib
-(github.com/simberaj/votelib); comparisons are exact.
+(github.com/simberaj/votelib); comparisons are exact, in :mod:`wahlwerk_calc.threshold`.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from pydantic import Field, SerializeAsAny, field_validator
 
 from wahlwerk.apportionment.method import _exact_weights
 from wahlwerk.model import Count, Model, Share
+from wahlwerk_calc import threshold as calc
 
 __all__ = [
     "AbsoluteThreshold",
@@ -83,13 +84,9 @@ class RelativeThreshold(Threshold):
         return value
 
     def _select(self, weights: dict[str, Fraction], won: dict[str, int]) -> frozenset[str]:
-        total = sum(weights.values(), Fraction(0))
-        needed = self.share * total
-        return frozenset(
-            key
-            for key, weight in weights.items()
-            if weight > needed or (self.accept_equal and weight == needed)
-        )
+        if not weights:
+            return frozenset()
+        return _passed(calc.share_threshold(weights, self.share, accept_equal=self.accept_equal))
 
 
 class AbsoluteThreshold(Threshold):
@@ -104,11 +101,9 @@ class AbsoluteThreshold(Threshold):
     )
 
     def _select(self, weights: dict[str, Fraction], won: dict[str, int]) -> frozenset[str]:
-        return frozenset(
-            key
-            for key, weight in weights.items()
-            if weight > self.weight or (self.accept_equal and weight == self.weight)
-        )
+        if not weights:
+            return frozenset()
+        return _passed(calc.count_threshold(weights, self.weight, accept_equal=self.accept_equal))
 
 
 class SeatThreshold(Threshold):
@@ -121,7 +116,9 @@ class SeatThreshold(Threshold):
     )
 
     def _select(self, weights: dict[str, Fraction], won: dict[str, int]) -> frozenset[str]:
-        return frozenset(key for key in weights if won.get(key, 0) >= self.seats)
+        if not weights:
+            return frozenset()
+        return _passed(calc.seat_threshold({key: won.get(key, 0) for key in weights}, self.seats))
 
     @property
     def uses_won(self) -> bool:
@@ -160,3 +157,9 @@ class AlternativeThresholds(Threshold):
     @property
     def uses_won(self) -> bool:
         return any(threshold.uses_won for threshold in self.thresholds)
+
+
+def _passed(mask: object) -> frozenset[str]:
+    """The keys a ``wahlwerk_calc`` threshold passed."""
+    assert isinstance(mask, dict)
+    return frozenset(key for key, passed in mask.items() if passed)

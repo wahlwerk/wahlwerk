@@ -1,5 +1,9 @@
-"""The interface every apportionment method shares, and the checks and tie-aware
-selection its families build on."""
+"""The interface every apportionment method shares, and the checks its families run.
+
+The arithmetic is not here: every method calls its formula in ``wahlwerk_calc``
+(:meth:`ApportionmentMethod.calculate`), which the engine only checks and wraps. So a
+step in a law and a formula called by hand give the same seats by construction.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +12,8 @@ from collections.abc import Mapping
 from fractions import Fraction
 
 from wahlwerk.apportionment.result import Apportionment
-from wahlwerk.apportionment.tie import Tie
 from wahlwerk.model import Model
+from wahlwerk_calc.result import SeatResult
 
 __all__ = ["ApportionmentMethod"]
 
@@ -31,28 +35,13 @@ class ApportionmentMethod(Model):
             raise ValueError(f"cannot apportion {seats} seats: every weight is 0")
         if not seats:
             return Apportionment(seats=tuple((key, 0) for key in exact))
-        return self._apportion(exact, seats)
+        return Apportionment.from_seat_result(self.calculate(exact, seats))
 
     @abstractmethod
-    def _apportion(self, weights: dict[str, Fraction], seats: int) -> Apportionment:
-        """Divide at least one seat among checked weights, at least one of them positive."""
-
-
-def _largest(claims: list[tuple[Fraction, str]], count: int) -> tuple[list[str], Tie | None]:
-    """The keys of the ``count`` largest claims, and the tie if the claims at the edge
-    are equal. A key may appear in several claims, but at most once at any one value.
-
-    Never lets order decide: every claim above the ``count``-th largest wins; those equal
-    to it win if they all fit, and otherwise they share the seats left as a tie.
-    """
-    if count == 0:
-        return [], None
-    edge = sorted((claim for claim, _ in claims), reverse=True)[count - 1]
-    above = [key for claim, key in claims if claim > edge]
-    at = [key for claim, key in claims if claim == edge]
-    if len(above) + len(at) == count:
-        return above + at, None
-    return above, Tie(candidates=frozenset(at), seats=count - len(above))
+    def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
+        """The seats by this method's formula in ``wahlwerk_calc``, unchecked: the
+        plain-number face of the method, which :class:`~wahlwerk.apportionment.ausgleich.Ausgleich`
+        also uses."""
 
 
 def _exact_weights(weights: Mapping[str, int | Fraction]) -> dict[str, Fraction]:

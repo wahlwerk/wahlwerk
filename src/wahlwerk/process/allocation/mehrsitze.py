@@ -4,13 +4,12 @@ LKWG M-V)."""
 
 from __future__ import annotations
 
-from fractions import Fraction
-
 from pydantic import Field, SerializeAsAny
 
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.model import Model, Share
 from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
+from wahlwerk_calc import quota
 
 __all__ = ["FraktionSize", "RaiseForAusgleich", "RepeatForMehrsitze"]
 
@@ -47,10 +46,9 @@ class FraktionSize(Model):
         eligible = allocation.eligible or frozenset()
         fictitious = self.share * sum(votes.values())
         counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
-        if not counted:
+        if not counted or not allocation.seat_total:
             return 0
-        exact = Fraction(allocation.seat_total or 0) * fictitious / counted
-        return exact.numerator // exact.denominator
+        return quota.whole_seats(fictitious, quota.hare(counted, allocation.seat_total))
 
 
 class RepeatForMehrsitze(AllocationStep):

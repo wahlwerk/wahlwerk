@@ -36,8 +36,13 @@ gets there by composition, not by classification.
   entities (`party`) <- state (`state`: term, chamber, caucus, mandate) <- processes
   (`process`) <- laws (`law`); readers (`io`) feed entities and state. What a vote
   recorded (`vote`) is input, not state: it depends only on the foundation and processes
-  read it. The arithmetic of dividing seats (`apportionment`) and the measures of a
-  result (`measure`) depend only on the foundation and know no law.
+  read it. The methods of dividing seats (`apportionment`) depend only on the foundation
+  and know no law.
+- **Every formula once, below everything.** The arithmetic itself (divisors, quotas,
+  thresholds, majorities, measures, power) is `wahlwerk-calc` (`wahlwerk_calc`, in
+  `calc/`), its own distribution: numpy only, nothing of wahlwerk, plain numbers or arrays
+  in and out. The engine computes only through it, so a law's step and a formula called by
+  hand give the same seats; `ww.calc` is the same package.
 - **Relations, not labels.** What separates one system of government from another is
   a handful of relations: who selects whom, who can remove whom, who can end whose
   term. The engine models these relations directly. A system type is *derived* from
@@ -356,8 +361,18 @@ Built one small step at a time; each step leaves the package importable.
   list seats; and the Landtag Mecklenburg-Vorpommern 2011, 2016 (71 each) and 2021 (79,
   with Überhang and Ausgleich), equal to the official Mandate der Parteien Wahlkreis by
   Wahlkreis; fixtures and sources in `tests/golden/`
-- Measures of disproportionality in `wahlwerk.measure.proportionality`, exact, after
-  votelib
+- Measures of disproportionality, exact, after votelib (now in `wahlwerk_calc.proportionality`)
+- **wahlwerk-calc** (decision 0006): every formula as a plain function in its own
+  distribution, `calc/` (numpy only, nothing of wahlwerk), in layers: shares, quotas, the
+  seat result; divisor methods (D'Hondt, Sainte-Laguë, Adams, Danish, Imperiali, modified
+  Sainte-Laguë, Dean, Huntington-Hill, `divisor_range`, `seats_at`), largest remainder,
+  plurality; majorities, thresholds, Überhang and Ausgleich; proportionality and
+  fragmentation; coalitions and power (Banzhaf, Penrose, Shapley-Shubik). Exact for exact
+  input (ranked in floats, the last seat checked exactly), floats for floats, 2-D input as
+  many scenarios; ties as results. The engine's methods, thresholds, Ausgleich, the
+  Wahlkreis winner, the Fraktion size and the list-seat deduction all compute through it;
+  `wahlwerk.measure` is gone into it. `Chamber.seats_by(by)` and `Chamber.apply(formula, by=...)`
+  apply any formula to a chamber
 - Speed: a tally is checked once per instance, not at every allocation step, and keeps
   each sum it made, summing a coarse level from a finer sum it already has; an
   allocation on a real Wahlbezirk tally (about 70,000 rows) went from 2.2 s to 0.1 to
@@ -390,19 +405,15 @@ Then, toward laws built by hand (decision 0004 in `.github-private`):
 - The engine in the browser (Pyodide) on wahlwerk-site, a law editor there; a
   standalone app or a server for parameter sweeps only if it is needed
 
-Then, the formula library (decision 0005 in `.github-private`): every formula as a plain
-function in `wahlwerk.formula`, dicts and numbers in, dicts and numbers out, called by the
-models in `apportionment` and `measure`, so a step in a law and a hand call share one
-implementation:
+Then, the rest of wahlwerk-calc (decision 0006 in `.github-private`; F0, F1, most of F2
+to F5 are done, see above):
 
-- F0: the contract (plain inputs, `TieError` and `lot=`, doctests run by pytest)
-- F1: the apportionment arithmetic moved there, golden tests unchanged; more divisor and
-  quota methods and `divisor_range`
-- F2: proportionality (moved from `measure`), fragmentation, turnout, swing, seats-votes
-- F3: majorities and coalitions; F4: power indices, exact
-- F5: a chamber in one line, `Chamber.apply(fn, by="caucus")` and `measure.report`
-- F6, later: biproportional apportionment, ranking profiles for other tools, paradox
-  checks for parameter sweeps
+- F2, the rest: turnout, wasted votes, change (Pedersen volatility, uniform and
+  proportional swing), seats-votes (cube law, bias, responsiveness)
+- F3, the rest: connected coalitions (given an order on the keys)
+- F5, the rest: a standard report of a chamber and its vote
+- F6, later: biproportional apportionment (BAZI and proporz as oracles), ranking profiles
+  for other tools, paradox checks for parameter sweeps
 
 Alongside:
 

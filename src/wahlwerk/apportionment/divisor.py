@@ -1,50 +1,46 @@
 """Divisor methods (highest averages): each key's weight is divided by a sequence of
-divisors, and the seats go to the largest quotients."""
+divisors, and the seats go to the largest quotients.
+
+The formula is :func:`wahlwerk_calc.divisor.highest_averages`; a method here names its
+signposts (:class:`wahlwerk_calc.divisor.Signposts`), the rounding that tells the
+methods apart.
+"""
 
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import Mapping
 from fractions import Fraction
 from typing import Any
 
 from pydantic import Field, field_validator
 
-from wahlwerk.apportionment.method import ApportionmentMethod, _largest
-from wahlwerk.apportionment.result import Apportionment
+from wahlwerk.apportionment.method import ApportionmentMethod
+from wahlwerk_calc import divisor as calc
+from wahlwerk_calc.result import SeatResult
 
 __all__ = ["DHondt", "DivisorMethod", "LinearDivisor", "SainteLague"]
 
 
 class DivisorMethod(ApportionmentMethod):
-    """Highest averages: seat ``n`` of a key is claimed by its weight over the ``n``-th
-    divisor, and the seats go to the largest claims.
+    """Highest averages: seat ``k + 1`` of a key is claimed by its weight over the
+    ``k``-th divisor, and the seats go to the largest claims."""
 
-    Divisors must be positive and strictly increasing, so a key's claims strictly
-    decrease and it can take part in a tie at most once.
-    """
-
+    @property
     @abstractmethod
-    def divisor(self, index: int) -> Fraction:
-        """The divisor for a key's seat number ``index + 1``."""
+    def signposts(self) -> calc.Signposts:
+        """The method's rounding, as ``wahlwerk_calc`` names it."""
 
-    def _apportion(self, weights: dict[str, Fraction], seats: int) -> Apportionment:
-        claims = [
-            (weight / self.divisor(index), key)
-            for key, weight in weights.items()
-            if weight
-            for index in range(seats)
-        ]
-        winners, tie = _largest(claims, seats)
-        return Apportionment(
-            seats=tuple((key, winners.count(key)) for key in weights), tie=tie
-        )
+    def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
+        return calc.highest_averages(weights, seats, self.signposts)
 
 
 class DHondt(DivisorMethod):
     """D'Hondt (Jefferson): divisors 1, 2, 3, ... Favours larger keys."""
 
-    def divisor(self, index: int) -> Fraction:
-        return Fraction(index + 1)
+    @property
+    def signposts(self) -> calc.Signposts:
+        return calc.D_HONDT
 
 
 class SainteLague(DivisorMethod):
@@ -52,8 +48,9 @@ class SainteLague(DivisorMethod):
     seats as 0.5, 1.5, 2.5, ..., i.e. standard rounding. Neutral between large and small
     keys; used for the Bundestag."""
 
-    def divisor(self, index: int) -> Fraction:
-        return Fraction(2 * index + 1)
+    @property
+    def signposts(self) -> calc.Signposts:
+        return calc.SAINTE_LAGUE
 
 
 class LinearDivisor(DivisorMethod):
@@ -78,5 +75,6 @@ class LinearDivisor(DivisorMethod):
             raise ValueError(f"divisors must be exact (int, Fraction or 'p/q'), got float {value}")  # noqa: TRY004
         return value
 
-    def divisor(self, index: int) -> Fraction:
-        return self.first + index * self.step
+    @property
+    def signposts(self) -> calc.Signposts:
+        return calc.Signposts.from_divisors(self.first, self.step)

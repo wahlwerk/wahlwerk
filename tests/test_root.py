@@ -7,7 +7,7 @@ from wahlwerk.vote.popular import TallyRow
 
 
 def test_root_exposes_packages_and_setup_logger():
-    assert set(ww.__all__) == {"apportionment", "io", "law", "measure", "party", "process", "setup_logger", "state", "vote"}
+    assert set(ww.__all__) == {"apportionment", "calc", "io", "law", "party", "process", "setup_logger", "state", "vote"}
 
 
 def test_packages_are_reached_through_the_root():
@@ -24,3 +24,10 @@ def test_nothing_is_flattened():
     assert not hasattr(ww.vote, "TallyRow")
     assert not hasattr(ww.apportionment, "SainteLague")
     assert ww.apportionment.divisor.SainteLague
+
+
+def test_calc_is_the_formula_package():
+    import wahlwerk_calc
+
+    assert ww.calc is wahlwerk_calc
+    assert ww.calc.divisor.sainte_lague({"a": 3, "b": 1}, 4).seats == {"a": 3, "b": 1}

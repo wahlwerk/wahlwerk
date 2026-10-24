@@ -6,7 +6,7 @@ Laws answer it in different ways: keep the Überhang and grow the house by it, o
 the house until the apportionment covers every key's seats (Ausgleich, :class:`Ausgleich`),
 or a mixture, as Sec. 35 (8) LWG LSA does. The pieces here are law-free; a law's steps
 combine them. Modelled on votelib's ``AllowOverhang`` and ``LevelOverhang``
-(github.com/simberaj/votelib).
+(github.com/simberaj/votelib). The formulas are :mod:`wahlwerk_calc.compensation`.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from wahlwerk.apportionment.method import (
 )
 from wahlwerk.apportionment.result import Apportionment
 from wahlwerk.model import Model, Seats
+from wahlwerk_calc import compensation as calc
 
 __all__ = ["Ausgleich", "overhang"]
 
@@ -30,12 +31,12 @@ __all__ = ["Ausgleich", "overhang"]
 def overhang(apportionment: Apportionment, minimum: Mapping[str, int]) -> dict[str, int]:
     """The seats by which each key's ``minimum`` exceeds its decided seats, for the keys
     where it does: its Überhang. Keys missing from the apportionment have no seats."""
-    over = {}
-    for key, seats in _check_minimum(minimum).items():
-        excess = seats - (apportionment.get(key) or 0)
-        if excess > 0:
-            over[key] = excess
-    return over
+    needed = _check_minimum(minimum)
+    if not needed:
+        return {}
+    excess = calc.overhang({key: apportionment.get(key) or 0 for key in needed}, needed)
+    assert isinstance(excess, dict)
+    return {key: seats for key, seats in excess.items() if seats > 0}
 
 
 class Ausgleich(Model):
@@ -77,23 +78,11 @@ class Ausgleich(Model):
                 raise ValueError(
                     f"no house can give {key!r} its {count} seats: it has no weight"
                 )
-        house = max(seats, sum(needed.values()))
-        while True:
-            if self.limit is not None and house > self.limit:
-                raise ValueError(
-                    f"Ausgleich needs more than the limit of {self.limit} seats"
-                )
-            result = self.method.apportion(exact, house)
-            if not overhang(result, needed):
-                return result
-            if result.tie is not None:
-                bonus = result.tie.candidates
-                if all(
-                    (result.get(key) or 0) + (key in bonus) >= count
-                    for key, count in needed.items()
-                ):
-                    return result
-            house += 1
+        minimum_of = {key: needed.get(key, 0) for key in exact}
+        result = calc.smallest_house(
+            exact, seats, minimum_of, self.method.calculate, limit=self.limit
+        )
+        return Apportionment.from_seat_result(result)
 
 
 def _check_minimum(minimum: Mapping[str, int]) -> dict[str, int]:

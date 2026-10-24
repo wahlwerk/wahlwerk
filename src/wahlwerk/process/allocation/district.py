@@ -14,6 +14,7 @@ from wahlwerk.process.allocation.base import (
     total_fact,
 )
 from wahlwerk.vote.popular.tally import TallyKind
+from wahlwerk_calc import plurality as calc
 
 __all__ = ["ElectDistricts"]
 
@@ -57,8 +58,16 @@ class ElectDistricts(AllocationStep):
 
 
 def _elect(unit: str, nominees: dict[tuple[str | None, str | None], int]) -> DistrictResult:
-    most = max(nominees.values())
-    top = [(party, candidate) for (party, candidate), count in nominees.items() if count == most]
+    """The winner of one unit by :func:`wahlwerk_calc.plurality.plurality`."""
+    names = list(nominees)
+    counts = [nominees[name] for name in names]
+    most = max(counts)
+    if not most:
+        result_tied = list(range(len(names)))
+    else:
+        result = calc.plurality(counts)
+        result_tied = result.tied if not result.is_decided else [int(result.decided.argmax())]
+    top = [names[i] for i in result_tied]
     if len(top) > 1:
         tied = frozenset(key for party, candidate in top if (key := candidate or party))
         return DistrictResult.model_validate(

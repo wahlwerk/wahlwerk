@@ -8,6 +8,7 @@ from pydantic import Field, model_validator
 
 from wahlwerk.apportionment.tie import Tie
 from wahlwerk.model import Model, Seats
+from wahlwerk_calc.result import SeatResult
 
 __all__ = ["Apportionment"]
 
@@ -39,6 +40,16 @@ class Apportionment(Model):
                 f"tie candidates {sorted(self.tie.candidates - set(keys))} are not apportioned keys"
             )
         return self
+
+    @classmethod
+    def from_seat_result(cls, result: SeatResult) -> Apportionment:
+        """The apportionment a ``wahlwerk_calc`` formula gave, for keyed input of one
+        scenario: its decided seats, and its tie as a :class:`Tie`."""
+        seats = result.as_dict()
+        tie = None
+        if not result.is_decided:
+            tie = Tie(candidates=frozenset(result.tied), seats=result.open)
+        return cls(seats=tuple(seats.items()), tie=tie)
 
     def __getitem__(self, key: str) -> Seats:
         for name, seats in self.seats:

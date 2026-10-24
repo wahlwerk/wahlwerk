@@ -18,7 +18,7 @@ Two families, each sharing one algorithm:
   over a quota, and the seats left go to the largest remainders. :class:`HareNiemeyer`
   (Hamilton) divides by the Hare quota.
 
-Arithmetic is exact (:class:`~fractions.Fraction`); floats are refused, since they both
+Arithmetic is exact (:class:`~fractions.Fraction`); floats are refused here, in laws, since they both
 hide real ties and invent false ones. Where the claims for the last seats are exactly
 equal, no seat is guessed: the result carries a :class:`~wahlwerk.apportionment.tie.Tie`,
 resolved by :meth:`Apportionment.with_lot` from the lot actually drawn.
@@ -35,8 +35,10 @@ Modules, one per family or piece:
 
 The package exposes these modules, never their names, so the family stays visible:
 ``wahlwerk.apportionment.divisor.SainteLague``. Everything here depends only on the
-foundation. Where an idea or a reference result
-comes from outside, it is votelib (github.com/simberaj/votelib).
+foundation and on ``wahlwerk_calc``, where the arithmetic is: these models name a
+formula and its parameters (so a law can store, print and compare them) and check their
+input; the formula computes. Where an idea or a reference result comes from outside, it
+is votelib (github.com/simberaj/votelib).
 """
 
 from __future__ import annotations

@@ -8,6 +8,7 @@ from pydantic import Field, SerializeAsAny
 from wahlwerk.apportionment.method import ApportionmentMethod
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
+from wahlwerk_calc import compensation
 
 __all__ = ["ApportionSeats", "DeductDistrictSeats"]
 
@@ -67,12 +68,11 @@ class DeductDistrictSeats(AllocationStep):
         if entitlement is None or not entitlement.is_decided:
             raise ValueError(f"{self!r}: the entitlement has a tie; the lot must be applied first")
         wins = allocation.district_wins()
-        list_seats = tuple(
-            (party, max(entitled - wins.get(party, 0), 0)) for party, entitled in entitlement.seats
-        )
-        overhang = tuple(
-            (party, wins.get(party, 0) - entitled)
-            for party, entitled in entitlement.seats
-            if wins.get(party, 0) > entitled
-        )
+        entitled = dict(entitlement.seats)
+        won = {party: wins.get(party, 0) for party in entitled}
+        rest = compensation.remaining(entitled, won) if entitled else {}
+        over = compensation.overhang(entitled, won) if entitled else {}
+        assert isinstance(rest, dict) and isinstance(over, dict)
+        list_seats = tuple((party, rest[party]) for party in entitled)
+        overhang = tuple((party, over[party]) for party in entitled if over[party] > 0)
         return allocation.with_values(list_seats=list_seats, overhang=overhang)

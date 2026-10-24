@@ -18,6 +18,7 @@ from importlib.metadata import version as _version
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "calc" / "src"))
 
 project = "wahlwerk"
 author = "Julius Sommer"
@@ -29,13 +30,14 @@ extensions = [
     "sphinx.ext.autodoc",  # docstrings
     "sphinx.ext.viewcode",  # [source] links next to every object
     "sphinx.ext.intersphinx",  # links into the Python and pydantic docs
+    "sphinx.ext.mathjax",  # the formulas of wahlwerk_calc, from their docstrings
     "sphinxcontrib.autodoc_pydantic",  # fields, defaults, descriptions, validators
     "sphinxcontrib.bibtex",  # references from the Zotero export
 ]
 
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
-myst_enable_extensions = ["colon_fence", "deflist"]
-exclude_patterns = ["_build", "_statutes.md"]
+myst_enable_extensions = ["colon_fence", "deflist", "dollarmath"]
+exclude_patterns = ["_build", "_statutes.md", "_notation.md"]
 
 # --- autodoc -------------------------------------------------------------------------
 autodoc_default_options = {
@@ -104,6 +106,25 @@ def _write_statutes() -> None:
 
 
 _write_statutes()
+
+
+def _write_notation() -> None:
+    """``docs/_notation.md``: the symbol table of ``wahlwerk_calc.notation``, the one
+    the site prints too, so a formula reads the same in both."""
+    from wahlwerk_calc.notation import SYMBOLS
+
+    here = Path(__file__).parent
+    lines = ["| Symbol | Meaning |", "| --- | --- |"]
+    group = None
+    for symbol in SYMBOLS:
+        if symbol.group != group:
+            group = symbol.group
+            lines.append(f"| **{group}** | |")
+        lines.append(f"| ${symbol.latex}$ | {symbol.meaning} |")
+    (here / "_notation.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+_write_notation()
 
 html_theme = "furo"
 html_title = f"wahlwerk {release}"

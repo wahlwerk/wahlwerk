@@ -1,13 +1,21 @@
 """Largest remainder methods (quota methods): each key gets the whole part of its weight
-over a quota, and the seats left go to the largest remainders."""
+over a quota, and the seats left go to the largest remainders.
+
+The formula is :func:`wahlwerk_calc.remainder.largest_remainder`; a method here names
+its quota from :mod:`wahlwerk_calc.quota`.
+"""
 
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import Mapping
 from fractions import Fraction
 
-from wahlwerk.apportionment.method import ApportionmentMethod, _largest
-from wahlwerk.apportionment.result import Apportionment
+from wahlwerk.apportionment.method import ApportionmentMethod
+from wahlwerk_calc import quota as quotas
+from wahlwerk_calc import remainder as calc
+from wahlwerk_calc.result import SeatResult
+from wahlwerk_calc.types import Number
 
 __all__ = ["HareNiemeyer", "LargestRemainder"]
 
@@ -17,30 +25,14 @@ class LargestRemainder(ApportionmentMethod):
     seats left go to the largest remainders, one each."""
 
     @abstractmethod
-    def quota(self, total: Fraction, seats: int) -> Fraction:
+    def quota(self, total: Number, seats: int) -> Number:
         """The weight one seat is worth, given the total weight and the seats."""
 
-    def _apportion(
-        self, weights: dict[str, Fraction], seats: int, first: str | None = None
-    ) -> Apportionment:
-        """Whole seats, then the seats left by largest remainder; ``first``, if given,
-        takes one of the seats left before any remainder is compared."""
-        quota = self.quota(sum(weights.values(), Fraction(0)), seats)
-        shares = {key: weight / quota for key, weight in weights.items()}
-        whole = {key: share.numerator // share.denominator for key, share in shares.items()}
-        left = seats - sum(whole.values())
-        if left < 0:
-            raise ValueError(
-                f"{type(self).__name__}: the quota {quota} gives {seats - left} whole seats, "
-                f"more than the {seats} to apportion"
-            )
-        ahead = [first] if first is not None and left else []
-        rest = [(shares[key] - whole[key], key) for key in weights if key not in ahead]
-        winners, tie = _largest(rest, left - len(ahead))
-        winners = ahead + winners
-        return Apportionment(
-            seats=tuple((key, whole[key] + (key in winners)) for key in weights), tie=tie
-        )
+    def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
+        try:
+            return calc.largest_remainder(weights, seats, self.quota)
+        except ValueError as error:
+            raise ValueError(f"{type(self).__name__}: {error}") from None
 
 
 class HareNiemeyer(LargestRemainder):
@@ -48,5 +40,5 @@ class HareNiemeyer(LargestRemainder):
     share is exactly its weight's proportion of the seats; the whole parts are kept, and
     the largest remainders win the rest."""
 
-    def quota(self, total: Fraction, seats: int) -> Fraction:
-        return total / seats
+    def quota(self, total: Number, seats: int) -> Number:
+        return quotas.hare(total, seats)

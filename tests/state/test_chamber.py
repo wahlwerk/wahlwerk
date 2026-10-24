@@ -523,3 +523,22 @@ def test_get_caucuses_with_unknown_membership_adds_nothing():
 def test_real_caucus_may_not_use_the_reserved_id():
     with pytest.raises(ValidationError, match="caucus id 'non-attached' is reserved"):
         Chamber(mandates=(_m(1),), caucuses=(Caucus(id=NON_ATTACHED, mandates={"m.1"}),))
+
+
+def test_apply_a_formula_to_the_chamber():
+    from fractions import Fraction
+
+    import wahlwerk_calc as wc
+    from wahlwerk.law.de.bund.gobt import CAUCUS_PROTOCOL
+
+    chamber = Chamber.from_seats({"cdu": 30, "csu": 10, "spd": 35, "afd": 25}, caucus_protocol=CAUCUS_PROTOCOL)
+    assert chamber.seats_by() == {"union": 40, "spd": 35, "afd": 25}
+    assert chamber.seats_by("party") == {"cdu": 30, "csu": 10, "spd": 35, "afd": 25}
+    assert chamber.apply(wc.coalition.minimal_winning) == [
+        frozenset({"union", "spd"}),
+        frozenset({"union", "afd"}),
+        frozenset({"spd", "afd"}),
+    ]
+    assert chamber.apply(wc.power.banzhaf) == {"union": Fraction(1, 3), "spd": Fraction(1, 3), "afd": Fraction(1, 3)}
+    assert chamber.apply(wc.fragmentation.effective_number, by="party") == Fraction(10000, 2850)
+    assert chamber.apply(lambda seats: sum(seats.values())) == 100  # any function of the seats
