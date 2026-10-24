@@ -35,7 +35,7 @@ extensions = [
 
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
 myst_enable_extensions = ["colon_fence", "deflist"]
-exclude_patterns = ["_build"]
+exclude_patterns = ["_build", "_statutes.md"]
 
 # --- autodoc -------------------------------------------------------------------------
 autodoc_default_options = {
@@ -71,6 +71,39 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "pydantic": ("https://docs.pydantic.dev/latest", None),
 }
+
+# --- statutes: generated from the law registry and statutes.toml, never written by hand -
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
+
+
+def _write_statutes() -> None:
+    """``docs/_statutes.md``: every statute version the engine implements (its Law
+    objects) and every statute it only cites (``statutes.toml``). The site reads the
+    same two sources, so both documentations cite the same versions."""
+    from wahlwerk.law.registry import LAWS
+
+    here = Path(__file__).parent
+    cited = tomllib.loads((here / "statutes.toml").read_text(encoding="utf-8"))
+    lines = [
+        "| Law id | Statute | Version | In force |",
+        "| --- | --- | --- | --- |",
+    ]
+    for law in sorted(LAWS.laws, key=lambda law: law.id):
+        span = " to ".join(
+            str(d) for d in (law.in_force_from, law.in_force_until) if d is not None
+        )
+        title = f"[{law.title}]({law.source})" if law.source else law.title
+        lines.append(f"| `{law.id}` | {title} | {law.citation} | {span or 'not on record'} |")
+    for law_id, entry in sorted(cited.items()):
+        title = f"[{entry['title']}]({entry['source']}) ({entry['short']})"
+        lines.append(f"| `{law_id}` | {title} | {entry['version']} | cited, not implemented |")
+    (here / "_statutes.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+_write_statutes()
 
 html_theme = "furo"
 html_title = f"wahlwerk {release}"

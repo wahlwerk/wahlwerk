@@ -1,0 +1,22 @@
+# Statutes cited by wahlwerk (its docstrings, its API reference, wahlwerk-site) that the
+# engine does not implement as a Law. A statute the engine implements is its Law object
+# (wahlwerk.law), one per version, and is not repeated here.
+#
+# One table per law id, jurisdiction first, quoted. A law changes by amendment, so an
+# entry says which version is cited. When the engine records cited-only statutes itself
+# (decision 0003 in .github-private), this file moves into it.
+#
+# Read by docs/conf.py (the Statutes section of the API reference) and by
+# wahlwerk-site's references.py.
+
+["de.bund.gg"]
+short = "GG"
+title = "Grundgesetz für die Bundesrepublik Deutschland"
+version = "cited in the version in force today"
+source = "https://www.gesetze-im-internet.de/gg/"
+
+["de.bund.gobt"]
+short = "GO-BT"
+title = "Geschäftsordnung des Deutschen Bundestages"
+version = "cited in the version in force today; Sec. 10 (1) is the caucus protocol in wahlwerk.law.de.bund.gobt"
+source = "https://www.gesetze-im-internet.de/btgo_1980/"

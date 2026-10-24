@@ -85,7 +85,10 @@ site links each concept to its anchor there (`api/vote.html#wahlwerk.vote.popula
 literature in `docs/references.bib`, exported from Zotero (Better BibLaTeX, keys
 `{first author}.{ThreeWordTitle}.{year}`, pinned when cited; never edit the file),
 cited in a docstring with `` :cite:`key` ``; statutes are `Law` objects, one per version,
-never in Zotero; data sources are each bundle's `[source]`.
+never in Zotero, and a statute only cited (the GG, the GO-BT) is in `docs/statutes.toml`;
+data sources are each bundle's `[source]`. `docs/conf.py` generates the Statutes section
+from the registry and that file; wahlwerk-site reads the same three sources, so the
+reference and the site are two documentations of one record, differing in scope only.
 
 The engine has **no** jupyter or matplotlib dependency and must not grow one; notebooks
 live in wahlwerk-execute.

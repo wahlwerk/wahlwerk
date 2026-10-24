@@ -10,3 +10,4 @@ dist/
 
 # Sphinx output
 docs/_build/
+docs/_statutes.md
