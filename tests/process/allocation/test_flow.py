@@ -90,7 +90,7 @@ def test_describe_and_the_table():
         "SetChamberSize", "CountVotes", "ElectAndQualify", "RaiseByOverhang", "FormChamber",
     ]
     assert [c.kind for c in nodes[1].children] == ["SumVotes", "SumVotes"]
-    assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThreshold"]
+    assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThresholdToKeys"]
     loop = nodes[3]
     assert loop.citation == "Sec. 35 (8), (8a)"
     assert loop.depends_on == (0, 1, 2)
@@ -162,7 +162,7 @@ def test_a_concept_shows_what_the_step_hands_it():
     elect = flow.describe(P)[2].children[0]
     assert elect.uses[0].arguments == (("votes", "erststimme per nominee"), ("seats", "1"))
     threshold = flow.describe(P)[2].children[1].uses[0]
-    assert threshold.arguments == (("votes", "zweitstimme per party"),)
+    assert threshold.arguments == (("keys", "parties"), ("votes", "zweitstimme per party"))
     assert threshold.parameters == (("share", "1/20"),)
     caucus = flow.describe(P)[3].children[1]  # a step of its own, in the repeated block
     (quota,) = caucus.uses

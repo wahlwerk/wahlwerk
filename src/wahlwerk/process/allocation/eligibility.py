@@ -14,12 +14,12 @@ from wahlwerk.ids import LevelName, Slug
 from wahlwerk.model import Seats
 from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
 
-__all__ = ["ApplyThreshold", "SetChamberSize", "SetSeatTotal"]
+__all__ = ["ApplyThresholdToKeys", "SetChamberSize", "SetSeatTotal"]
 
 
-class ApplyThreshold(AllocationStep):
-    """The parties that pass ``threshold`` on their valid votes in ``section``, summed
-    at ``level``, become ``eligible``.
+class ApplyThresholdToKeys(AllocationStep):
+    """Apply ``threshold`` to the keys, here the parties: those that pass it on their valid
+    votes in ``section``, summed at ``level``, become ``eligible``.
 
     The share is of all valid votes in the section, of every party. A threshold that
     counts seats already won (a Grundmandatsklausel) is given each party's Wahlkreis
@@ -49,7 +49,7 @@ class ApplyThreshold(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        given: tuple[tuple[str, str], ...] = (("votes", f"{self.section} per party"),)
+        given: tuple[tuple[str, str], ...] = (("keys", "parties"), ("votes", f"{self.section} per party"))
         if self.threshold.uses_won:
             given += (("won", "units won per party"),)
         return {"threshold": given}

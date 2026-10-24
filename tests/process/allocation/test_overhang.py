@@ -13,7 +13,7 @@ from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
-    ApplyThreshold,
+    ApplyThresholdToKeys,
     SetChamberSize,
     SetSeatTotal,
 )
@@ -53,7 +53,7 @@ def law(base, repeat):
         SumVotes(level="wahlkreis"),
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumVotes(level="land"),
-        ApplyThreshold(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
+        ApplyThresholdToKeys(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
         *ALLOCATE,
         repeat,

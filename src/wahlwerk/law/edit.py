@@ -15,10 +15,10 @@ path, depth first.
     from wahlwerk.apportionment.divisor import SainteLague
     from wahlwerk.apportionment.threshold import RelativeThreshold
     from wahlwerk.law.edit import replace
-    from wahlwerk.process.allocation.eligibility import ApplyThreshold, SetChamberSize
+    from wahlwerk.process.allocation.eligibility import ApplyThresholdToKeys, SetChamberSize
     from wahlwerk.process.allocation.seats import ApportionSeats
 
-    protocol = replace(LWG_2021.protocol, ApplyThreshold,
+    protocol = replace(LWG_2021.protocol, ApplyThresholdToKeys,
                        threshold=RelativeThreshold(share=Fraction(3, 100)))
     protocol = replace(protocol, SetChamberSize, seats=101)
     protocol = replace(protocol, ApportionSeats, method=SainteLague())
