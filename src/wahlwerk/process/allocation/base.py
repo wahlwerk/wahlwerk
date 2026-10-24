@@ -13,7 +13,7 @@ its own facts again when applied.
 
 Facts are named by strings: ``tally`` (the input), ``total:<level>`` (the tally summed
 to a level, see :class:`~wahlwerk.process.allocation.count.SumVotes`), and one per
-optional field of :class:`Allocation`, named like it: ``districts``, ``eligible``,
+optional field of :class:`Allocation`, named like it: ``unit_winners``, ``eligible``,
 ``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
 ``overhang``, ``chamber``.
 
@@ -44,7 +44,7 @@ __all__ = [
     "Allocation",
     "AllocationProtocol",
     "AllocationStep",
-    "DistrictResult",
+    "UnitResult",
     "check_protocol",
     "outside_reads",
     "total_fact",
@@ -56,7 +56,7 @@ INPUT_FACTS = frozenset({"tally"})
 """The facts every allocation starts with."""
 
 OPTIONAL_FACTS = (
-    "districts",
+    "unit_winners",
     "eligible",
     "chamber_size",
     "minimum_mandates",
@@ -74,7 +74,7 @@ def total_fact(level: str) -> str:
     return f"total:{level}"
 
 
-class DistrictResult(Model):
+class UnitResult(Model):
     """Who won one single-seat unit (a Wahlkreis), or who tied for it.
 
     The winner is a nominee: a candidate where the tally names one, otherwise a party's
@@ -107,14 +107,14 @@ class DistrictResult(Model):
     )
 
     @model_validator(mode="after")
-    def _check_winner_or_tie(self) -> DistrictResult:
+    def _check_winner_or_tie(self) -> UnitResult:
         if (self.nominee is None) == (self.tie is None):
             raise ValueError(
-                f"district {self.unit!r} needs a winner or a tie, not both or neither "
+                f"unit {self.unit!r} needs a winner or a tie, not both or neither "
                 f"(nominee={self.nominee!r}, tie={self.tie!r})"
             )
         if self.tie is not None and self.tie.seats != 1:
-            raise ValueError(f"district {self.unit!r} has one seat, but the tie is over {self.tie.seats}")
+            raise ValueError(f"unit {self.unit!r} has one seat, but the tie is over {self.tie.seats}")
         return self
 
     @property
@@ -137,7 +137,7 @@ class Allocation(Model):
         default_factory=tuple,
         description="The tally summed to each level a step asked for, in the order summed.",
     )
-    districts: tuple[DistrictResult, ...] | None = Field(
+    unit_winners: tuple[UnitResult, ...] | None = Field(
         default=None,
         description="The result of each single-seat unit; ``None`` until decided.",
     )
@@ -198,18 +198,18 @@ class Allocation(Model):
         facts.update(name for name in OPTIONAL_FACTS if getattr(self, name) is not None)
         return frozenset(facts)
 
-    def district_wins(self) -> dict[str, int]:
-        """The Wahlkreise each party won, from ``districts``. Raises ``ValueError`` if
+    def unit_wins(self) -> dict[str, int]:
+        """The Wahlkreise each party won, from ``unit_winners``. Raises ``ValueError`` if
         they are not decided yet, or a tie in one is still to be decided by lot."""
-        if self.districts is None:
+        if self.unit_winners is None:
             raise ValueError("the Wahlkreise are not decided yet")
-        tied = [d.unit for d in self.districts if not d.is_decided]
+        tied = [d.unit for d in self.unit_winners if not d.is_decided]
         if tied:
             raise ValueError(f"Wahlkreise {tied} are tied; the lot must be applied first")
         wins: dict[str, int] = {}
-        for district in self.districts:
-            if district.party is not None:
-                wins[district.party] = wins.get(district.party, 0) + 1
+        for result in self.unit_winners:
+            if result.party is not None:
+                wins[result.party] = wins.get(result.party, 0) + 1
         return wins
 
     def total(self, level: str) -> Tally:

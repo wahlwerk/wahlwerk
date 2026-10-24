@@ -25,7 +25,7 @@ from wahlwerk.process.allocation.eligibility import (
     SetChamberSize,
     SetSeatTotal,
 )
-from wahlwerk.process.allocation.seats import ApportionSeats, DeductDistrictSeats
+from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.state.mandate_origin import MandateSource
 from wahlwerk.state.term import Term
 from wahlwerk.vote.popular.popular_vote import PopularVote, Source
@@ -71,7 +71,7 @@ def law(base, threshold=FIVE_PERCENT, method=HARE):
         SetChamberSize(seats=base),
         SetSeatTotal(),
         ApportionSeats(method=method, section="zweitstimme", level="land"),
-        DeductDistrictSeats(),
+        DeductUnitSeats(),
     )
 
 
@@ -104,7 +104,7 @@ def test_overhang_when_a_party_wins_more_wahlkreise_than_it_is_entitled_to():
 def test_grundmandatsklausel_reads_the_wahlkreise():
     rule = AlternativeThresholds(thresholds=(FIVE_PERCENT, SeatThreshold(seats=3)))
     step = ApplyThreshold(threshold=rule, section="zweitstimme", level="land")
-    assert "districts" in step.reads
+    assert "unit_winners" in step.reads
     result = run(law(20, threshold=rule), Allocation(tally=tally(["fdp", "fdp", "fdp"])))
     assert "fdp" in result.eligible
     assert result.seat_total == 20
@@ -116,7 +116,7 @@ def test_a_grundmandatsklausel_before_the_wahlkreise_is_refused():
         SumVotes(level="land"),
         ApplyThreshold(threshold=rule, section="zweitstimme", level="land"),
     )
-    with pytest.raises(ValueError, match=r"reads \['districts'\]"):
+    with pytest.raises(ValueError, match=r"reads \['unit_winners'\]"):
         check_protocol(misordered)
 
 

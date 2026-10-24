@@ -197,7 +197,7 @@ def test_landtag_laws_allocate(name, law_id):
     allocation = derive(read(name), law.protocol)
     chamber = allocation.chamber
     assert chamber.size >= MINIMUM_SEATS[law_id]
-    assert sum(allocation.district_wins().values()) + chamber.seats_by_party.get(None, 0) == 40
+    assert sum(allocation.unit_wins().values()) + chamber.seats_by_party.get(None, 0) == 40
 
 
 def test_landtag_has_briefwahlbezirke():

@@ -5,7 +5,7 @@ contest per unit: the nominees standing there and their votes. A method then cho
 the winner from that list alone, knowing nothing of units, sections or law; usually
 :class:`~wahlwerk.apportionment.plurality.Plurality`, the most votes win. In Germany
 the units are Wahlkreise and the vote is the Erststimme (Sec. 33 LWG LSA: the most
-Erststimmen; lot on a tie); elsewhere they are constituencies, ridings or districts.
+Erststimmen; lot on a tie); elsewhere constituencies, ridings or districts: here, units of a level.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import (
     Allocation,
     AllocationStep,
-    DistrictResult,
+    UnitResult,
     total_fact,
 )
 from wahlwerk.vote.popular.tally import TallyKind
@@ -59,7 +59,7 @@ class ElectPerUnit(AllocationStep):
 
     @property
     def writes(self) -> frozenset[str]:
-        return frozenset({"districts"})
+        return frozenset({"unit_winners"})
 
     def _apply(self, allocation: Allocation) -> Allocation:
         per_unit = contests(allocation, self.section, self.level)
@@ -68,10 +68,10 @@ class ElectPerUnit(AllocationStep):
                 f"{type(self).__name__}: no {self.section!r} votes at level {self.level!r} to elect from"
             )
         return allocation.with_values(
-            districts=tuple(self._elect(unit, nominees) for unit, nominees in per_unit.items())
+            unit_winners=tuple(self._elect(unit, nominees) for unit, nominees in per_unit.items())
         )
 
-    def _elect(self, unit: str, nominees: dict[Nominee, int]) -> DistrictResult:
+    def _elect(self, unit: str, nominees: dict[Nominee, int]) -> UnitResult:
         """The winner of one unit's contest, chosen by ``method``."""
         keys = {(candidate or party): (party, candidate) for party, candidate in nominees}
         votes = {key: nominees[keys[key]] for key in keys if key}
@@ -84,10 +84,10 @@ class ElectPerUnit(AllocationStep):
             tie = Tie(candidates=frozenset(votes), seats=1)
             winners = []
         if tie is not None:
-            return DistrictResult.model_validate({"unit": unit, "votes": most, "tie": tie})
+            return UnitResult.model_validate({"unit": unit, "votes": most, "tie": tie})
         (key,) = winners
         party, candidate = keys[key]
-        return DistrictResult.model_validate(
+        return UnitResult.model_validate(
             {"unit": unit, "nominee": key, "party": party, "candidate": candidate, "votes": votes[key]}
         )
 

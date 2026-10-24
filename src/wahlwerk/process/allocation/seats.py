@@ -10,7 +10,7 @@ from wahlwerk.calc import compensation
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
 
-__all__ = ["ApportionSeats", "DeductDistrictSeats"]
+__all__ = ["ApportionSeats", "DeductUnitSeats"]
 
 
 class ApportionSeats(AllocationStep):
@@ -47,7 +47,7 @@ class ApportionSeats(AllocationStep):
         return allocation.with_values(entitlement=self.method.apportion(weights, seats))
 
 
-class DeductDistrictSeats(AllocationStep):
+class DeductUnitSeats(AllocationStep):
     """Deduct each eligible party's Wahlkreis seats from its entitlement: the rest are
     its ``list_seats``. Where a party won more Wahlkreise than it is entitled to, it
     keeps them, fills no list seat, and the excess is its ``overhang`` (Mehrsitze).
@@ -57,7 +57,7 @@ class DeductDistrictSeats(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({"entitlement", "districts"})
+        return frozenset({"entitlement", "unit_winners"})
 
     @property
     def writes(self) -> frozenset[str]:
@@ -67,7 +67,7 @@ class DeductDistrictSeats(AllocationStep):
         entitlement = allocation.entitlement
         if entitlement is None or not entitlement.is_decided:
             raise ValueError(f"{self!r}: the entitlement has a tie; the lot must be applied first")
-        wins = allocation.district_wins()
+        wins = allocation.unit_wins()
         entitled = dict(entitlement.seats)
         won = {party: wins.get(party, 0) for party in entitled}
         rest = compensation.remaining(entitled, won) if entitled else {}

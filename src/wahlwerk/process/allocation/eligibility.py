@@ -19,7 +19,7 @@ class ApplyThreshold(AllocationStep):
 
     The share is of all valid votes in the section, of every party. A threshold that
     counts seats already won (a Grundmandatsklausel) is given each party's Wahlkreis
-    wins, so the step then also reads ``districts``.
+    wins, so the step then also reads ``unit_winners``.
     """
 
     threshold: SerializeAsAny[Threshold] = Field(
@@ -36,7 +36,7 @@ class ApplyThreshold(AllocationStep):
     def reads(self) -> frozenset[str]:
         needed = {total_fact(self.level)}
         if self.threshold.uses_won:
-            needed.add("districts")
+            needed.add("unit_winners")
         return frozenset(needed)
 
     @property
@@ -45,7 +45,7 @@ class ApplyThreshold(AllocationStep):
 
     def _apply(self, allocation: Allocation) -> Allocation:
         votes = allocation.votes_by_party(self.level, self.section)
-        won = allocation.district_wins() if self.threshold.uses_won else None
+        won = allocation.unit_wins() if self.threshold.uses_won else None
         return allocation.with_values(eligible=self.threshold.select(votes, won))
 
 
@@ -92,18 +92,18 @@ class SetSeatTotal(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({"chamber_size", "districts", "eligible"})
+        return frozenset({"chamber_size", "unit_winners", "eligible"})
 
     @property
     def writes(self) -> frozenset[str]:
         return frozenset({"seat_total"})
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        wins = allocation.district_wins()
+        wins = allocation.unit_wins()
         eligible = allocation.eligible or frozenset()
-        districts = allocation.districts or ()
+        winners = allocation.unit_winners or ()
         size = allocation.chamber_size or 0
-        outside = sum(1 for d in districts if d.party is None) + sum(
+        outside = sum(1 for d in winners if d.party is None) + sum(
             n for party, n in wins.items() if party not in eligible
         )
         if outside > size:

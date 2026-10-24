@@ -21,7 +21,7 @@ from wahlwerk.process.allocation.mehrsitze import (
     RaiseForAusgleich,
     RepeatForMehrsitze,
 )
-from wahlwerk.process.allocation.seats import ApportionSeats, DeductDistrictSeats
+from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
 LEVELS = (Level(name="land", depth=2), Level(name="wahlkreis", depth=4))
@@ -30,7 +30,7 @@ FRAKTION = FraktionSize(share=FIVE, section="zweitstimme", level="land")
 ALLOCATE = (
     SetSeatTotal(),
     ApportionSeats(method=HareNiemeyer(), section="zweitstimme", level="land"),
-    DeductDistrictSeats(),
+    DeductUnitSeats(),
 )
 
 
@@ -125,7 +125,7 @@ def test_fraktion_size_counts_a_fictitious_five_percent_party():
 
 def test_loop_declares_what_it_reads_and_writes():
     # It runs its allocation first, so the overhang it is driven by is its own.
-    assert {"chamber_size", "districts", "eligible", "total:land"} <= LOOP.reads
+    assert {"chamber_size", "unit_winners", "eligible", "total:land"} <= LOOP.reads
     assert "overhang" not in LOOP.reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= LOOP.writes
 
@@ -199,6 +199,6 @@ def test_no_ueberhang_leaves_the_chamber_size_even_if_odd_is_required():
 
 def test_step_declares_what_it_reads_and_writes():
     step = raise_for_ausgleich(limit=2, has_odd_size=True)
-    assert {"chamber_size", "districts", "eligible", "total:land"} <= step.reads
+    assert {"chamber_size", "unit_winners", "eligible", "total:land"} <= step.reads
     assert "overhang" not in step.reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes

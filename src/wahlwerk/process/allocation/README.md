@@ -18,7 +18,7 @@ Sachsen-Anhalt (LWG LSA) as amended on 6 July 2021.
 | apportionment methods | `apportionment/` | `DHondt`, `SainteLague`, `LinearDivisor` (`divisor.py`), `HareNiemeyer` (`remainder.py`), `MajorityFirst` (`majority.py`): models with no German content; `Tie` in `tie.py` |
 | `Allocation` | `process/allocation/base.py` | the working record of one allocation: the tally, totals per level, Wahlkreis results, eligible parties, seat total, entitlement, list seats, overhang |
 | `AllocationStep`, `AllocationProtocol` | `process/allocation/base.py` | one rule of the law, and the law as an ordered tuple of them; `check_protocol` refuses a law that reads a fact before it is written |
-| steps | `process/allocation/count.py`, `district.py`, `eligibility.py`, `seats.py` | `SumVotes`, `ElectPerUnit`, `ApplyThreshold`, `SetSeatTotal`, `ApportionSeats`, `DeductDistrictSeats`; each names the section and level it counts |
+| steps | `process/allocation/count.py`, `elect.py`, `eligibility.py`, `seats.py` | `SumVotes`, `ElectPerUnit`, `ApplyThreshold`, `SetSeatTotal`, `ApportionSeats`, `DeductUnitSeats`; each names the section and level it counts |
 | `StepSequence`, flow | `process/allocation/sequence.py`, `flow.py` | several steps used as one; the structure derived from reads and writes (below) |
 | `allocate(vote, protocol)`, `FormChamber` | `process/allocation/allocate.py`, `chamber.py` | the process: applies the protocol, returns a `Chamber` |
 
@@ -113,7 +113,7 @@ LWG_LSA_2021: AllocationProtocol = (
                         section="zweitstimme",
                         level="land",
                     ),
-                    DeductDistrictSeats(),                          # § 35 (7)
+                    DeductUnitSeats(),                          # § 35 (7)
                 ),
             ),
         ),
@@ -254,7 +254,7 @@ Stimmkreise inside Wahlkreise still nest by prefix.
    numbers, and by properties (house monotonicity, quota rule). **Done.**
 4. `Allocation`, `AllocationStep`, `AllocationProtocol`, the read/write check
    (`check_protocol`), and the linear steps: `SumVotes`, `ElectPerUnit`,
-   `ApplyThreshold`, `SetSeatTotal`, `ApportionSeats`, `DeductDistrictSeats`. **Done**:
+   `ApplyThreshold`, `SetSeatTotal`, `ApportionSeats`, `DeductUnitSeats`. **Done**:
    on 2026 they give AfD 38 Wahlkreise, Linke 3, six eligible parties, 83 seats, the
    entitlement AfD 39, CDU 15, SPD 8, Grüne 8, Linke 8, BSW 5, list seats AfD 1 and
    Linke 5, and no overhang. Constructed tallies cover Einzelbewerber, a party under

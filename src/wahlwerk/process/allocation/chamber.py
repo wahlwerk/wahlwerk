@@ -35,7 +35,7 @@ class FormChamber(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({"districts", "list_seats"})
+        return frozenset({"unit_winners", "list_seats"})
 
     @property
     def optional_reads(self) -> frozenset[str]:
@@ -46,13 +46,13 @@ class FormChamber(AllocationStep):
         return frozenset({"chamber"})
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        allocation.district_wins()  # raises on a Wahlkreis still tied
+        allocation.unit_wins()  # raises on a Wahlkreis still tied
         elected = MandateOrigin(source=MandateSource.ELECTION)
         mandates = [
             Mandate.model_validate(
                 {"id": ".".join(d.unit.split(".")[-2:]), "party": d.party, "origin": elected}
             )
-            for d in allocation.districts or ()
+            for d in allocation.unit_winners or ()
         ]
         for party, seats in allocation.list_seats or ():
             mandates += [

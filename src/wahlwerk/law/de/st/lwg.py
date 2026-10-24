@@ -30,7 +30,7 @@ from wahlwerk.process.allocation.eligibility import (
     SetSeatTotal,
 )
 from wahlwerk.process.allocation.mehrsitze import FraktionSize, RepeatForMehrsitze
-from wahlwerk.process.allocation.seats import ApportionSeats, DeductDistrictSeats
+from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
 
 __all__ = ["ALLOCATE", "LWG_2021"]
@@ -48,7 +48,7 @@ ALLOCATE = StepSequence(
             level="land",
             citation="Sec. 35 (5), (6)",
         ),
-        DeductDistrictSeats(citation="Sec. 35 (7)"),
+        DeductUnitSeats(citation="Sec. 35 (7)"),
     ),
 )
 """Sec. 35 (4) to (7): the seats of one chamber size, which Sec. 35 (8) repeats."""

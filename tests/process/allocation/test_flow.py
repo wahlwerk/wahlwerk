@@ -27,8 +27,8 @@ def test_stages_follow_the_facts():
 def test_sources_name_the_last_writer():
     read = flow.sources(P)
     assert read[1] == {"total:wahlkreis": 0}
-    assert read[5]["chamber_size"] == 4 and read[5]["districts"] == 1
-    assert read[6] == {"districts": 1, "list_seats": 5, "minimum_mandates": 4}
+    assert read[5]["chamber_size"] == 4 and read[5]["unit_winners"] == 1
+    assert read[6] == {"unit_winners": 1, "list_seats": 5, "minimum_mandates": 4}
 
 
 def test_independent_steps_can_swap_and_dependent_ones_cannot():
@@ -59,7 +59,7 @@ def test_movable_gives_the_range_a_step_can_go():
 
 
 def test_a_sequence_is_one_step():
-    assert ALLOCATE.reads == {"chamber_size", "districts", "eligible", "total:land"}
+    assert ALLOCATE.reads == {"chamber_size", "unit_winners", "eligible", "total:land"}
     assert ALLOCATE.writes == {"seat_total", "entitlement", "list_seats", "overhang"}
     inline = (*P[:5], ALLOCATE, P[6])
     flat = (*P[:5], *ALLOCATE.steps, P[6])
