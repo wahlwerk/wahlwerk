@@ -1,4 +1,4 @@
-"""The result of an apportionment: the seats each key won, and any tie."""
+"""The result of an apportionment: the seats each option won, and any tie."""
 
 from __future__ import annotations
 
@@ -14,16 +14,16 @@ __all__ = ["Apportionment"]
 
 
 class Apportionment(Model):
-    """The seats each key won, and the seats still tied, if any.
+    """The seats each option won, and the seats still tied, if any.
 
-    ``seats`` holds every key given, in the order given, including keys that won
+    ``seats`` holds every option given, in the order given, including options that won
     nothing. While ``tie`` is set, ``seats`` holds only the decided seats, so their
     total falls short of the seats apportioned by ``tie.seats``.
     """
 
     seats: tuple[tuple[str, Seats], ...] = Field(
         default_factory=tuple,
-        description="Each key and its decided seats, in the order the weights were given.",
+        description="Each option and its decided seats, in the order the weights were given.",
     )
     tie: Tie | None = Field(
         default=None,
@@ -32,12 +32,12 @@ class Apportionment(Model):
 
     @model_validator(mode="after")
     def _check_keys(self) -> Apportionment:
-        keys = [key for key, _ in self.seats]
-        if len(set(keys)) != len(keys):
-            raise ValueError(f"apportionment lists a key more than once: {keys}")
-        if self.tie is not None and not self.tie.candidates <= set(keys):
+        options = [option for option, _ in self.seats]
+        if len(set(options)) != len(options):
+            raise ValueError(f"apportionment lists an option more than once: {options}")
+        if self.tie is not None and not self.tie.candidates <= set(options):
             raise ValueError(
-                f"tie candidates {sorted(self.tie.candidates - set(keys))} are not apportioned keys"
+                f"tie candidates {sorted(self.tie.candidates - set(options))} are not apportioned options"
             )
         return self
 
@@ -51,18 +51,18 @@ class Apportionment(Model):
             tie = Tie(candidates=frozenset(result.tied), seats=result.open)
         return cls(seats=tuple(seats.items()), tie=tie)
 
-    def __getitem__(self, key: str) -> Seats:
+    def __getitem__(self, option: str) -> Seats:
         for name, seats in self.seats:
-            if name == key:
+            if name == option:
                 return seats
-        raise KeyError(f"no key {key!r} in the apportionment")
+        raise KeyError(f"no option {option!r} in the apportionment")
 
-    def get(self, key: str, default: Seats | None = None) -> Seats | None:
-        """The decided seats of ``key``, or ``default`` if it was not apportioned."""
-        return next((seats for name, seats in self.seats if name == key), default)
+    def get(self, option: str, default: Seats | None = None) -> Seats | None:
+        """The decided seats of ``option``, or ``default`` if it was not apportioned."""
+        return next((seats for name, seats in self.seats if name == option), default)
 
     def as_dict(self) -> dict[str, Seats]:
-        """The decided seats per key, in order."""
+        """The decided seats per option, in order."""
         return dict(self.seats)
 
     @property
@@ -96,5 +96,5 @@ class Apportionment(Model):
                 f"{sorted(self.tie.candidates)}"
             )
         return Apportionment(
-            seats=tuple((key, seats + (key in drawn)) for key, seats in self.seats)
+            seats=tuple((option, seats + (option in drawn)) for option, seats in self.seats)
         )

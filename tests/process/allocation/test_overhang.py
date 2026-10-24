@@ -13,7 +13,7 @@ from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
-    ApplyThresholdToKeys,
+    ApplyThresholdToOptions,
     SetChamberSize,
     SetSeatTotal,
 )
@@ -40,11 +40,11 @@ def tally(winners, zweit):
     rows = []
     for number, winner in enumerate(winners, start=1):
         unit = f"de.st.wk.{number:03d}"
-        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", party=winner, count=100))
-        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", party="spd", count=1))
+        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option=winner, party=winner, count=100))
+        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option="spd", party="spd", count=1))
     for party, count in zweit.items():
         rows.append(
-            TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", party=party, count=count)
+            TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=party, party=party, count=count)
         )
     return Tally(rows=tuple(rows), levels=LEVELS)
 
@@ -56,7 +56,7 @@ def law(base, repeat, *, is_measured=True):
         SumVotes(level="wahlkreis"),
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumVotes(level="land"),
-        ApplyThresholdToKeys(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
+        ApplyThresholdToOptions(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
         *ALLOCATE,
         *((CAUCUS,) if is_measured else ()),
@@ -120,20 +120,20 @@ def test_further_rounds_run_while_overhang_exceeds_half_a_caucus():
 def test_caucus_size_counts_a_fictitious_five_percent_party():
     # 5 % of 1000 = 50 fictitious votes beside 900 eligible: 20 * 50 / 950 = 1.05 -> 1.
     rows = tuple(
-        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", party=p, count=n)
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, party=p, count=n)
         for p, n in {"a": 450, "b": 450, "c": 100}.items()
     )
     allocation = SumVotes(level="land")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
-    allocation = allocation.with_values(eligible_keys=frozenset({"a", "b"}), seat_total=20)
+    allocation = allocation.with_values(eligible_options=frozenset({"a", "b"}), seat_total=20)
     assert CAUCUS(allocation).caucus_size == 1
     assert CAUCUS(allocation.with_values(seat_total=97)).caucus_size == 5  # 97 * 50 / 950 = 5.1
-    assert CAUCUS.reads == {"total:land", "eligible_keys", "seat_total"}
+    assert CAUCUS.reads == {"total:land", "eligible_options", "seat_total"}
     assert CAUCUS.writes == {"caucus_size"}
 
 
 def test_loop_declares_what_it_reads_and_writes():
     # It checks the overhang the allocation before it left, before any round.
-    assert {"chamber_size", "unit_mandates", "eligible_keys", "total:land", "overhang"} <= LOOP.reads
+    assert {"chamber_size", "unit_mandates", "eligible_options", "total:land", "overhang"} <= LOOP.reads
     assert "caucus_size" in LOOP.optional_reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= LOOP.writes
 
@@ -218,7 +218,7 @@ def test_no_ueberhang_leaves_the_chamber_size_even_if_odd_is_required():
 
 def test_step_declares_what_it_reads_and_writes():
     step = raise_for_ausgleich(limit=2, has_odd_size=True)
-    assert {"chamber_size", "unit_mandates", "eligible_keys", "total:land"} <= step.reads
+    assert {"chamber_size", "unit_mandates", "eligible_options", "total:land"} <= step.reads
     assert "overhang" not in step.reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes
 

@@ -1,6 +1,6 @@
-r"""Shares: each key's part of the whole, the first step of most formulas.
+r"""Shares: each option's part of the whole, the first step of most formulas.
 
-With :math:`v_i` the votes of key :math:`i` and :math:`V = \sum_i v_i`, the vote share is
+With :math:`v_i` the votes of option :math:`i` and :math:`V = \sum_i v_i`, the vote share is
 :math:`p_i = v_i / V`; for seats :math:`s_i` and :math:`S = \sum_i s_i` the seat share is
 :math:`q_i = s_i / S`.
 
@@ -48,7 +48,7 @@ def total(values: Values) -> Any:
 
 
 def shares(values: Values, *, per: Number | str = 1) -> PerKey:
-    r"""Each key's share of the total, :math:`p_i = v_i / V`, in units of ``per``
+    r"""Each option's share of the total, :math:`p_i = v_i / V`, in units of ``per``
     (``per=100`` for percent): exact for exact input, floats for floats. Raises
     ``ValueError`` when :math:`V = 0`."""
     prepared = prepare(values)
@@ -113,7 +113,7 @@ def _whole(value: Fraction) -> Number:
 
 
 def share_array(prepared: Prepared) -> NDArray[Any]:
-    """The shares of checked input, keys on the last axis (exact or float)."""
+    """The shares of checked input, options on the last axis (exact or float)."""
     out = []
     for row in prepared.rows():
         whole: Number = sum(row)

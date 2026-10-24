@@ -50,7 +50,7 @@ def test_sachsen_anhalt_2026_hare_niemeyer():
 def test_order_of_keys_is_kept():
     weights = {"z": 1, "a": 5, "m": 3}
     for method in METHODS:
-        assert [key for key, _ in method.apportion(weights, 4).seats] == ["z", "a", "m"]
+        assert [option for option, _ in method.apportion(weights, 4).seats] == ["z", "a", "m"]
 
 
 def test_zero_weight_wins_nothing():
@@ -133,7 +133,7 @@ def test_lookup():
 def test_apportionment_rejects_duplicate_keys_and_foreign_tie():
     with pytest.raises(ValidationError, match="more than once"):
         Apportionment(seats=(("a", 1), ("a", 2)))
-    with pytest.raises(ValidationError, match="not apportioned keys"):
+    with pytest.raises(ValidationError, match="not apportioned options"):
         Apportionment(seats=(("a", 0),), tie=Tie(candidates=frozenset({"a", "b"}), seats=1))
 
 
@@ -179,10 +179,10 @@ def test_linear_divisor_rejects_floats_and_non_positive():
 def cases(count=200):
     rng = random.Random(2026)
     for _ in range(count):
-        keys = [f"p{i}" for i in range(rng.randint(1, 8))]
-        weights = {key: rng.randint(0, 10_000) for key in keys}
+        options = [f"p{i}" for i in range(rng.randint(1, 8))]
+        weights = {option: rng.randint(0, 10_000) for option in options}
         if not any(weights.values()):
-            weights[keys[0]] = 1
+            weights[options[0]] = 1
         yield weights, rng.randint(1, 120)
 
 
@@ -213,19 +213,19 @@ def test_divisor_methods_never_take_a_seat_away_when_the_size_grows(method):
     for weights, seats in cases(60):
         smaller, larger = method.apportion(weights, seats), method.apportion(weights, seats + 1)
         if smaller.is_decided and larger.is_decided:
-            assert all(larger[key] >= smaller[key] for key in weights)
+            assert all(larger[option] >= smaller[option] for option in weights)
 
 
 def test_hare_niemeyer_stays_within_quota():
-    """Each key gets the whole part of its exact share, or one more."""
+    """Each option gets the whole part of its exact share, or one more."""
     for weights, seats in cases():
         result = HareNiemeyer().apportion(weights, seats)
         total = sum(weights.values())
-        for key, weight in weights.items():
+        for option, weight in weights.items():
             share = Fraction(weight * seats, total)
             floor = share.numerator // share.denominator
-            won = result[key] + (1 if result.tie and key in result.tie.candidates else 0)
-            assert floor <= result[key] <= won <= floor + 1
+            won = result[option] + (1 if result.tie and option in result.tie.candidates else 0)
+            assert floor <= result[option] <= won <= floor + 1
 
 
 # ===========================================================

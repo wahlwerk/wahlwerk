@@ -11,10 +11,10 @@ from wahlwerk.apportionment.remainder import HareNiemeyer
 def cases(count=200):
     rng = random.Random(2026)
     for _ in range(count):
-        keys = [f"p{i}" for i in range(rng.randint(1, 8))]
-        weights = {key: rng.randint(0, 10_000) for key in keys}
+        options = [f"p{i}" for i in range(rng.randint(1, 8))]
+        weights = {option: rng.randint(0, 10_000) for option in options}
         if not any(weights.values()):
-            weights[keys[0]] = 1
+            weights[options[0]] = 1
         yield weights, rng.randint(1, 120)
 
 
@@ -57,7 +57,7 @@ def test_majority_first_without_a_majority_is_the_method():
 def test_majority_first_always_gives_a_majority_key_more_than_half():
     for weights, seats in cases():
         total = sum(weights.values())
-        majority = [key for key, weight in weights.items() if 2 * weight > total]
+        majority = [option for option, weight in weights.items() if 2 * weight > total]
         if majority:
             result = MajorityFirst(method=HareNiemeyer()).apportion(weights, seats)
             assert 2 * result[majority[0]] > seats

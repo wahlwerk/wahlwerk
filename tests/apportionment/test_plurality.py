@@ -1,4 +1,4 @@
-"""Plurality: a list of keys and their votes, the most votes win."""
+"""Plurality: a list of options and their votes, the most votes win."""
 
 from fractions import Fraction
 

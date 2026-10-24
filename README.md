@@ -212,7 +212,9 @@ as data rather than as strings.
   actually happened. Inside an allocation a tie stops the next step, until a lot can be
   applied there too.
 - **One long table for all vote data.** A tally is a flat sequence of rows:
-  `unit, level, kind, section, channel, party, candidate, option, count`. Cumulation is a bigger count; panachage is
+  `unit, level, kind, section, channel, option, party, count`. The option is what a vote
+  counts for (a party's list, a candidate, an answer such as `ja`), the party the one it
+  stands for, if any. Cumulation is a bigger count; panachage is
   more rows; a new Land quirk is new rows, never new columns. That table is also
   literally one CSV file, which is what makes the archive format and the in-memory
   format the same thing.
@@ -342,9 +344,9 @@ Built one small step at a time; each step leaves the package importable.
   (`HareNiemeyer`), exact, with a `Tie` as a result where claims are equal and
   `with_lot` to apply the lot actually drawn; `MajorityFirst`, the majority clause of
   Sec. 35 (6) LWG LSA, around any largest remainder method
-- Thresholds (relative, absolute, seats won, exempt keys, and "or" over them) and
+- Thresholds (relative, absolute, seats won, exempt options, and "or" over them) and
   Überhang/Ausgleich, in the same package
-  (`overhang`, `Ausgleich`: the smallest chamber size covering every key's seats), after
+  (`overhang`, `Ausgleich`: the smallest chamber size covering every option's seats), after
   votelib
 - The allocation, `wahlwerk.process.allocation`: a law is a protocol of steps (count,
   Wahlkreis winners, threshold, seat total, entitlement, list seats, chamber) checked
@@ -417,7 +419,7 @@ to F5 are done, see above):
 
 - F2, the rest: turnout, wasted votes, change (Pedersen volatility, uniform and
   proportional swing), seats-votes (cube law, bias, responsiveness)
-- F3, the rest: connected coalitions (given an order on the keys)
+- F3, the rest: connected coalitions (given an order on the options)
 - F5, the rest: a standard report of a chamber and its vote
 - F6, later: biproportional apportionment (BAZI and proporz as oracles), ranking profiles
   for other tools, paradox checks for parameter sweeps

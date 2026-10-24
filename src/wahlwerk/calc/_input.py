@@ -1,12 +1,12 @@
 """Reading inputs and shaping outputs, the same way for every formula.
 
-Every function in this package takes its per-key numbers (votes, seats, weights) as
+Every function in this package takes its per-option numbers (votes, seats, weights) as
 either
 
-- a **mapping** of key to number, ``{"spd": 312, "cdu": 278}``, which gives a mapping
-  back, keys in the same order; or a mapping of key to a sequence of numbers, one per
-  scenario, which gives a mapping of key to array back; or
-- an **array-like** (a list, a tuple, a numpy array) of numbers, the keys along the last
+- a **mapping** of option to number, ``{"spd": 312, "cdu": 278}``, which gives a mapping
+  back, options in the same order; or a mapping of option to a sequence of numbers, one per
+  scenario, which gives a mapping of option to array back; or
+- an **array-like** (a list, a tuple, a numpy array) of numbers, the options along the last
   axis, which gives an array back. A 2-D array is several scenarios at once, one per row.
 
 Numbers keep their kind, so an exact input gives an exact output:
@@ -50,11 +50,11 @@ __all__ = [
 
 @dataclass(frozen=True)
 class Prepared:
-    """Checked per-key input: ``values`` with the keys on the last axis, as a numpy
+    """Checked per-option input: ``values`` with the options on the last axis, as a numpy
     array of Python ``int``/``Fraction`` objects (exact) or of ``float64``."""
 
     values: NDArray[Any]
-    keys: tuple[str, ...] | None
+    options: tuple[str, ...] | None
     is_exact: bool
 
     @property
@@ -69,18 +69,18 @@ class Prepared:
         return [list(self.values)]
 
     def wrap(self, values: ArrayLike) -> PerKey:
-        """Per-key results shaped like this input: a dict for keyed input, else an array.
+        """Per-option results shaped like this input: a dict for keyed input, else an array.
 
         ``values`` has the same shape as :attr:`values`; exact results stay Python
         objects in a dict and are kept as an object array (or ``int64`` when whole)."""
         array = np.asarray(values)
         if array.dtype == object and all(_is_whole(x) for x in array.ravel()):
             array = array.astype(np.int64)
-        if self.keys is None:
+        if self.options is None:
             return array
         if array.ndim == 1:
-            return {key: _plain(array[i]) for i, key in enumerate(self.keys)}
-        return {key: array[..., i] for i, key in enumerate(self.keys)}
+            return {option: _plain(array[i]) for i, option in enumerate(self.options)}
+        return {option: array[..., i] for i, option in enumerate(self.options)}
 
     def scalar(self, values: list[Any]) -> Any:
         """One number per scenario: the number itself, or an array over the rows."""
@@ -117,22 +117,22 @@ def prepare(
     name: str = "votes",
     is_integer: bool = False,
     allow_negative: bool = False,
-    keys: Sequence[str] | None = None,
+    options: Sequence[str] | None = None,
 ) -> Prepared:
-    """Check per-key input and read it into a :class:`Prepared`.
+    """Check per-option input and read it into a :class:`Prepared`.
 
     ``is_integer`` refuses fractions, and floats that are not whole (whole floats become
-    ``int``): for formulas that count, such as power indices. ``keys`` orders a mapping
-    by these keys, a missing key counting 0 (to compare votes and seats over one set of
-    keys).
+    ``int``): for formulas that count, such as power indices. ``options`` orders a mapping
+    by these options, a missing option counting 0 (to compare votes and seats over one set of
+    options).
     """
     if isinstance(values, Mapping):
         found = tuple(values)
-        for key in found:
-            if not isinstance(key, str) or not key:
-                raise TypeError(f"{name} keys must be non-empty strings, got {key!r}")
-        order = tuple(keys) if keys is not None else found
-        raw = [values.get(key, 0) for key in order]
+        for option in found:
+            if not isinstance(option, str) or not option:
+                raise TypeError(f"{name} options must be non-empty strings, got {option!r}")
+        order = tuple(options) if options is not None else found
+        raw = [values.get(option, 0) for option in order]
         if any(_is_sequence(item) for item in raw):
             columns = [np.asarray(item if _is_sequence(item) else [item]) for item in raw]
             length = max(len(column) for column in columns)
@@ -142,28 +142,28 @@ def prepare(
             array = np.empty(len(raw), dtype=object)
             array[:] = raw
         return _checked(array, order, name, is_integer, allow_negative)
-    if keys is not None:
-        raise TypeError(f"{name}: keys can only order a mapping")
+    if options is not None:
+        raise TypeError(f"{name}: options can only order a mapping")
     array = np.asarray(values)
     if array.ndim == 0:
         array = array.reshape(1)
     if array.ndim > 2:
-        raise ValueError(f"{name} must be 1-D (keys) or 2-D (scenarios, keys), got {array.ndim}-D")
+        raise ValueError(f"{name} must be 1-D (options) or 2-D (scenarios, options), got {array.ndim}-D")
     return _checked(array, None, name, is_integer, allow_negative)
 
 
 def prepare_pair(
     first: Values, second: Values, *, names: tuple[str, str] = ("votes", "seats")
 ) -> tuple[Prepared, Prepared]:
-    """Two per-key inputs over one set of keys: for mappings, the keys of both, a key
+    """Two per-option inputs over one set of options: for mappings, the options of both, an option
     missing on one side counting 0; arrays must have the same shape."""
     if isinstance(first, Mapping) != isinstance(second, Mapping):
         raise TypeError(f"{names[0]} and {names[1]} must both be mappings or both arrays")
     if isinstance(first, Mapping) and isinstance(second, Mapping):
-        keys = list(first) + [key for key in second if key not in first]
+        options = list(first) + [option for option in second if option not in first]
         return (
-            prepare(first, name=names[0], keys=keys),
-            prepare(second, name=names[1], keys=keys),
+            prepare(first, name=names[0], options=options),
+            prepare(second, name=names[1], options=options),
         )
     a, b = prepare(first, name=names[0]), prepare(second, name=names[1])
     if a.values.shape != b.values.shape:
@@ -193,7 +193,7 @@ def as_float_or_exact(values: Iterable[Any], is_exact: bool) -> NDArray[Any]:
 
 def _checked(
     array: NDArray[Any],
-    keys: tuple[str, ...] | None,
+    options: tuple[str, ...] | None,
     name: str,
     is_integer: bool,
     allow_negative: bool,
@@ -224,7 +224,7 @@ def _checked(
         converted, is_exact = _integers(converted, is_exact, name)
     if not allow_negative and converted.size and np.any(converted < 0):
         raise ValueError(f"{name} must not be negative")
-    return Prepared(values=converted, keys=keys, is_exact=is_exact)
+    return Prepared(values=converted, options=options, is_exact=is_exact)
 
 
 def _integers(values: NDArray[Any], is_exact: bool, name: str) -> tuple[NDArray[Any], bool]:

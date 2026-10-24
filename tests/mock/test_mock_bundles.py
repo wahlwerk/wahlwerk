@@ -30,7 +30,7 @@ def votes(tally: Tally, section: str = "type1") -> dict[str, int]:
     rows = tally.filter(kind="votes", section=section).rows
     totals: dict[str, int] = {}
     for row in rows:
-        key = row.party or row.option or row.candidate
+        key = row.option
         assert key is not None
         totals[key] = totals.get(key, 0) + row.count
     return totals
@@ -41,7 +41,7 @@ def mandate_winners_of(tally: Tally, section: str = "type1") -> dict[str, str]:
     per = tally.filter(kind="votes", section=section)
     totals: dict[tuple[str, str], int] = {}
     for row in per.rows:
-        key = (row.unit, row.party or row.option or row.candidate or "")
+        key = (row.unit, row.option or "")
         totals[key] = totals.get(key, 0) + row.count
     best: dict[str, tuple[int, str]] = {}
     for (unit, who), count in totals.items():

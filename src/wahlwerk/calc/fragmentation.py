@@ -1,4 +1,4 @@
-r"""Fragmentation: how many keys matter, from their shares :math:`p_i` (of votes or seats).
+r"""Fragmentation: how many options matter, from their shares :math:`p_i` (of votes or seats).
 
 =========================================  =========================================================
 measure                                    formula
@@ -32,7 +32,7 @@ __all__ = ["effective_number", "fractionalization", "golosov", "herfindahl", "la
 
 
 def herfindahl(values: Values) -> Any:
-    r"""Herfindahl-Hirschman: :math:`H = \sum_i p_i^2`; 1 for a single key."""
+    r"""Herfindahl-Hirschman: :math:`H = \sum_i p_i^2`; 1 for a single option."""
     return _each(values, lambda p: sum(x * x for x in p))
 
 
@@ -48,7 +48,7 @@ def effective_number(values: Values) -> Any:
 
 def golosov(values: Values) -> Any:
     r"""Golosov: :math:`N_G = \sum_i p_i / (p_i + p_1^2 - p_i^2)`, less sensitive to the
-    largest key than :math:`N`."""
+    largest option than :math:`N`."""
     def index(p: list[Any]) -> Any:
         top = max(p)
         return sum(div(x, x + top * top - x * x) for x in p if x)
@@ -57,7 +57,7 @@ def golosov(values: Values) -> Any:
 
 
 def largest_share(values: Values) -> Any:
-    r"""The share of the largest key, :math:`p_1 = \max_i p_i`."""
+    r"""The share of the largest option, :math:`p_1 = \max_i p_i`."""
     return _each(values, max)
 
 

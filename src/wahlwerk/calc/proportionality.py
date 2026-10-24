@@ -1,6 +1,6 @@
 r"""Disproportionality: how far seat shares :math:`q_i` stray from vote shares :math:`p_i`.
 
-Each index compares the two over the keys of both sides (a key missing on one side has
+Each index compares the two over the options of both sides (an option missing on one side has
 0 there) and returns one number per scenario, exact for exact input
 :cite:`Gallagher.ProportionalityDisproportionalityElectoral.1991`:
 
@@ -18,7 +18,7 @@ regression             :math:`\sum_i p_i q_i / \sum_i p_i^2`                    
 =====================  =================================================================  ==============
 
 The Gallagher index is a square root, so :func:`gallagher_squared` is the exact one and
-:func:`gallagher` its float root. :func:`advantage_ratio` is per key.
+:func:`gallagher` its float root. :func:`advantage_ratio` is per option.
 
 >>> loosemore_hanby({"a": 68, "b": 22}, {"a": 2})
 Fraction(11, 45)
@@ -77,7 +77,7 @@ def gallagher(votes: Values, seats: Values) -> Any:
 
 
 def rae(votes: Values, seats: Values) -> Any:
-    r"""Rae: the mean :math:`\tfrac1n \sum_i |p_i - q_i|` over all :math:`n` keys."""
+    r"""Rae: the mean :math:`\tfrac1n \sum_i |p_i - q_i|` over all :math:`n` options."""
     return _each(votes, seats, lambda p, q: sum(abs(a - b) for a, b in zip(p, q)) / len(p))
 
 
@@ -88,26 +88,26 @@ def lijphart(votes: Values, seats: Values) -> Any:
 
 def sainte_lague(votes: Values, seats: Values) -> Any:
     r"""Sainte-Laguë: :math:`\sum_i (q_i - p_i)^2 / p_i`, the index the Sainte-Laguë method
-    minimises. Raises ``ValueError`` if a key without votes won seats (infinite)."""
+    minimises. Raises ``ValueError`` if an option without votes won seats (infinite)."""
     return _each(votes, seats, lambda p, q: sum(_over(b, a, (a - b) ** 2) for a, b in zip(p, q)))
 
 
 def d_hondt(votes: Values, seats: Values) -> Any:
     r"""D'Hondt: :math:`\max_i q_i / p_i`, the index the D'Hondt method minimises; 1 when
-    proportional. Raises ``ValueError`` if a key without votes won seats (infinite)."""
+    proportional. Raises ``ValueError`` if an option without votes won seats (infinite)."""
     return _each(votes, seats, lambda p, q: max(_over(b, a, b) for a, b in zip(p, q)))
 
 
 def regression(votes: Values, seats: Values) -> Any:
     r"""The regression index :math:`\sum_i p_i q_i / \sum_i p_i^2`, the slope of seat
-    shares on vote shares through the origin: above 1 favours large keys."""
+    shares on vote shares through the origin: above 1 favours large options."""
     return _each(
         votes, seats, lambda p, q: div(sum(a * b for a, b in zip(p, q)), sum(a * a for a in p))
     )
 
 
 def advantage_ratio(votes: Values, seats: Values) -> PerKey:
-    r"""Per key, :math:`q_i / p_i`: above 1 a key holds more seats than votes. A key
+    r"""Per option, :math:`q_i / p_i`: above 1 an option holds more seats than votes. An option
     without votes and without seats has 0; without votes but with seats, infinity
     (``ValueError`` for exact input)."""
     v, s = prepare_pair(votes, seats)
@@ -140,13 +140,13 @@ def _each(votes: Values, seats: Values, index: Any) -> Any:
 
 
 def _over(seat_share: Number, vote_share: Number, value: Number, *, allow_infinite: bool = False) -> Number:
-    """``value / vote_share``, 0 for a key with neither votes nor seats."""
+    """``value / vote_share``, 0 for an option with neither votes nor seats."""
     if vote_share:
         return div(value, vote_share)
     if seat_share:
         if allow_infinite:
             return math.inf
-        raise ValueError("a key without votes won seats: the index is infinite")
+        raise ValueError("an option without votes won seats: the index is infinite")
     return 0
 
 

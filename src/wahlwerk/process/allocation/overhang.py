@@ -61,7 +61,7 @@ class SetCaucusSize(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({total_fact(self.level), "eligible_keys", "seat_total"})
+        return frozenset({total_fact(self.level), "eligible_options", "seat_total"})
 
     @property
     def writes(self) -> frozenset[str]:
@@ -78,8 +78,8 @@ class SetCaucusSize(AllocationStep):
         }
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.votes_by_party(self.level, self.section)
-        eligible = allocation.eligible_keys or frozenset()
+        votes = allocation.votes_by_option(self.level, self.section)
+        eligible = allocation.eligible_options or frozenset()
         fictitious = self.share * sum(votes.values())
         counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
         if not counted or not allocation.seat_total:

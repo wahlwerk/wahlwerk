@@ -10,7 +10,7 @@ A bundle is a directory holding two files, by default named :data:`ELECTION_FILE
 format version, the source, the levels of the main hierarchy, and the alternative
 hierarchies::
 
-    schema = 2
+    schema = 3
 
     [source]
     publisher = "Statistisches Landesamt Sachsen-Anhalt"
@@ -41,7 +41,11 @@ columns in :data:`HIERARCHY_COLUMNS`: every unit, its level, and the unit it lie
 optional.
 
 Schema 1 has neither: its tally records no levels, and summing it needs the depth
-given.
+given. Schemas 1 and 2 name what a vote counts for in three columns, ``party``,
+``candidate`` and ``option`` (:data:`LEGACY_TALLY_COLUMNS`); schema 3 in one, ``option``,
+with the option's ``party`` beside it. An older row is read as schema 3 reads it: its
+option is the answer if it names one, else the candidate, else the party; its party is
+the party it names.
 
 ``tally.csv`` is the long vote table, one :class:`TallyRow` per line, with exactly the
 columns in :data:`TALLY_COLUMNS`. A blank cell is an absent value (``None``), never an
@@ -72,6 +76,7 @@ __all__ = [
     "ELECTIONS_DIR",
     "ELECTION_FILE",
     "HIERARCHY_COLUMNS",
+    "LEGACY_TALLY_COLUMNS",
     "SCHEMA",
     "SCHEMAS",
     "TALLY_COLUMNS",
@@ -82,10 +87,10 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-SCHEMA = 2
+SCHEMA = 3
 """The schema version of bundles this engine writes: the current format."""
 
-SCHEMAS = frozenset({1, SCHEMA})
+SCHEMAS = frozenset({1, 2, SCHEMA})
 """Schema versions of bundles this engine reads."""
 
 ELECTIONS_DIR = "elections"
@@ -103,12 +108,24 @@ TALLY_COLUMNS = (
     "kind",
     "section",
     "channel",
+    "option",
+    "party",
+    "count",
+)
+"""The header of ``tally.csv``, in order: the fields of :class:`TallyRow`."""
+
+LEGACY_TALLY_COLUMNS = (
+    "unit",
+    "level",
+    "kind",
+    "section",
+    "channel",
     "party",
     "candidate",
     "option",
     "count",
 )
-"""The header of ``tally.csv``, in order: the fields of :class:`TallyRow`."""
+"""The header of ``tally.csv`` in schemas 1 and 2, read and converted to the current rows."""
 
 HIERARCHY_COLUMNS = ("unit", "level", "parent")
 """The header of a hierarchy's file, in order: the fields of :class:`HierarchyUnit`."""
@@ -146,11 +163,17 @@ def _require(file_path: Path) -> Path:
     return file_path
 
 
-def _parse_row(cells: list[str]) -> TallyRow:
+def _parse_row(cells: list[str], columns: tuple[str, ...] = TALLY_COLUMNS) -> TallyRow:
     """Build a row from its cells; a blank cell is an absent value, never ``""``."""
     fields: dict[str, Any] = {
-        column: cell for column, cell in zip(TALLY_COLUMNS, cells) if cell != ""
+        column: cell for column, cell in zip(columns, cells) if cell != ""
     }
+    if columns == LEGACY_TALLY_COLUMNS:
+        # The option is the answer, else the candidate, else the party; the party stays.
+        answer, candidate = fields.pop("option", None), fields.pop("candidate", None)
+        option = answer or candidate or fields.get("party")
+        if option is not None:
+            fields["option"] = option
     if "kind" not in fields:
         raise ValueError("kind is blank")
     if "count" not in fields:
@@ -162,7 +185,7 @@ def _parse_row(cells: list[str]) -> TallyRow:
 
 def _read_election(
     file_path: Path,
-) -> tuple[Source, tuple[Level, ...], dict[str, tuple[str, ...]]]:
+) -> tuple[int, Source, tuple[Level, ...], dict[str, tuple[str, ...]]]:
     """The source, levels and declared hierarchies of a bundle, after checking its
     schema; the schema describes the file format, so it stays here and is not part of
     the model."""
@@ -198,7 +221,7 @@ def _read_election(
         )
     except ValidationError as e:
         raise ValueError(f"{file_path}: levels: {e}") from e
-    return parsed_source, parsed_levels, _declared_hierarchies(file_path, hierarchies)
+    return schema, parsed_source, parsed_levels, _declared_hierarchies(file_path, hierarchies)
 
 
 def _declared_hierarchies(file_path: Path, raw: object) -> dict[str, tuple[str, ...]]:
@@ -252,24 +275,25 @@ def _read_hierarchy(file_path: Path, name: str, levels: tuple[str, ...]) -> Hier
         raise ValueError(f"{file_path}: {e}") from e
 
 
-def _read_tally(file_path: Path, levels: tuple[Level, ...]) -> Tally:
+def _read_tally(file_path: Path, levels: tuple[Level, ...], schema: int = SCHEMA) -> Tally:
+    columns = TALLY_COLUMNS if schema >= 3 else LEGACY_TALLY_COLUMNS
     rows = []
     with _require(file_path).open(encoding="utf-8", newline="") as f:
         reader = csv.reader(f)
         header = next(reader, None)
-        if header is None or tuple(header) != TALLY_COLUMNS:
+        if header is None or tuple(header) != columns:
             raise ValueError(
-                f"{file_path}: header {header!r} is not {','.join(TALLY_COLUMNS)}"
+                f"{file_path}: header {header!r} is not {','.join(columns)}"
             )
         for cells in reader:
             line = reader.line_num
-            if len(cells) != len(TALLY_COLUMNS):
+            if len(cells) != len(columns):
                 raise ValueError(
                     f"{file_path}: line {line}: {len(cells)} cells, "
-                    f"expected {len(TALLY_COLUMNS)}"
+                    f"expected {len(columns)}"
                 )
             try:
-                rows.append(_parse_row(cells))
+                rows.append(_parse_row(cells, columns))
             except ValueError as e:  # ValidationError is a ValueError
                 raise ValueError(f"{file_path}: line {line}: {e}") from e
     try:
@@ -295,8 +319,8 @@ def read_bundle(
     not a tree, or one that does not cover every counted unit.
     """
     dir_path = Path(dir_path)
-    source, levels, declared = _read_election(dir_path / election_file_name)
-    tally = _read_tally(dir_path / tally_file_name, levels)
+    schema, source, levels, declared = _read_election(dir_path / election_file_name)
+    tally = _read_tally(dir_path / tally_file_name, levels, schema)
     hierarchies = tuple(
         _read_hierarchy(dir_path / f"{name}.csv", name, hierarchy_levels)
         for name, hierarchy_levels in declared.items()

@@ -1,6 +1,6 @@
 r"""Largest remainder methods (quota methods): whole seats, then the largest remainders.
 
-Each key first gets the whole part of its votes over the quota :math:`Q`, and the seats
+Each option first gets the whole part of its votes over the quota :math:`Q`, and the seats
 left go one each to the largest remainders:
 
 .. math::
@@ -42,16 +42,16 @@ def largest_remainder(
 ) -> SeatResult:
     r"""Apportion ``seats``: :math:`\lfloor v_i/Q \rfloor` each, then the largest remainders.
 
-    ``first`` (a key, or an index for array input), if given, takes one of the seats
+    ``first`` (an option, or an index for array input), if given, takes one of the seats
     left before any remainder is compared: the majority clause uses it. Raises
     ``ValueError`` if the quota gives more whole seats than there are.
     """
     prepared = prepare(votes)
     index = None
     if first is not None:
-        index = prepared.keys.index(first) if prepared.keys is not None and isinstance(first, str) else int(first)
+        index = prepared.options.index(first) if prepared.options is not None and isinstance(first, str) else int(first)
     rows = [_row(row, seats, quota, index) for row in prepared.rows()]
-    return SeatResult.from_rows(rows, prepared.keys, prepared.is_batch)
+    return SeatResult.from_rows(rows, prepared.options, prepared.is_batch)
 
 
 def hare_niemeyer(votes: Values, seats: int) -> SeatResult:

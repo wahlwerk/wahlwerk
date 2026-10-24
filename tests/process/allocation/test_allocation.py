@@ -32,8 +32,8 @@ def vote(unit, count, *, section="erststimme", party=None, candidate=None, level
         level=level,
         section=section,
         channel=channel,
+        option=candidate or party,
         party=party,
-        candidate=candidate,
         count=count,
     )
 
@@ -97,19 +97,19 @@ def unit_mandates():
 
 def test_winner_counts_both_channels():
     wk1 = unit_mandates()["de.st.wk.001"]
-    assert (wk1.nominee, wk1.party, wk1.votes) == ("afd", "afd", 65)
+    assert (wk1.option, wk1.party, wk1.votes) == ("afd", "afd", 65)
     assert wk1.is_decided
 
 
 def test_einzelbewerber_wins_without_party():
     wk2 = unit_mandates()["de.st.wk.002"]
-    assert wk2.nominee == wk2.candidate == "de.st.wk.002.einzelbewerber"
+    assert wk2.option == "de.st.wk.002.einzelbewerber"
     assert wk2.party is None
 
 
 def test_tie_is_a_result():
     wk3 = unit_mandates()["de.st.wk.003"]
-    assert wk3.nominee is None
+    assert wk3.option is None
     assert wk3.tie == Tie(candidates=frozenset({"spd", "cdu"}), seats=1)
     assert wk3.votes == 20
     assert not wk3.is_decided
@@ -185,7 +185,7 @@ def test_each_unit_is_a_contest_the_method_decides():
     allocation = SumVotes(level="wahlkreis")(START)
     per_unit = contests(allocation, "erststimme", "wahlkreis")
     assert per_unit and all(isinstance(v, int) for unit in per_unit.values() for v in unit.values())
-    assert per_unit["de.st.wk.001"] == {("afd", None): 65, ("cdu", None): 60}
+    assert per_unit["de.st.wk.001"] == {"afd": 65, "cdu": 60}  # options and votes, nothing else
     elected = ELECT(allocation)
     for result in elected.unit_mandates or ():
         assert result.votes == max(per_unit[result.unit].values())

@@ -1,15 +1,15 @@
 r"""Divisor methods (highest averages): seats in proportion, by one common divisor.
 
-A divisor method gives key :math:`i` the seats
+A divisor method gives option :math:`i` the seats
 
 .. math::
 
    s_i = \#\{\, k \ge 0 : v_i / D > \sigma(k) \,\}
 
-for a divisor :math:`D` chosen so that :math:`\sum_i s_i = S`: each key's votes over the
+for a divisor :math:`D` chosen so that :math:`\sum_i s_i = S`: each option's votes over the
 divisor, rounded by the method's **signposts** :math:`\sigma(0) < \sigma(1) < \dots`
 (:math:`\sigma(k)` lies between :math:`k` and :math:`k+1`; a quotient above it rounds up
-to :math:`k+1`). Equivalently, seat :math:`k+1` of key :math:`i` is claimed by
+to :math:`k+1`). Equivalently, seat :math:`k+1` of option :math:`i` is claimed by
 :math:`v_i/\sigma(k)`, and the :math:`S` largest claims win
 :cite:`Balinski.FairRepresentationMeeting.2001,Pukelsheim.ProportionalRepresentationApportionment.2017`.
 
@@ -144,7 +144,7 @@ class Signposts:
     def compare(self, a: Number, k: int, b: Number, m: int) -> int:
         r"""The sign of :math:`a/\sigma(k) - b/\sigma(m)`, exact for exact ``a`` and ``b``.
 
-        A claim over a signpost of 0 is infinite for positive votes; a key without votes
+        A claim over a signpost of 0 is infinite for positive votes; an option without votes
         claims nothing."""
         if not a or not b:
             return (a > 0) - (b > 0) if (a or b) else 0
@@ -163,7 +163,7 @@ D_HONDT = Signposts.linear(1)
 SAINTE_LAGUE = Signposts.linear(Fraction(1, 2))
 """Sainte-Laguë/Schepers (Webster): divisors 1, 3, 5, ...; standard rounding."""
 ADAMS = Signposts.linear(0)
-"""Adams: rounding up, so every key with votes gets a seat if there are enough."""
+"""Adams: rounding up, so every option with votes gets a seat if there are enough."""
 DANISH = Signposts.linear(Fraction(1, 3))
 """The Danish method: divisors 1, 4, 7, ..."""
 IMPERIALI = Signposts.linear(2)
@@ -189,11 +189,11 @@ def highest_averages(votes: Values, seats: int, signposts: Signposts = SAINTE_LA
         _apportion_row(row, count, signposts)
         for row, count in zip(prepared.rows(), counts)
     ]
-    return SeatResult.from_rows(rows, prepared.keys, prepared.is_batch)
+    return SeatResult.from_rows(rows, prepared.options, prepared.is_batch)
 
 
 def d_hondt(votes: Values, seats: int) -> SeatResult:
-    r"""D'Hondt (Jefferson): :math:`\sigma(k) = k + 1`. Favours larger keys.
+    r"""D'Hondt (Jefferson): :math:`\sigma(k) = k + 1`. Favours larger options.
 
     >>> d_hondt({"a": 47, "b": 16, "c": 15, "d": 6}, 10).seats
     {'a': 6, 'b': 2, 'c': 2, 'd': 0}
@@ -203,7 +203,7 @@ def d_hondt(votes: Values, seats: int) -> SeatResult:
 
 def sainte_lague(votes: Values, seats: int) -> SeatResult:
     r"""Sainte-Laguë/Schepers (Webster): :math:`\sigma(k) = k + \tfrac12`, standard
-    rounding. Neutral between large and small keys.
+    rounding. Neutral between large and small options.
 
     >>> sainte_lague({"a": 47, "b": 16, "c": 15, "d": 6}, 10).seats
     {'a': 5, 'b': 2, 'c': 2, 'd': 1}
@@ -212,7 +212,7 @@ def sainte_lague(votes: Values, seats: int) -> SeatResult:
 
 
 def adams(votes: Values, seats: int) -> SeatResult:
-    r"""Adams: :math:`\sigma(k) = k`, rounding up. Favours smaller keys."""
+    r"""Adams: :math:`\sigma(k) = k`, rounding up. Favours smaller options."""
     return highest_averages(votes, seats, ADAMS)
 
 
@@ -222,7 +222,7 @@ def danish(votes: Values, seats: int) -> SeatResult:
 
 
 def imperiali(votes: Values, seats: int) -> SeatResult:
-    r"""Imperiali: :math:`\sigma(k) = k + 2`. Favours larger keys more than D'Hondt."""
+    r"""Imperiali: :math:`\sigma(k) = k + 2`. Favours larger options more than D'Hondt."""
     return highest_averages(votes, seats, IMPERIALI)
 
 
@@ -248,8 +248,8 @@ def huntington_hill(votes: Values, seats: int) -> SeatResult:
 def seats_at(votes: Values, divisor: Number | str, signposts: Signposts = SAINTE_LAGUE) -> SeatResult:
     r"""The seats a given divisor :math:`D` gives: :math:`s_i = \#\{k : v_i/D > \sigma(k)\}`.
 
-    A quotient exactly on a signpost is a tie: the key is listed in ``tied`` with its
-    seats rounded down, and ``open`` counts such keys. This is how a published
+    A quotient exactly on a signpost is a tie: the option is listed in ``tied`` with its
+    seats rounded down, and ``open`` counts such options. This is how a published
     Wahlschlüssel is checked.
 
     >>> seats_at({"a": 4160, "b": 3380, "c": 2200}, 840, D_HONDT).seats
@@ -269,7 +269,7 @@ def seats_at(votes: Values, divisor: Number | str, signposts: Signposts = SAINTE
             won.append(count)
             tied.append(on)
         rows.append((won, tied, sum(tied)))
-    return SeatResult.from_rows(rows, prepared.keys, prepared.is_batch)
+    return SeatResult.from_rows(rows, prepared.options, prepared.is_batch)
 
 
 def divisor_range(

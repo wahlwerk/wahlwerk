@@ -6,7 +6,7 @@ runs offline and never reads wahlwerk-data. There is no Überhang: the SPD won 2
 
 | File | What | Source |
 |---|---|---|
-| `election.toml`, `tally.csv` | a bundle (schema 2): the valid Erst- and Zweitstimmen per Wahlkreis and party, Urne and Brief summed; 874 rows | the Wahlbezirk file, via wahlwerk-data `elections/de/landtag/mv/2016` |
+| `election.toml`, `tally.csv` | a bundle (schema 3; written as schema 2, its party and candidate columns turned into option and party): the valid Erst- and Zweitstimmen per Wahlkreis and party, Urne and Brief summed; 874 rows | the Wahlbezirk file, via wahlwerk-data `elections/de/landtag/mv/2016` |
 | `mandate.csv` | the official Mandate der Parteien, per Wahlkreis and for the Land, byte for byte (ISO-8859-1, `;`) | the Landeswahlleitung's `L_Mandate.csv` |
 
 ## Sources
@@ -35,7 +35,7 @@ As for Sachsen-Anhalt (see `../de.landtag.st.2026/README.md`), from the wahlwerk
 ```python
 vote = PopularVote.from_key("de.landtag.mv.2016", "../wahlwerk-data")
 votes = vote.tally.filter(kind="votes").sum_to("wahlkreis")
-votes.sum_by("unit", "section", "party", "candidate")  # one row each, channel left blank
+votes.sum_by("unit", "section", "option", "party")  # one row each, channel left blank
 ```
 
 Invalid votes, Wahlberechtigte and Wähler are left out: the seat allocation does not use

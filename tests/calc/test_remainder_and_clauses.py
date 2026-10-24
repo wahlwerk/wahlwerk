@@ -83,7 +83,7 @@ def test_plurality_and_whole_seats():
     tied = plurality.plurality({"a": 5, "b": 5, "c": 1})
     assert tied.tied == ["a", "b"] and tied.open == 1
     assert plurality.plurality([5, 4, 3], 2).seats.tolist() == [1, 1, 0]
-    with pytest.raises(ValueError, match="keys with votes"):
+    with pytest.raises(ValueError, match="options with votes"):
         plurality.plurality({"a": 1, "b": 0}, 2)
     assert quota.whole_seats(100, Fraction(250, 8)) == 3
     assert compensation.remaining({"a": 5, "b": 3}, {"a": 7, "b": 1, "c": 1}) == {"a": 0, "b": 2, "c": 0}

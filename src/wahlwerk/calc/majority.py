@@ -67,7 +67,7 @@ def is_majority(yes: Any, base: Any, share: Number | str = Fraction(1, 2), *, is
 
 
 def majority_first(votes: Values, seats: int, quota: QuotaRule = quotas.hare) -> SeatResult:
-    r"""Largest remainder with a majority clause: a key with more than half the votes,
+    r"""Largest remainder with a majority clause: an option with more than half the votes,
     left with no more than half the seats, takes one of the remainder seats first
     (e.g. Sec. 35 (6) LWG LSA). The total stays :math:`S`.
 

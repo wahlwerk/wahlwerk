@@ -23,7 +23,7 @@ from wahlwerk.state.term import Term
 
 HERE = Path(__file__).parent
 
-# Bundle key, election day, Wahlperiode.
+# Bundle option, election day, Wahlperiode.
 ELECTIONS = {
     2011: ("de.landtag.mv.2011", date(2011, 9, 4), 6),
     2016: ("de.landtag.mv.2016", date(2016, 9, 4), 7),
@@ -61,8 +61,8 @@ def official(year):
     won = {name for counts in seats.values() for name, n in counts.items() if n}
     assert won <= set(PARTY_IDS), won - set(PARTY_IDS)
     return {
-        key: {PARTY_IDS[name]: n for name, n in counts.items() if name in won}
-        for key, counts in seats.items()
+        option: {PARTY_IDS[name]: n for name, n in counts.items() if name in won}
+        for option, counts in seats.items()
     }
 
 

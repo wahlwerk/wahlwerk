@@ -13,7 +13,7 @@ its own facts again when applied.
 
 Facts are named by strings: ``tally`` (the input), ``total:<level>`` (the tally summed
 to a level, see :class:`~wahlwerk.process.allocation.count.SumVotes`), and one per
-optional field of :class:`Allocation`, named like it: ``unit_mandates``, ``eligible_keys``,
+optional field of :class:`Allocation`, named like it: ``unit_mandates``, ``eligible_options``,
 ``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
 ``overhang``, ``chamber``.
 
@@ -34,7 +34,7 @@ from pydantic import Field, model_validator
 
 from wahlwerk.apportionment.result import Apportionment
 from wahlwerk.apportionment.tie import Tie
-from wahlwerk.ids import CandidateId, LevelName, PartyId, UnitId
+from wahlwerk.ids import LevelName, OptionId, PartyId, UnitId
 from wahlwerk.model import Count, Model, Seats
 from wahlwerk.state.chamber import Chamber
 from wahlwerk.vote.popular.tally import Tally, TallyKind
@@ -59,7 +59,7 @@ INPUT_FACTS = frozenset({"tally"})
 OPTIONAL_FACTS = (
     "unit_mandates",
     "caucus_size",
-    "eligible_keys",
+    "eligible_options",
     "chamber_size",
     "minimum_mandates",
     "seat_total",
@@ -79,41 +79,37 @@ def total_fact(level: str) -> str:
 class UnitResult(Model):
     """Who won one single-seat unit (a Wahlkreis), or who tied for it.
 
-    The winner is a nominee: a candidate where the tally names one, otherwise a party's
-    nomination. ``party`` is the party that nominated the winner, ``None`` for an
-    Einzelbewerber. When the most votes are shared, ``tie`` names the nominees and no
+    The winner is an option of the unit's contest: a candidate where the tally names one,
+    otherwise a party's nominee. ``party`` is the option's party, ``None`` for an
+    Einzelbewerber. When the most votes are shared, ``tie`` names the options and no
     winner is set; the lot is drawn by an official and applied later.
     """
 
     unit: UnitId = Field(
         description="The unit, e.g. ``de.st.wk.001``.",
     )
-    nominee: str | None = Field(
+    option: OptionId | None = Field(
         default=None,
-        description="The winning nominee: its candidate id, or its party id; ``None`` on a tie.",
+        description="The winning option: a candidate id, or a party id; ``None`` on a tie.",
     )
     party: PartyId | None = Field(
         default=None,
-        description="The party that nominated the winner; ``None`` for an Einzelbewerber or on a tie.",
-    )
-    candidate: CandidateId | None = Field(
-        default=None,
-        description="The winning candidate, where the tally names one.",
+        description="The winning option's party; ``None`` for an Einzelbewerber or on a tie.",
     )
     votes: Count = Field(
-        description="The winner's votes, or each tied nominee's.",
+        description="The winner's votes, or each tied option's.",
     )
     tie: Tie | None = Field(
         default=None,
-        description="The nominees with equally many votes, for one seat; ``None`` if decided.",
+        description="The options with equally many votes, for one seat; ``None`` if decided.",
     )
 
     @model_validator(mode="after")
     def _check_winner_or_tie(self) -> UnitResult:
-        if (self.nominee is None) == (self.tie is None):
+        if (self.option is None) == (self.tie is None):
             raise ValueError(
                 f"unit {self.unit!r} needs a winner or a tie, not both or neither "
-                f"(nominee={self.nominee!r}, tie={self.tie!r})"
+                f"(option={self.option!r}, tie={self.tie!r})"
             )
         if self.tie is not None and self.tie.seats != 1:
             raise ValueError(f"unit {self.unit!r} has one seat, but the tie is over {self.tie.seats}")
@@ -143,7 +139,7 @@ class Allocation(Model):
         default=None,
         description="The result of each single-seat unit; ``None`` until decided.",
     )
-    eligible_keys: frozenset[PartyId] | None = Field(
+    eligible_options: frozenset[PartyId] | None = Field(
         default=None,
         description="The parties taking part in the proportional allocation, past the threshold.",
     )
@@ -226,11 +222,12 @@ class Allocation(Model):
                 return tally
         raise KeyError(f"allocation has no total at level {level!r}; summed: {[n for n, _ in self.totals]}")
 
-    def votes_by_party(self, level: str, section: str) -> dict[str, int]:
-        """The valid votes in ``section`` per party, from the total at ``level``, summed
-        over units and channels; votes for no party (Einzelbewerber) are left out."""
+    def votes_by_option(self, level: str, section: str) -> dict[str, int]:
+        """The valid votes in ``section`` per option, from the total at ``level``, summed
+        over units and channels: on a list vote (the Zweitstimme) the options are the
+        parties' lists."""
         votes = self.total(level).filter(kind=TallyKind.VOTES, section=section)
-        return {party: n for party, n in votes.sum_by("party").items() if party is not None}
+        return {option: n for option, n in votes.sum_by("option").items() if option is not None}
 
     def with_values(self, **changes: Any) -> Allocation:
         """This allocation with ``changes`` in place of its fields, validated."""

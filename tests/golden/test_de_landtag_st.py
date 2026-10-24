@@ -21,7 +21,7 @@ from wahlwerk.state.term import Term
 
 HERE = Path(__file__).parent
 
-# Bundle key, election day, Wahlperiode.
+# Bundle option, election day, Wahlperiode.
 ELECTIONS = {
     2021: ("de.landtag.st.2021", date(2021, 6, 6), 8),
     2026: ("de.landtag.st.2026", date(2026, 9, 6), 9),

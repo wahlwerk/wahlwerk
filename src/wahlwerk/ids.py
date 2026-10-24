@@ -19,6 +19,7 @@ __all__ = [
     "LawId",
     "LevelName",
     "MandateId",
+    "OptionId",
     "PartyId",
     "Slug",
     "UnitId",
@@ -55,6 +56,11 @@ CandidateId = Annotated[_CandidateId, DOTTED]
 _PartyId = NewType("_PartyId", str)
 PartyId = Annotated[_PartyId, SINGLE]
 """Stable key of a party, e.g. ``"cdu"``."""
+
+_OptionId = NewType("_OptionId", str)
+OptionId = Annotated[_OptionId, DOTTED]
+"""What a vote counts for: a party (``"cdu"``), a candidate
+(``"de.st.wk.002.einzelbewerber.1"``) or the answer to a question (``"ja"``)."""
 
 _CaucusId = NewType("_CaucusId", str)
 CaucusId = Annotated[_CaucusId, SINGLE]

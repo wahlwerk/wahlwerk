@@ -1,4 +1,4 @@
-"""Divisor methods (highest averages): each key's weight is divided by a sequence of
+"""Divisor methods (highest averages): each option's weight is divided by a sequence of
 divisors, and the seats go to the largest quotients.
 
 The formula is :func:`wahlwerk.calc.divisor.highest_averages`; a method here names its
@@ -23,7 +23,7 @@ __all__ = ["DHondt", "DivisorMethod", "LinearDivisor", "SainteLague"]
 
 
 class DivisorMethod(ApportionmentMethod):
-    """Highest averages: seat ``k + 1`` of a key is claimed by its weight over the
+    """Highest averages: seat ``k + 1`` of an option is claimed by its weight over the
     ``k``-th divisor, and the seats go to the largest claims."""
 
     formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.highest_averages,)
@@ -40,7 +40,7 @@ class DivisorMethod(ApportionmentMethod):
 
 
 class DHondt(DivisorMethod):
-    """D'Hondt (Jefferson): divisors 1, 2, 3, ... Favours larger keys."""
+    """D'Hondt (Jefferson): divisors 1, 2, 3, ... Favours larger options."""
 
     @property
     def signposts(self) -> calc.Signposts:
@@ -50,7 +50,7 @@ class DHondt(DivisorMethod):
 class SainteLague(DivisorMethod):
     """Sainte-Laguë/Schepers (Webster): divisors 1, 3, 5, ..., which gives the same
     seats as 0.5, 1.5, 2.5, ..., i.e. standard rounding. Neutral between large and small
-    keys; used for the Bundestag."""
+    options; used for the Bundestag."""
 
     @property
     def signposts(self) -> calc.Signposts:
@@ -64,7 +64,7 @@ class LinearDivisor(DivisorMethod):
 
     first: Fraction = Field(
         gt=0,
-        description="The first divisor; positive, so a key of positive weight has a finite claim.",
+        description="The first divisor; positive, so an option of positive weight has a finite claim.",
     )
     step: Fraction = Field(
         gt=0,

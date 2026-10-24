@@ -1,9 +1,9 @@
-"""Überhang and Ausgleich: when keys hold more seats than their proportional share.
+"""Überhang and Ausgleich: when options hold more seats than their proportional share.
 
-In mixed systems a key (a party) may win more seats outright, in Wahlkreise, than an
+In mixed systems an option (a party) may win more seats outright, in Wahlkreise, than an
 apportionment of all the seats gives it. Those seats are its Überhang (:func:`overhang`).
 Laws answer it in different ways: keep the Überhang and add it to the seats, or add
-seats until the apportionment covers every key's seats (Ausgleich, :class:`Ausgleich`),
+seats until the apportionment covers every option's seats (Ausgleich, :class:`Ausgleich`),
 or a mixture, as Sec. 35 (8) LWG LSA does. The pieces here are law-free; a law's steps
 combine them. Modelled on votelib's ``AllowOverhang`` and ``LevelOverhang``
 (github.com/simberaj/votelib). The formulas are :mod:`wahlwerk.calc.compensation`.
@@ -29,18 +29,18 @@ __all__ = ["Ausgleich", "overhang"]
 
 
 def overhang(apportionment: Apportionment, minimum: Mapping[str, int]) -> dict[str, int]:
-    """The seats by which each key's ``minimum`` exceeds its decided seats, for the keys
-    where it does: its Überhang. Keys missing from the apportionment have no seats."""
+    """The seats by which each option's ``minimum`` exceeds its decided seats, for the options
+    where it does: its Überhang. Options missing from the apportionment have no seats."""
     needed = _check_minimum(minimum)
     if not needed:
         return {}
-    excess = calc.overhang({key: apportionment.get(key) or 0 for key in needed}, needed)
+    excess = calc.overhang({option: apportionment.get(option) or 0 for option in needed}, needed)
     assert isinstance(excess, dict)
-    return {key: seats for key, seats in excess.items() if seats > 0}
+    return {option: seats for option, seats in excess.items() if seats > 0}
 
 
 class Ausgleich(Model):
-    """Add seats one at a time until the apportionment gives every key at least its
+    """Add seats one at a time until the apportionment gives every option at least its
     ``minimum``: the smallest number of seats without Überhang.
 
     Each larger size is apportioned afresh by ``method``, so the result is proportional
@@ -62,23 +62,23 @@ class Ausgleich(Model):
         minimum: Mapping[str, int],
     ) -> Apportionment:
         """The apportionment of the smallest size of at least ``seats`` seats in which
-        each key gets at least ``minimum[key]``.
+        each option gets at least ``minimum[option]``.
 
         A tie decides the size only if the lot could still cover every minimum: then
         the tied apportionment is returned, to be decided by
         :meth:`~wahlwerk.apportionment.result.Apportionment.with_lot`; if the lot
         leaves an Überhang, apportion again from one seat more. Raises ``ValueError``
-        for a minimum on a key without weight, or when ``limit`` is passed.
+        for a minimum on an option without weight, or when ``limit`` is passed.
         """
         exact = _exact_weights(weights)
         _check_seats(seats)
         needed = _check_minimum(minimum)
-        for key, count in needed.items():
-            if count and not exact.get(key):
+        for option, count in needed.items():
+            if count and not exact.get(option):
                 raise ValueError(
-                    f"no size can give {key!r} its {count} seats: it has no weight"
+                    f"no size can give {option!r} its {count} seats: it has no weight"
                 )
-        minimum_of = {key: needed.get(key, 0) for key in exact}
+        minimum_of = {option: needed.get(option, 0) for option in exact}
         result = calc.smallest_size(
             exact, seats, minimum_of, self.method.calculate, limit=self.limit
         )
@@ -87,8 +87,8 @@ class Ausgleich(Model):
 
 def _check_minimum(minimum: Mapping[str, int]) -> dict[str, int]:
     checked = {}
-    for key, seats in minimum.items():
+    for option, seats in minimum.items():
         if isinstance(seats, bool) or not isinstance(seats, int) or seats < 0:
-            raise TypeError(f"minimum of {key!r} must be a non-negative int, got {seats!r}")
-        checked[key] = seats
+            raise TypeError(f"minimum of {option!r} must be a non-negative int, got {seats!r}")
+        checked[option] = seats
     return checked

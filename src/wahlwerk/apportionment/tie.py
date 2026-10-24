@@ -25,7 +25,7 @@ class Tie(Model):
     """
 
     candidates: frozenset[str] = Field(
-        description="The keys with exactly equal claims, e.g. party ids.",
+        description="The options with exactly equal claims, e.g. party ids.",
     )
     seats: int = Field(
         ge=1,

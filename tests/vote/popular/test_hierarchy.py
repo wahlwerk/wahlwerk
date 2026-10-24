@@ -80,7 +80,7 @@ def test_parent_at_wrong_level():
 # Tally.sum_to along a hierarchy
 # ===========================================================
 def row(unit, count, level="wahlbezirk", party="afd"):
-    return TallyRow(unit=unit, level=level, section="zweitstimme", party=party, count=count)
+    return TallyRow(unit=unit, level=level, section="zweitstimme", option=party, party=party, count=count)
 
 
 TALLY = Tally(

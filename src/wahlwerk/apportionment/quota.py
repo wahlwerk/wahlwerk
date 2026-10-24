@@ -30,7 +30,7 @@ class Quota(Model):
 
 
 class HareQuota(Quota):
-    """The Hare quota: the votes counted over the seats, so a key with exactly that many
+    """The Hare quota: the votes counted over the seats, so an option with exactly that many
     votes is worth exactly one seat."""
 
     formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.hare,)

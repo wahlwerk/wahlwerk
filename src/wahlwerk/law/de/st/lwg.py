@@ -26,7 +26,7 @@ from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
-    ApplyThresholdToKeys,
+    ApplyThresholdToOptions,
     SetChamberSize,
     SetSeatTotal,
 )
@@ -57,7 +57,7 @@ QUALIFY = StepSequence(
     citation="Sec. 33, 35 (3)",
     steps=(
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 33"),
-        ApplyThresholdToKeys(
+        ApplyThresholdToOptions(
             threshold=RelativeThreshold(share=_FIVE_PERCENT),
             section="zweitstimme",
             level="land",

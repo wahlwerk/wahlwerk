@@ -1,4 +1,4 @@
-"""Largest remainder methods (quota methods): each key gets the whole part of its weight
+"""Largest remainder methods (quota methods): each option gets the whole part of its weight
 over a quota, and the seats left go to the largest remainders.
 
 The formula is :func:`wahlwerk.calc.remainder.largest_remainder`; a method here names
@@ -22,7 +22,7 @@ __all__ = ["HareNiemeyer", "LargestRemainder"]
 
 
 class LargestRemainder(ApportionmentMethod):
-    """Quota methods: each key gets the whole part of its weight over the quota, and the
+    """Quota methods: each option gets the whole part of its weight over the quota, and the
     seats left go to the largest remainders, one each."""
 
     formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.largest_remainder,)
@@ -41,7 +41,7 @@ class LargestRemainder(ApportionmentMethod):
 
 
 class HareNiemeyer(LargestRemainder):
-    """Hare/Niemeyer (Hamilton): the Hare quota, total weight over seats. So each key's
+    """Hare/Niemeyer (Hamilton): the Hare quota, total weight over seats. So each option's
     share is exactly its weight's proportion of the seats; the whole parts are kept, and
     the largest remainders win the rest."""
 

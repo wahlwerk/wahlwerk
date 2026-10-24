@@ -24,13 +24,15 @@ URL = "https://github.com/wahlwerk/wahlwerk/blob/main/tests/mock/make_mock.py"
 GENERATED = "2026-10-10"
 """Fixed, so a rerun does not change every ``election.toml``."""
 
-COLUMNS = ("unit", "level", "kind", "section", "channel", "party", "candidate", "option", "count")
+COLUMNS = ("unit", "level", "kind", "section", "channel", "option", "party", "count")
 IN_PERSON = "channel1"
 POSTAL = "channel2"
 LEVEL = "unit"
 
 Recipient = tuple[str, str]
-"""Who a vote counts for: ``("party", "party-a")``, ``("candidate", ...)``, ``("option", ...)``."""
+"""What a vote counts for, and what kind of option it is: ``("party", "party-a")``,
+``("candidate", ...)``, ``("option", ...)`` (an answer). In the tally the value is the
+``option``, and a party option is its own ``party``."""
 
 Shares = dict[str, dict[Recipient, float]]
 """Section to recipient to weight; weights need not sum to one."""
@@ -70,9 +72,8 @@ def row(unit: str, kind: str, count: int, section: str = "", channel: str = "",
     field, value = recipient if recipient else ("", "")
     return (
         unit, level, kind, section, channel,
+        value,
         value if field == "party" else "",
-        value if field == "candidate" else "",
-        value if field == "option" else "",
         str(count),
     )
 
@@ -266,8 +267,8 @@ def two_round() -> tuple[list[tuple[str, ...]], list[tuple[str, ...]]]:
     second = []
     for unit in units(first_name, 12):
         here = [r for r in first if r[0] == unit]
-        eligible = int(next(r[8] for r in here if r[2] == "eligible"))
-        votes = {("party", r[5]): int(r[8]) for r in here if r[2] == "votes"}
+        eligible = int(next(r[7] for r in here if r[2] == "eligible"))
+        votes = {("party", r[5]): int(r[7]) for r in here if r[2] == "votes"}
         valid = sum(votes.values())
         ranked = sorted(votes, key=lambda key: -votes[key])
         if votes[ranked[0]] * 2 > valid and votes[ranked[0]] * 4 >= eligible:
@@ -275,7 +276,7 @@ def two_round() -> tuple[list[tuple[str, ...]], list[tuple[str, ...]]]:
         qualified = [key for key in ranked if votes[key] * 8 >= eligible] or ranked[:2]
         if len(qualified) < 2:
             qualified = ranked[:2]
-        voters = int(next(r[8] for r in here if r[2] == "voters"))
+        voters = int(next(r[7] for r in here if r[2] == "voters"))
         weights = {key: votes[key] * rng.uniform(1.0, 1.6) for key in qualified}
         rows = simulate_unit(unit.replace(first_name, f"{name}-second"), eligible,
                         voters / eligible * rng.uniform(0.85, 1.05), 0.03,
@@ -490,11 +491,11 @@ def fix_zweitstimmen(rows: list[tuple[str, ...]], hundredths: dict[str, int],
     sink_party = f"party-{sink}"
 
     def count(unit: str, kind: str, who: str) -> int:
-        return int(table[index[unit, kind, who]][8])
+        return int(table[index[unit, kind, who]][7])
 
     def add(unit: str, kind: str, who: str, delta: int) -> None:
         cell = table[index[unit, kind, who]]
-        cell[8] = str(int(cell[8]) + delta)
+        cell[7] = str(int(cell[7]) + delta)
 
     def move(source: tuple[str, str], target: tuple[str, str], amount: int) -> None:
         for unit in places:
@@ -509,7 +510,7 @@ def fix_zweitstimmen(rows: list[tuple[str, ...]], hundredths: dict[str, int],
     def total(who: str) -> int:
         return sum(count(unit, "votes", who) for unit in places)
 
-    valid = sum(int(r[8]) for r in table if r[3] == ZWEIT and r[2] == "votes")
+    valid = sum(int(r[7]) for r in table if r[3] == ZWEIT and r[2] == "votes")
     move(("votes", sink_party), ("invalid", ""), valid % 10_000)
     valid -= valid % 10_000
     for letter, share in hundredths.items():
@@ -643,7 +644,7 @@ LANDTAG: dict[str, Callable[[], list[tuple[str, ...]]]] = {
 
 
 ELECTION = """\
-schema = 2
+schema = 3
 
 [source]
 publisher = "wahlwerk"

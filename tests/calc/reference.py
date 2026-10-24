@@ -10,10 +10,10 @@ from fractions import Fraction
 def divisor_seats(votes, seats, post):
     """Rank every claim v / post(k) exactly; return (seats, tied set, open)."""
     claims = []
-    for key, v in votes.items():
+    for option, v in votes.items():
         for k in range(seats):
             p = post(k)
-            claims.append((math.inf if (p == 0 and v) else (Fraction(v) / p if p else 0), key))
+            claims.append((math.inf if (p == 0 and v) else (Fraction(v) / p if p else 0), option))
     return _largest(claims, seats, list(votes))
 
 
@@ -28,8 +28,8 @@ def largest_remainder_seats(votes, seats, quota):
     return {k: whole[k] + won[k] for k in votes}, tied, left
 
 
-def _largest(claims, count, keys):
-    won = dict.fromkeys(keys, 0)
+def _largest(claims, count, options):
+    won = dict.fromkeys(options, 0)
     if count == 0:
         return won, set(), 0
     edge = sorted((c for c, _ in claims), reverse=True)[count - 1]

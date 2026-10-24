@@ -65,7 +65,7 @@ def test_movable_gives_the_range_a_step_can_go():
 
 
 def test_a_sequence_is_one_step():
-    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "eligible_keys", "total:land"}
+    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "eligible_options", "total:land"}
     assert ALLOCATE.writes == {"seat_total", "entitlement", "list_seats", "overhang"}
     inline = (*P[:3], ALLOCATE, P[4])
     flat = (*P[:3], *ALLOCATE.steps, P[4])
@@ -93,7 +93,7 @@ def test_describe_and_the_table():
         "RaiseByOverhang", "FillVacantSeatsFromLists",
     ]
     assert [c.kind for c in nodes[1].children] == ["SumVotes", "SumVotes"]
-    assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThresholdToKeys"]
+    assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThresholdToOptions"]
     loop = nodes[5]
     assert loop.citation == "Sec. 35 (8), (8a)"
     assert loop.condition == "while overhang > 0; after 2 rounds, while 2 × overhang > caucus_size"
@@ -167,9 +167,9 @@ def test_the_formula_named_is_the_one_called(monkeypatch):
 
 def test_a_concept_shows_what_the_step_hands_it():
     elect = flow.describe(P)[2].children[0]
-    assert elect.uses[0].arguments == (("votes", "erststimme per nominee"), ("seats", "1"))
+    assert elect.uses[0].arguments == (("votes", "erststimme per option"), ("seats", "1"))
     threshold = flow.describe(P)[2].children[1].uses[0]
-    assert threshold.arguments == (("keys", "parties"), ("votes", "zweitstimme per party"))
+    assert threshold.arguments == (("options", "parties"), ("votes", "zweitstimme per party"))
     assert threshold.parameters == (("share", "1/20"),)
     caucus = flow.describe(P)[4]  # a step of its own, before the loop and in each round
     (quota,) = caucus.uses

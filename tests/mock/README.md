@@ -1,6 +1,6 @@
 # Mock bundles: synthetic elections for testing laws
 
-Made-up elections in the bundle format (schema 2), so a law can be run against
+Made-up elections in the bundle format (schema 3), so a law can be run against
 situations that real data has rarely or never produced. They are not from any real
 election, and they are read with `read_bundle` like any other bundle.
 [`test_mock_bundles.py`](test_mock_bundles.py) checks that each one adds up and still
@@ -16,9 +16,8 @@ Everything is generic, and its meaning is left to the law under test:
 | `level` | `unit` (depth 3); `whole` (depth 2) is declared for summing | |
 | `section` | `type1`, `type2` | a ballot or vote type: candidate and list vote, first and second round |
 | `channel` | `channel1`, `channel2`, blank where not recorded | in person, by post |
-| `party` | `party-a` … `party-y` | |
-| `candidate` | `mock.<scenario>.unit04.indep1` | an independent, with no party |
-| `option` | `option1`, `option2` | the answers in a referendum |
+| `option` | `party-a` … `party-y`; `mock.<scenario>.unit04.indep1`; `option1`, `option2` | what a vote counts for: a party, an independent candidate, an answer in a referendum |
+| `party` | `party-a` … `party-y`, blank for an independent or an answer | the party the option stands for |
 
 Every voter casts one vote in every section, so per unit, section and channel the
 valid and invalid votes add up to the voters. Postal ballots have fewer invalid votes

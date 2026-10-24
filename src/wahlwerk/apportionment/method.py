@@ -20,7 +20,7 @@ __all__ = ["ApportionmentMethod"]
 
 
 class ApportionmentMethod(Model):
-    """A way to divide seats among keys in proportion to their weights."""
+    """A way to divide seats among options in proportion to their weights."""
 
     formulas: ClassVar[tuple[Callable[..., Any], ...]] = ()
     """The functions in ``wahlwerk.calc`` the method computes with, set by each family
@@ -28,9 +28,9 @@ class ApportionmentMethod(Model):
     by :func:`wahlwerk.process.allocation.flow.describe`) is the call itself."""
 
     def apportion(self, weights: Mapping[str, int | Fraction], seats: int) -> Apportionment:
-        """Divide ``seats`` among the keys of ``weights``.
+        """Divide ``seats`` among the options of ``weights``.
 
-        Weights are non-negative ``int`` or :class:`~fractions.Fraction`; a key of
+        Weights are non-negative ``int`` or :class:`~fractions.Fraction`; an option of
         weight 0 wins nothing. Raises ``TypeError`` for a float, a bool or any other
         weight or seat count that is not exact, and ``ValueError`` for a negative one,
         or for seats to give when every weight is 0.
@@ -40,7 +40,7 @@ class ApportionmentMethod(Model):
         if seats and not any(exact.values()):
             raise ValueError(f"cannot apportion {seats} seats: every weight is 0")
         if not seats:
-            return Apportionment(seats=tuple((key, 0) for key in exact))
+            return Apportionment(seats=tuple((option, 0) for option in exact))
         return Apportionment.from_seat_result(self.calculate(exact, seats))
 
     @abstractmethod
@@ -52,18 +52,18 @@ class ApportionmentMethod(Model):
 
 def _exact_weights(weights: Mapping[str, int | Fraction]) -> dict[str, Fraction]:
     if not isinstance(weights, Mapping):
-        raise TypeError(f"weights must be a mapping of key to weight, got {type(weights).__name__}")
+        raise TypeError(f"weights must be a mapping of option to weight, got {type(weights).__name__}")
     exact = {}
-    for key, weight in weights.items():
-        if not isinstance(key, str) or not key:
-            raise TypeError(f"weight keys must be non-empty strings, got {key!r}")
+    for option, weight in weights.items():
+        if not isinstance(option, str) or not option:
+            raise TypeError(f"options must be non-empty strings, got {option!r}")
         if isinstance(weight, bool) or not isinstance(weight, (int, Fraction)):
             raise TypeError(
-                f"weight of {key!r} must be an int or a Fraction, got {type(weight).__name__}"
+                f"weight of {option!r} must be an int or a Fraction, got {type(weight).__name__}"
             )
         if weight < 0:
-            raise ValueError(f"weight of {key!r} is negative: {weight}")
-        exact[key] = Fraction(weight)
+            raise ValueError(f"weight of {option!r} is negative: {weight}")
+        exact[option] = Fraction(weight)
     return exact
 
 

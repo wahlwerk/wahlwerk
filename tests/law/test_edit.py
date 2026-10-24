@@ -12,7 +12,10 @@ from wahlwerk.law.edit import find, insert, remove, replace, step_at, steps, sub
 from wahlwerk.process.allocation.allocate import allocate
 from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.eligibility import ApplyThresholdToKeys, SetChamberSize
+from wahlwerk.process.allocation.eligibility import (
+    ApplyThresholdToOptions,
+    SetChamberSize,
+)
 from wahlwerk.process.allocation.overhang import RaiseByOverhang
 from wahlwerk.process.allocation.seats import ApportionSeats
 
@@ -58,7 +61,7 @@ def test_replace_validates_and_names_what_is_wrong():
 
 
 def test_substitute_insert_remove():
-    threshold = ApplyThresholdToKeys(
+    threshold = ApplyThresholdToOptions(
         threshold=RelativeThreshold(share=Fraction(1, 10)), section="zweitstimme", level="land"
     )
     assert step_at(substitute(P, (2, "steps", 1), threshold), (2, "steps", 1)) == threshold

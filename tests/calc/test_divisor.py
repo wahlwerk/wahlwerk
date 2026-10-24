@@ -50,7 +50,7 @@ def test_huntington_hill_against_squared_ranking():
             continue
         seats = rng.randint(0, 15)
         claims = sorted(
-            ((math.inf if k == 0 else v / math.sqrt(k * (k + 1)), key) for key, v in votes.items() if v for k in range(seats)),
+            ((math.inf if k == 0 else v / math.sqrt(k * (k + 1)), option) for option, v in votes.items() if v for k in range(seats)),
             reverse=True,
         )
         result = d.huntington_hill(votes, seats)

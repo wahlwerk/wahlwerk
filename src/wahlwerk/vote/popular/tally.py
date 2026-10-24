@@ -6,7 +6,9 @@ into larger ones (Wahlkreis, Land, Bund) with :meth:`Tally.sum_to`, which is why
 names its ``unit`` and ``level``. Votes and the administrative
 counts around them (Wahlberechtigte, Wähler) share one row type, so all of a vote's data
 is one long table. An election and a referendum (Volksentscheid, Bürgerentscheid) share
-it too: a vote counts for a party or candidate, or for an ``option`` such as ``ja``.
+it too: every vote counts for an ``option``, what was voted for, be it a party, a
+candidate or an answer such as ``ja``; ``party`` says which party, if any, the option
+stands for.
 Chamber votes, secret or named, are not tallies; they belong in
 :mod:`wahlwerk.vote.chamber`.
 """
@@ -19,7 +21,7 @@ from typing import Any
 
 from pydantic import Field, PrivateAttr, model_validator
 
-from wahlwerk.ids import CandidateId, LevelName, PartyId, Slug, UnitId
+from wahlwerk.ids import LevelName, OptionId, PartyId, Slug, UnitId
 from wahlwerk.model import Count, Model
 from wahlwerk.vote.popular.hierarchy import Hierarchy
 
@@ -36,7 +38,7 @@ class TallyKind(Enum):
     """
 
     VOTES = "votes"
-    """Valid votes for a party, a candidate or an option, in one section."""
+    """Valid votes for one option, in one section."""
     INVALID = "invalid"
     """Spoiled or invalid votes (Ungültige), in one section."""
     ELIGIBLE = "eligible"
@@ -49,8 +51,8 @@ class TallyRow(Model):
     """One row of the long vote table: one count in one unit.
 
     Which fields a row must set depends on ``kind``: a ``VOTES`` row names a section and
-    either a recipient (a party, a candidate or both) or an option, never both; an
-    ``INVALID`` row names a section and neither; ``ELIGIBLE`` and ``VOTERS`` rows count
+    the option its votes count for, and the option's party where it has one; an
+    ``INVALID`` row names a section and no option; ``ELIGIBLE`` and ``VOTERS`` rows count
     people, so they name no section either.
     """
 
@@ -80,23 +82,21 @@ class TallyRow(Model):
             "stored fact."
         ),
     )
+    option: OptionId | None = Field(
+        default=None,
+        description=(
+            "What these votes count for: a party (``cdu``, a Landesliste or a party's "
+            "nominee whose name is not recorded), a candidate "
+            "(``de.st.wk.002.einzelbewerber.1``) or an answer (``ja``, ``vorlage-a``); "
+            "meaning is law-defined. Absent on every row that is not ``VOTES``."
+        ),
+    )
     party: PartyId | None = Field(
         default=None,
         description=(
-            "The party these votes count for, absent for an independent candidate and on "
-            "every row that is not ``VOTES``."
-        ),
-    )
-    candidate: CandidateId | None = Field(
-        default=None,
-        description="The candidate these votes count for, when known.",
-    )
-    option: Slug | None = Field(
-        default=None,
-        description=(
-            "The answer these votes count for in a referendum, e.g. ``ja``, ``nein``, "
-            "``vorlage-a``; meaning is law-defined. Absent when the votes count for a "
-            "party or candidate, and on every row that is not ``VOTES``."
+            "The party the option stands for: the option itself when it is a party, the "
+            "nominating party of a candidate. Absent for an Einzelbewerber, an answer, "
+            "and on every row that is not ``VOTES``."
         ),
     )
     count: Count = Field(
@@ -105,23 +105,20 @@ class TallyRow(Model):
 
     @model_validator(mode="after")
     def _check_kind(self) -> TallyRow:
-        has_recipient = self.party is not None or self.candidate is not None
         has_option = self.option is not None
         counts_votes = self.kind in (TallyKind.VOTES, TallyKind.INVALID)
         where = (
             f"{self.kind.value} row in unit {self.unit!r} (section={self.section!r}, "
-            f"party={self.party!r}, candidate={self.candidate!r}, option={self.option!r})"
+            f"option={self.option!r}, party={self.party!r})"
         )
         if counts_votes and self.section is None:
             raise ValueError(f"{where} names no section")
         if not counts_votes and self.section is not None:
             raise ValueError(f"{where} counts people, so it must name no section")
-        if self.kind is TallyKind.VOTES and has_recipient and has_option:
-            raise ValueError(f"{where} names both a recipient and an option")
-        if self.kind is TallyKind.VOTES and not (has_recipient or has_option):
-            raise ValueError(f"{where} names neither a party, a candidate nor an option")
-        if self.kind is not TallyKind.VOTES and (has_recipient or has_option):
-            raise ValueError(f"{where} must name no party, candidate or option")
+        if self.kind is TallyKind.VOTES and not has_option:
+            raise ValueError(f"{where} names no option")
+        if self.kind is not TallyKind.VOTES and (has_option or self.party is not None):
+            raise ValueError(f"{where} must name no option or party")
         return self
 
     @property

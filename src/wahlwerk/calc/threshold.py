@@ -1,9 +1,9 @@
-r"""Thresholds: which keys take part at all.
+r"""Thresholds: which options take part at all.
 
-Each returns, per key, whether it passes: a ``dict`` of booleans for keyed input, a
+Each returns, per option, whether it passes: a ``dict`` of booleans for keyed input, a
 boolean array otherwise. A legal threshold of a share :math:`\theta` (five percent)
-passes key :math:`i` when :math:`p_i \ge \theta`, i.e. :math:`v_i \ge \theta V`; a
-Grundmandatsklausel passes keys that won at least so many seats outright. Combine
+passes option :math:`i` when :math:`p_i \ge \theta`, i.e. :math:`v_i \ge \theta V`; a
+Grundmandatsklausel passes options that won at least so many seats outright. Combine
 masks with ``|`` (numpy) or ``or``.
 
 >>> share_threshold({"a": 60, "b": 36, "c": 4}, "5/100")
@@ -23,7 +23,7 @@ __all__ = ["count_threshold", "effective_threshold", "seat_threshold", "share_th
 
 
 def share_threshold(votes: Values, share: Number | str, *, accept_equal: bool = True) -> PerKey:
-    r"""Passes keys with :math:`v_i \ge \theta V` ("mindestens"), or :math:`v_i > \theta V`
+    r"""Passes options with :math:`v_i \ge \theta V` ("mindestens"), or :math:`v_i > \theta V`
     without ``accept_equal`` ("mehr als")."""
     theta = to_number(share, name="share")
     if not 0 <= theta <= 1:
@@ -37,7 +37,7 @@ def share_threshold(votes: Values, share: Number | str, *, accept_equal: bool = 
 
 
 def count_threshold(votes: Values, count: Number | str, *, accept_equal: bool = True) -> PerKey:
-    r"""Passes keys with :math:`v_i \ge` ``count`` (or :math:`>` without ``accept_equal``)."""
+    r"""Passes options with :math:`v_i \ge` ``count`` (or :math:`>` without ``accept_equal``)."""
     needed = to_number(count, name="count")
     prepared = prepare(votes)
     values = prepared.values
@@ -46,7 +46,7 @@ def count_threshold(votes: Values, count: Number | str, *, accept_equal: bool = 
 
 
 def seat_threshold(won: Values, seats: int) -> PerKey:
-    r"""Passes keys that already won at least ``seats`` seats (the Grundmandatsklausel:
+    r"""Passes options that already won at least ``seats`` seats (the Grundmandatsklausel:
     three Wahlkreise)."""
     prepared = prepare(won, name="won", is_integer=True)
     return prepared.wrap(np.asarray(prepared.values >= seats, dtype=bool))
@@ -54,7 +54,7 @@ def seat_threshold(won: Values, seats: int) -> PerKey:
 
 def effective_threshold(magnitude: Any) -> Any:
     r"""Taagepera's effective threshold of a district of magnitude :math:`m`:
-    :math:`T_{\text{eff}} = \tfrac{3}{4} / (m + 1)`, the vote share at which a key
+    :math:`T_{\text{eff}} = \tfrac{3}{4} / (m + 1)`, the vote share at which an option
     tends to win its first seat :cite:`Taagepera.NationwideThresholdRepresentation.2002`.
 
     >>> effective_threshold(9)

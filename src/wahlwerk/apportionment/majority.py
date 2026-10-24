@@ -1,4 +1,4 @@
-"""Majority clauses: rules that adjust an apportionment so a key with a majority of the
+"""Majority clauses: rules that adjust an apportionment so an option with a majority of the
 weight gets a majority of the seats."""
 
 from __future__ import annotations
@@ -18,12 +18,12 @@ __all__ = ["MajorityFirst"]
 
 
 class MajorityFirst(ApportionmentMethod):
-    """A largest remainder method where a key with more than half the weight, left with
+    """A largest remainder method where an option with more than half the weight, left with
     no more than half the seats, takes one of the remainder seats first.
 
     This is the majority clause of Sec. 35 (6) LWG LSA: the other remainder seats then
     go by the method as usual, and the total stays the same. When the clause applies,
-    the key cannot have won a remainder seat already, so the seat it takes first always
+    the option cannot have won a remainder seat already, so the seat it takes first always
     gives it a majority. The formula is :func:`wahlwerk.calc.majority.majority_first`.
     """
 

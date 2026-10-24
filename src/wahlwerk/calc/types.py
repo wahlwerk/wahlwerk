@@ -17,8 +17,8 @@ Exact = int | Fraction
 """An exact number."""
 
 Values = Mapping[str, Any] | ArrayLike
-"""Per-key input: a mapping of key to number (or to a sequence, one per scenario), or an
-array-like with the keys along the last axis."""
+"""Per-option input: a mapping of option to number (or to a sequence, one per scenario), or an
+array-like with the options along the last axis."""
 
 PerKey = dict[str, Any] | NDArray[Any]
-"""Per-key output, shaped like the input: a ``dict`` for a mapping, an array otherwise."""
+"""Per-option output, shaped like the input: a ``dict`` for a mapping, an array otherwise."""

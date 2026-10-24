@@ -11,8 +11,8 @@ __all__ = ["largest"]
 def largest(claims: Sequence[tuple[Any, int]], count: int, n: int) -> tuple[list[int], list[bool], int]:
     """Seats won and the tie for the ``count`` largest of ``claims``.
 
-    ``claims`` are ``(value, key index)`` pairs; a key may have several claims, but at
-    most one at any value. Returns per key the seats won, whether it is tied, and the
+    ``claims`` are ``(value, option index)`` pairs; an option may have several claims, but at
+    most one at any value. Returns per option the seats won, whether it is tied, and the
     seats left open: every claim above the ``count``-th largest wins; those equal to it
     win if they all fit, and otherwise they are tied for the seats left.
     """

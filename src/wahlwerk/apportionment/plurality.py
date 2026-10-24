@@ -1,6 +1,6 @@
-"""Plurality, or relative majority: the key with the most weight takes the seat.
+"""Plurality, or relative majority: the option with the most weight takes the seat.
 
-The simplest way to choose: take a list of keys and their votes, and the one with the
+The simplest way to choose: take a list of options and their votes, and the one with the
 most wins, whether or not it has more than half (that would be an absolute majority).
 Winner takes all. Nothing in it is about a Wahlkreis, a party or a person: the same
 method elects the member of a single-seat unit, could fill an office, or decide between
@@ -24,8 +24,8 @@ __all__ = ["Plurality"]
 
 
 class Plurality(ApportionmentMethod):
-    """The keys with the most weight win, one seat each; with one seat, the key with
-    the most weight wins it (first past the post). A key of weight 0 wins nothing."""
+    """The options with the most weight win, one seat each; with one seat, the option with
+    the most weight wins it (first past the post). An option of weight 0 wins nothing."""
 
     formulas: ClassVar[tuple[Callable[..., Any], ...]] = (calc.plurality,)
 

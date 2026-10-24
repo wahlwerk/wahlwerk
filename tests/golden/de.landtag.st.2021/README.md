@@ -7,7 +7,7 @@ acted: the CDU won 40 of 41 Wahlkreise, and the house rose from 83 to 97 seats.
 
 | File | What | Source |
 |---|---|---|
-| `election.toml`, `tally.csv` | a bundle (schema 2): the valid Erst- and Zweitstimmen per Wahlkreis and party, Urne and Brief summed; 1230 rows | `LT2021_WBZ.xlsx`, via wahlwerk-data `elections/de/landtag/st/2021` |
+| `election.toml`, `tally.csv` | a bundle (schema 3; written as schema 2, its party and candidate columns turned into option and party): the valid Erst- and Zweitstimmen per Wahlkreis and party, Urne and Brief summed; 1230 rows | `LT2021_WBZ.xlsx`, via wahlwerk-data `elections/de/landtag/st/2021` |
 | `sitzverteilung.csv` | the official seat distribution, byte for byte | the Statistisches Landesamt's seat file, via wahlwerk-data |
 
 ## Sources
@@ -41,5 +41,5 @@ As for 2026 (see `../de.landtag.st.2026/README.md`), from the wahlwerk-data bund
 ```python
 vote = PopularVote.from_key("de.landtag.st.2021", "../wahlwerk-data")
 votes = vote.tally.filter(kind="votes").sum_to("wahlkreis")
-votes.sum_by("unit", "section", "party", "candidate")  # one row each, channel left blank
+votes.sum_by("unit", "section", "option", "party")  # one row each, channel left blank
 ```

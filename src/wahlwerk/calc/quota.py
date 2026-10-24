@@ -39,7 +39,7 @@ def hagenbach_bischoff(votes: Number, seats: int) -> Number:
 
 def droop(votes: Number, seats: int) -> Number:
     r"""Droop: :math:`Q = \lfloor V / (S + 1) \rfloor + 1`, the smallest whole number of
-    votes that only :math:`S` keys can reach."""
+    votes that only :math:`S` options can reach."""
     return math.floor(hagenbach_bischoff(votes, seats)) + 1
 
 

@@ -21,7 +21,7 @@ from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
-    ApplyThresholdToKeys,
+    ApplyThresholdToOptions,
     SetChamberSize,
     SetSeatTotal,
 )
@@ -52,12 +52,12 @@ def tally(winners, zweit=ZWEIT):
     rows = []
     for number, winner in enumerate(winners, start=1):
         unit = f"de.st.wk.{number:03d}"
-        nominee = {"candidate": winner} if "." in winner else {"party": winner}
+        nominee = {"option": winner} if "." in winner else {"option": winner, "party": winner}
         rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", count=100, **nominee))
-        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", party="spd", count=1))
+        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option="spd", party="spd", count=1))
     for party, count in zweit.items():
         rows.append(
-            TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", party=party, count=count)
+            TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=party, party=party, count=count)
         )
     return Tally(rows=tuple(rows), levels=LEVELS)
 
@@ -67,7 +67,7 @@ def law(base, threshold=FIVE_PERCENT, method=HARE):
         SumVotes(level="wahlkreis"),
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumVotes(level="land"),
-        ApplyThresholdToKeys(threshold=threshold, section="zweitstimme", level="land"),
+        ApplyThresholdToOptions(threshold=threshold, section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
         SetSeatTotal(),
         ApportionSeats(method=method, section="zweitstimme", level="land"),
@@ -86,7 +86,7 @@ def test_seats_won_outside_the_allocation_leave_the_total():
     # Wahlkreis 2 to an Einzelbewerber, 3 to the FDP under 5 %: 10 - 2 = 8 seats.
     # Hare on 8 among 970: afd 4.12, cdu 2.47, linke 1.40 -> 4, 3, 1.
     result = run(law(10), Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"])))
-    assert result.eligible_keys == {"afd", "cdu", "linke"}
+    assert result.eligible_options == {"afd", "cdu", "linke"}
     assert result.seat_total == 8
     assert result.entitlement.as_dict() == {"afd": 4, "cdu": 3, "linke": 1}
     assert dict(result.list_seats) == {"afd": 3, "cdu": 3, "linke": 1}
@@ -103,10 +103,10 @@ def test_overhang_when_a_party_wins_more_wahlkreise_than_it_is_entitled_to():
 
 def test_grundmandatsklausel_reads_the_wahlkreise():
     rule = AlternativeThresholds(thresholds=(FIVE_PERCENT, SeatThreshold(seats=3)))
-    step = ApplyThresholdToKeys(threshold=rule, section="zweitstimme", level="land")
+    step = ApplyThresholdToOptions(threshold=rule, section="zweitstimme", level="land")
     assert "unit_mandates" in step.reads
     result = run(law(20, threshold=rule), Allocation(tally=tally(["fdp", "fdp", "fdp"])))
-    assert "fdp" in result.eligible_keys
+    assert "fdp" in result.eligible_options
     assert result.seat_total == 20
 
 
@@ -114,7 +114,7 @@ def test_a_grundmandatsklausel_before_the_wahlkreise_is_refused():
     rule = AlternativeThresholds(thresholds=(FIVE_PERCENT, SeatThreshold(seats=3)))
     misordered = (
         SumVotes(level="land"),
-        ApplyThresholdToKeys(threshold=rule, section="zweitstimme", level="land"),
+        ApplyThresholdToOptions(threshold=rule, section="zweitstimme", level="land"),
     )
     with pytest.raises(ValueError, match=r"reads \['unit_mandates'\]"):
         check_protocol(misordered)
@@ -140,10 +140,10 @@ def test_counterfactual_is_one_field():
 
 def test_a_tied_wahlkreis_stops_the_seat_total():
     rows = [
-        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="erststimme", party=party, count=5)
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="erststimme", option=party, party=party, count=5)
         for party in ("afd", "cdu")
     ] + [
-        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", party=p, count=n)
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, party=p, count=n)
         for p, n in ZWEIT.items()
     ]
     tied = Allocation(tally=Tally(rows=tuple(rows), levels=LEVELS))

@@ -5,8 +5,8 @@ quotas, thresholds, majorities, Überhang and Ausgleich, measures of a result, c
 and power. It is a subpackage of the engine that imports numpy and nothing else of
 wahlwerk; the rest of the engine computes with it (`ww.calc`).
 
-**Inputs and outputs are plain.** A mapping of key to number gives a mapping back, an
-array gives an array, a 2-D array (or a mapping of key to a sequence) is several
+**Inputs and outputs are plain.** A mapping of option to number gives a mapping back, an
+array gives an array, a 2-D array (or a mapping of option to a sequence) is several
 scenarios at once:
 
 ```python
@@ -21,7 +21,7 @@ chamber.apply(wc.coalition.minimal_winning)                            # on a Ch
 **Exact in, exact out.** `int`, `Fraction`, decimal strings (`"32.5"`) and integer arrays
 are computed exactly (a seat formula ranks in floating point and checks the last seat
 exactly); floats in floating point. **Ties are results**: a seat formula returns a
-{class}`~wahlwerk.calc.result.SeatResult` naming the tied keys and the open seats; the
+{class}`~wahlwerk.calc.result.SeatResult` naming the tied options and the open seats; the
 engine's law steps stop on it until the lot is applied.
 
 ## Notation

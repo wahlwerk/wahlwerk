@@ -54,17 +54,38 @@ def test_reads_rows_in_file_order(tmp_path):
     assert voters.channel == "urne"
     assert invalid.kind is TallyKind.INVALID
     assert invalid.section == "zweitstimme"
-    assert party.party == "cdu"
+    assert party.option == party.party == "cdu"  # schema 1: a party's votes count for it
     assert party.count == 61
     assert candidate.party is None
-    assert candidate.candidate == "de.st.wk.001.mueller"
+    assert candidate.option == "de.st.wk.001.mueller"
+
+
+SCHEMA_3 = (
+    "unit,level,kind,section,channel,option,party,count\n"
+    + "de.st.wk.001,wahlkreis,votes,zweitstimme,urne,cdu,cdu,61\n"
+    + "de.st.wk.001,wahlkreis,votes,erststimme,urne,de.st.wk.001.mueller,cdu,7\n"
+    + "de.st.wk.001,wahlkreis,votes,erststimme,urne,de.st.wk.001.schulz,,3\n"
+)
+
+
+def test_schema_3_names_the_option_and_its_party(tmp_path):
+    election = ELECTION.replace("schema = 1", "schema = 3\n\n[levels]\nwahlkreis = 4")
+    lists, nominee, independent = read_bundle(write(tmp_path, election, SCHEMA_3)).tally.rows
+    assert (lists.option, lists.party) == ("cdu", "cdu")
+    assert (nominee.option, nominee.party) == ("de.st.wk.001.mueller", "cdu")
+    assert (independent.option, independent.party) == ("de.st.wk.001.schulz", None)
+
+
+def test_schema_3_needs_its_own_header(tmp_path):
+    election = ELECTION.replace("schema = 1", "schema = 3\n\n[levels]\nwahlkreis = 4")
+    with pytest.raises(ValueError, match="header"):
+        read_bundle(write(tmp_path, election, TALLY))
 
 
 def test_blank_cells_are_none_not_empty_strings(tmp_path):
     eligible = read_bundle(write(tmp_path)).tally.rows[0]
     assert eligible.section is None
     assert eligible.party is None
-    assert eligible.candidate is None
     assert eligible.option is None
 
 
@@ -77,7 +98,7 @@ def test_header_only_gives_an_empty_tally(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("old", "new"), [("schema = 1\n", ""), ("schema = 1", "schema = 3")]
+    ("old", "new"), [("schema = 1\n", ""), ("schema = 1", "schema = 4")]
 )
 def test_unsupported_schema_is_rejected(tmp_path, old, new):
     with pytest.raises(ValueError, match=r"election\.toml: schema .* is not supported"):

@@ -1,8 +1,8 @@
-"""Apportionment: dividing a number of seats among keys in proportion to their weights.
+"""Apportionment: dividing a number of seats among options in proportion to their weights.
 
 The methods here know nothing about parties, votes or any law. They take opaque string
-keys (party ids, Länder, caucuses), non-negative exact weights (votes, population,
-seats) and a seat count, and return the seats per key. So the same method serves a
+options (party ids, Länder, caucuses), non-negative exact weights (votes, population,
+seats) and a seat count, and return the seats per option. So the same method serves a
 Landtag's list seats, the seats per Land in the Bundestag, committee seats per caucus
 or anything else a law divides proportionally. What to divide, among whom and how often
 is the caller's business (a law's steps); if a Land's quirk appears here, the
@@ -10,11 +10,11 @@ abstraction is broken.
 
 Two families, each sharing one algorithm:
 
-- :class:`DivisorMethod` (highest averages): each key's weight is divided by a
+- :class:`DivisorMethod` (highest averages): each option's weight is divided by a
   sequence of divisors, and the seats go to the largest quotients. :class:`DHondt`
   (Jefferson), :class:`SainteLague` (Webster, Sainte-Laguë/Schepers) and any linear
   sequence via :class:`LinearDivisor`.
-- :class:`LargestRemainder` (quota methods): each key gets the whole part of its weight
+- :class:`LargestRemainder` (quota methods): each option gets the whole part of its weight
   over a quota, and the seats left go to the largest remainders. :class:`HareNiemeyer`
   (Hamilton) divides by the Hare quota.
 
@@ -26,13 +26,13 @@ resolved by :meth:`Apportionment.with_lot` from the lot actually drawn.
 Modules, one per family or piece:
 
 - ``method``: :class:`ApportionmentMethod`, the interface all methods share
-- ``result``: :class:`Apportionment`, the seats per key and any tie
+- ``result``: :class:`Apportionment`, the seats per option and any tie
 - ``tie``: :class:`Tie`, seats decided by lot
 - ``divisor``: divisor methods; ``remainder``: largest remainder methods
 - ``majority``: majority clauses around a method (:class:`MajorityFirst`)
 - ``plurality``: the most weight wins (:class:`Plurality`), the single-winner choice
 - ``quota``: what one seat is worth (:class:`HareQuota`)
-- ``threshold``: which keys take part at all
+- ``threshold``: which options take part at all
 - ``ausgleich``: Überhang, and adding seats until it is covered
 
 The package exposes these modules, never their names, so the family stays visible:

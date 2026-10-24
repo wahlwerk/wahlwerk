@@ -14,12 +14,12 @@ from wahlwerk.ids import LevelName, Slug
 from wahlwerk.model import Seats
 from wahlwerk.process.allocation.base import Allocation, AllocationStep, total_fact
 
-__all__ = ["ApplyThresholdToKeys", "SetChamberSize", "SetSeatTotal"]
+__all__ = ["ApplyThresholdToOptions", "SetChamberSize", "SetSeatTotal"]
 
 
-class ApplyThresholdToKeys(AllocationStep):
-    """Apply ``threshold`` to the keys, here the parties: those that pass it on their valid
-    votes in ``section``, summed at ``level``, become ``eligible_keys``.
+class ApplyThresholdToOptions(AllocationStep):
+    """Apply ``threshold`` to the options, here the parties: those that pass it on their valid
+    votes in ``section``, summed at ``level``, become ``eligible_options``.
 
     The share is of all valid votes in the section, of every party. A threshold that
     counts seats already won (a Grundmandatsklausel) is given each party's Wahlkreis
@@ -45,19 +45,19 @@ class ApplyThresholdToKeys(AllocationStep):
 
     @property
     def writes(self) -> frozenset[str]:
-        return frozenset({"eligible_keys"})
+        return frozenset({"eligible_options"})
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        given: tuple[tuple[str, str], ...] = (("keys", "parties"), ("votes", f"{self.section} per party"))
+        given: tuple[tuple[str, str], ...] = (("options", "parties"), ("votes", f"{self.section} per party"))
         if self.threshold.uses_won:
             given += (("won", "units won per party"),)
         return {"threshold": given}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.votes_by_party(self.level, self.section)
+        votes = allocation.votes_by_option(self.level, self.section)
         won = allocation.unit_wins() if self.threshold.uses_won else None
-        return allocation.with_values(eligible_keys=self.threshold.select(votes, won))
+        return allocation.with_values(eligible_options=self.threshold.select(votes, won))
 
 
 class SetChamberSize(AllocationStep):
@@ -95,7 +95,7 @@ class SetChamberSize(AllocationStep):
 class SetSeatTotal(AllocationStep):
     """The seats the proportional allocation divides: the ``chamber_size`` less the Wahlkreis
     seats of winners who take no part in it, i.e. Einzelbewerber and parties that are
-    not ``eligible_keys``.
+    not ``eligible_options``.
 
     Their seats are theirs regardless; the rest of the chamber size is divided among the
     eligible parties, whose own Wahlkreis seats are deducted later.
@@ -105,7 +105,7 @@ class SetSeatTotal(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({"chamber_size", "unit_mandates", "eligible_keys"})
+        return frozenset({"chamber_size", "unit_mandates", "eligible_options"})
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
@@ -117,7 +117,7 @@ class SetSeatTotal(AllocationStep):
 
     def _apply(self, allocation: Allocation) -> Allocation:
         wins = allocation.unit_wins()
-        eligible = allocation.eligible_keys or frozenset()
+        eligible = allocation.eligible_options or frozenset()
         winners = allocation.unit_mandates or ()
         size = allocation.chamber_size or 0
         outside = sum(1 for d in winners if d.party is None) + sum(

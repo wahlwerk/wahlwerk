@@ -1,8 +1,8 @@
-r"""Power indices: how often a key decides, in a weighted vote with quota :math:`T`.
+r"""Power indices: how often an option decides, in a weighted vote with quota :math:`T`.
 
-Key :math:`i` is **pivotal** (a swing) for a coalition :math:`C \not\ni i` when
+Option :math:`i` is **pivotal** (a swing) for a coalition :math:`C \not\ni i` when
 :math:`w(C) < T \le w(C) + s_i`. With :math:`\eta_i` the number of such coalitions and
-:math:`n` keys:
+:math:`n` options:
 
 - Banzhaf :cite:`Banzhaf.WeightedVotingDoesnt.1965`, normalised:
   :math:`\beta_i = \eta_i / \sum_j \eta_j`; absolute (Penrose):
@@ -35,7 +35,7 @@ __all__ = ["banzhaf", "penrose", "shapley_shubik", "swings"]
 
 
 def swings(seats: Values, quota: Number | str | None = None) -> PerKey:
-    r""":math:`\eta_i`, the coalitions for which key :math:`i` is pivotal."""
+    r""":math:`\eta_i`, the coalitions for which option :math:`i` is pivotal."""
     return _per_key(seats, quota, lambda s, t: _swings(s, t))
 
 

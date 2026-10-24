@@ -62,13 +62,13 @@ def test_seat_threshold_counts_seats_won():
 
 
 def test_exempt_passes_only_named_keys_that_stand():
-    assert Exempt(keys=frozenset({"ssw", "x"})).select(VOTES) == {"ssw"}
+    assert Exempt(options=frozenset({"ssw", "x"})).select(VOTES) == {"ssw"}
 
 
 def test_alternative_thresholds_bundestag_shape():
     """5 % or three Wahlkreis seats, and a minority party exempt."""
     rule = AlternativeThresholds(
-        thresholds=(FIVE_PERCENT, SeatThreshold(seats=3), Exempt(keys=frozenset({"ssw"})))
+        thresholds=(FIVE_PERCENT, SeatThreshold(seats=3), Exempt(options=frozenset({"ssw"})))
     )
     assert rule.select(VOTES, won={"c": 3}) == {"a", "b", "c", "d", "ssw"}
 
@@ -93,11 +93,11 @@ def test_bad_input():
     with pytest.raises(ValidationError):
         SeatThreshold(seats=0)
     with pytest.raises(ValidationError):
-        Exempt(keys=frozenset())
+        Exempt(options=frozenset())
 
 
 def test_uses_won():
     assert not FIVE_PERCENT.uses_won
     assert SeatThreshold(seats=3).uses_won
     assert AlternativeThresholds(thresholds=(FIVE_PERCENT, SeatThreshold(seats=3))).uses_won
-    assert not AlternativeThresholds(thresholds=(FIVE_PERCENT, Exempt(keys=frozenset({"ssw"})))).uses_won
+    assert not AlternativeThresholds(thresholds=(FIVE_PERCENT, Exempt(options=frozenset({"ssw"})))).uses_won

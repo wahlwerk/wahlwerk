@@ -6,7 +6,7 @@ the test runs offline and never reads wahlwerk-data.
 
 | File | What | Source |
 |---|---|---|
-| `election.toml`, `tally.csv` | a bundle (schema 2): the valid Erst- and Zweitstimmen per Wahlkreis and party, Urne and Brief summed; 922 rows | `Ergebnisse_LT_2026.xlsx`, via wahlwerk-data `elections/de/landtag/st/2026` |
+| `election.toml`, `tally.csv` | a bundle (schema 3; written as schema 2, its party and candidate columns turned into option and party): the valid Erst- and Zweitstimmen per Wahlkreis and party, Urne and Brief summed; 922 rows | `Ergebnisse_LT_2026.xlsx`, via wahlwerk-data `elections/de/landtag/st/2026` |
 | `sitzverteilung.csv` | the official seat distribution, byte for byte | `Sitzverteilung_LT_2026.csv` |
 
 ## Sources
@@ -33,7 +33,7 @@ workbook, with all 822 published sums checked), with the engine:
 ```python
 vote = PopularVote.from_key("de.landtag.st.2026", "../wahlwerk-data")
 votes = vote.tally.filter(kind="votes").sum_to("wahlkreis")
-votes.sum_by("unit", "section", "party", "candidate")  # one row each, channel left blank
+votes.sum_by("unit", "section", "option", "party")  # one row each, channel left blank
 ```
 
 Invalid votes, Wahlberechtigte and Wähler are left out: the seat allocation does not use

@@ -1,6 +1,6 @@
 # Apportionment
 
-How seats are divided among keys, free of any law.
+How seats are divided among options, free of any law.
 
 ## `wahlwerk.apportionment.method`
 
