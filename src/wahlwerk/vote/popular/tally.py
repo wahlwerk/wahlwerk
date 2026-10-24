@@ -183,11 +183,24 @@ class Tally(Model):
         ),
     )
 
-    _is_checked: bool = PrivateAttr(default=False)
-    """Whether the checks below have passed. Pydantic runs a model's "after" validators
+    _checked_rows: tuple[TallyRow, ...] | None = PrivateAttr(default=None)
+    """The rows the checks below passed for. Pydantic runs a model's "after" validators
     again whenever an existing instance passes through validation (every time an
     allocation step records a fact), and both checks walk every row. A tally is frozen,
-    so once its checks pass they hold for good: they run once per instance."""
+    so once its checks pass they hold for good: they run once per instance. The rows
+    themselves are kept, not a flag, because ``model_copy`` carries private attributes
+    over to a copy that may hold other rows."""
+
+    _sums: dict[tuple[str, int], tuple[tuple[TallyRow, ...], Tally]] = PrivateAttr(
+        default_factory=dict
+    )
+    """The sums along the main hierarchy already made, by (level, depth), each with the
+    rows it was made from (see ``_checked_rows``). A tally is frozen, so a sum never
+    changes: every law replayed on one election sums it once."""
+
+    @property
+    def _is_checked(self) -> bool:
+        return self._checked_rows is self.rows
 
     @model_validator(mode="after")
     def _check_unique(self) -> Tally:
@@ -230,7 +243,7 @@ class Tally(Model):
     @model_validator(mode="after")
     def _mark_checked(self) -> Tally:
         # Last of the validators: reached only when every check above has passed.
-        self._is_checked = True
+        self._checked_rows = self.rows
         return self
 
     def __len__(self) -> int:
@@ -303,6 +316,9 @@ class Tally(Model):
             return self._sum(level, along_hierarchy, levels=())
 
         depth = self._depth_of(level, depth)
+        cached = self._sums.get((level, depth))
+        if cached is not None and cached[0] is self.rows:
+            return cached[1]
 
         def by_prefix(unit: str) -> str:
             segments = unit.split(".")
@@ -312,7 +328,19 @@ class Tally(Model):
                 )
             return ".".join(segments[:depth])
 
-        return self._sum(level, by_prefix, levels=self.levels)
+        # A sum to a finer level already made holds the same counts in fewer rows, in
+        # the same order of first appearance: cutting a cut id gives the same unit, so
+        # summing that sum gives the same tally (the Land from the Wahlkreise, not from
+        # 70,000 Wahlbezirk rows).
+        finer = [
+            summed
+            for (_, finer_depth), (rows, summed) in self._sums.items()
+            if rows is self.rows and finer_depth > depth
+        ]
+        source = min(finer, key=len) if finer else self
+        result = source._sum(level, by_prefix, levels=self.levels)
+        self._sums[(level, depth)] = (self.rows, result)
+        return result
 
     def _sum(
         self, level: str, unit_of: Callable[[str], str], levels: tuple[Level, ...]

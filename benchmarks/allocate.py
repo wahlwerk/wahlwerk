@@ -10,9 +10,15 @@ splits each Wahlkreis row over ``--units`` Wahlbezirke (the counts divided as ev
 integers allow, so every sum and every seat stays the same) to time the engine at that
 size; the result is checked to equal the fixture's.
 
+Two times per case: **cold**, the first allocation of an election (its tally summed for
+the first time), and **warm**, every further law on the same election (a tally keeps
+its sums, so a sweep or an editor pays the summing once).
+
 Not a test: timings depend on the machine. Run it before and after a change to the
-allocation path and compare. Measured on 2026-10-24 for Sachsen-Anhalt 2026, about
-70,000 rows: 2.2 s per allocation before a tally was checked once, 0.3 s after.
+allocation path and compare. Measured on 2026-10-24, Sachsen-Anhalt 2026 per Wahlbezirk
+(about 70,000 rows): 2.2 s per allocation; 0.3 s once a tally was checked once; then
+about 0.15 s cold and a few milliseconds warm once sums were kept and the Land summed
+from the Wahlkreise.
 """
 
 from __future__ import annotations
@@ -66,15 +72,19 @@ def split(vote: PopularVote, units: int) -> PopularVote:
     )
 
 
-def timed(vote: PopularVote, law_id: str, repeat: int) -> tuple[float, dict[str, int]]:
-    """The median seconds of ``repeat`` allocations, and the seats."""
+def timed(vote: PopularVote, law_id: str, repeat: int) -> tuple[float, float, dict[str, int]]:
+    """Seconds for the first allocation of ``vote`` (cold: nothing summed yet), the
+    median of ``repeat`` more (warm: the tally's sums are kept), and the seats."""
     protocol = LAWS[law_id].protocol
-    times, seats = [], {}
+    start = time.perf_counter()
+    seats = dict(allocate(vote, protocol).seats_by_party)
+    cold = time.perf_counter() - start
+    warm = []
     for _ in range(repeat):
         start = time.perf_counter()
-        seats = dict(allocate(vote, protocol).seats_by_party)
-        times.append(time.perf_counter() - start)
-    return statistics.median(times), seats
+        allocate(vote, protocol)
+        warm.append(time.perf_counter() - start)
+    return cold, statistics.median(warm), seats
 
 
 def main() -> None:
@@ -82,19 +92,19 @@ def main() -> None:
     parser.add_argument("--units", type=int, default=60, help="Wahlbezirke per Wahlkreis")
     parser.add_argument("--repeat", type=int, default=3, help="runs per case, median taken")
     args = parser.parse_args()
-    print(f"{'bundle':22} {'law':18} {'rows':>7} {'s':>7}   {'rows':>8} {'s':>7}")
+    print(f"{'':41} {'fixture':>17}   {'real size':>26}")
+    print(f"{'bundle':22} {'law':18} {'rows':>6} {'cold':>5} {'warm':>5}   {'rows':>7} {'cold':>6} {'warm':>6}")
     for key, law_id in CASES:
         vote = read_bundle(GOLDEN / key)
-        small, seats = timed(vote, law_id, args.repeat)
+        small_cold, small_warm, seats = timed(vote, law_id, args.repeat)
         big_vote = split(vote, args.units)
-        big, big_seats = timed(big_vote, law_id, args.repeat)
+        big_cold, big_warm, big_seats = timed(big_vote, law_id, args.repeat)
         if big_seats != seats:
             raise SystemExit(f"{key}: the split tally gives other seats: {big_seats} != {seats}")
         print(
-            f"{key:22} {law_id:18} {len(vote.tally):>7} {small:>7.3f}   "
-            f"{len(big_vote.tally):>8} {big:>7.3f}"
+            f"{key:22} {law_id:18} {len(vote.tally):>6} {small_cold:>5.3f} {small_warm:>5.3f}   "
+            f"{len(big_vote.tally):>7} {big_cold:>6.3f} {big_warm:>6.3f}"
         )
-
 
 if __name__ == "__main__":
     main()

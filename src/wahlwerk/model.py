@@ -62,4 +62,4 @@ class Model(BaseModel):
         # at a call, so a call shows the signature (the fields) alone; hovering the class
         # name anywhere else shows its docstring. Not defined at runtime.
         def __init__(self, /, **data: Any) -> None:
-            """ """
+            """ """  # noqa: D419 (deliberately blank, see above)

@@ -358,9 +358,11 @@ Built one small step at a time; each step leaves the package importable.
   Wahlkreis; fixtures and sources in `tests/golden/`
 - Measures of disproportionality in `wahlwerk.measure.proportionality`, exact, after
   votelib
-- Speed: a tally is checked once per instance, not at every allocation step; an
-  allocation on a real Wahlbezirk tally (about 70,000 rows) went from 2.2 s to 0.3 s
-  (`benchmarks/allocate.py`)
+- Speed: a tally is checked once per instance, not at every allocation step, and keeps
+  each sum it made, summing a coarse level from a finer sum it already has; an
+  allocation on a real Wahlbezirk tally (about 70,000 rows) went from 2.2 s to 0.1 to
+  0.2 s on the first run and a few milliseconds after (`benchmarks/allocate.py`). The
+  Ausgleich loop takes about 20 ms of that, so a direct divisor is not needed yet
 - Laws can be edited: `Law.revise` makes a counterfactual law (`based_on`, in force on no
   date), `wahlwerk.law.edit` changes a protocol by step type or path, nested loops
   included, and `wahlwerk.law.serialize` writes a law as JSON and reads it back
@@ -380,9 +382,9 @@ The path from a popular vote to a chamber, and how it was built, is in
 Then, toward laws built by hand (decision 0004 in `.github-private`):
 
 - A JSON Schema for every step type, from the models, to drive a form-based law editor
-- Allocations in milliseconds: sum the tally once per election to the levels a law
-  counts at; find a divisor method's divisor, and the house an Ausgleich needs, directly
-  instead of a seat at a time; cache results by (vote, law), both frozen and hashable
+- Allocations in milliseconds, the rest: find a divisor method's divisor, and the house
+  an Ausgleich needs, directly instead of a seat at a time, once a law needs it; cache
+  results by (vote, law), both frozen and hashable
 - The engine in the browser (Pyodide) on wahlwerk-site, a law editor there; a
   standalone app or a server for parameter sweeps only if it is needed
 

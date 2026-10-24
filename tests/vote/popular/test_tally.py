@@ -299,3 +299,44 @@ def test_a_tally_is_checked_once(monkeypatch):
 def test_a_new_tally_from_checked_rows_is_still_checked():
     with pytest.raises(ValidationError, match="more than once"):
         Tally(rows=(*TALLY.rows, TALLY.rows[0]))
+
+
+# Three levels deep, for the kept sums.
+DEEP = Tally(
+    rows=tuple(
+        TallyRow(unit=unit, level="wahlbezirk", section="zweitstimme", channel=channel, party=party, count=n)
+        for unit, channel, party, n in (
+            ("de.st.wk.001.gem.1.wbz.1", "urne", "afd", 5),
+            ("de.st.wk.001.gem.1.wbz.2", "urne", "cdu", 3),
+            ("de.st.wk.002.gem.2.wbz.1", "brief", "afd", 2),
+            ("de.st.wk.001.gem.1.wbz.1", "brief", "cdu", 1),
+            ("de.st.wk.002.gem.2.wbz.1", "urne", "afd", 4),
+        )
+    ),
+    levels=(
+        Level(name="land", depth=2),
+        Level(name="wahlkreis", depth=4),
+        Level(name="wahlbezirk", depth=8),
+    ),
+)
+
+
+def test_a_sum_is_made_once_and_kept():
+    tally = Tally(rows=DEEP.rows, levels=DEEP.levels)
+    assert tally.sum_to("wahlkreis") is tally.sum_to("wahlkreis")
+
+
+def test_a_coarse_sum_from_a_finer_one_equals_the_direct_sum():
+    direct = Tally(rows=DEEP.rows, levels=DEEP.levels).sum_to("land")
+    via = Tally(rows=DEEP.rows, levels=DEEP.levels)
+    via.sum_to("wahlkreis")
+    assert via.sum_to("land") == direct
+    assert [r.key for r in via.sum_to("land").rows] == [r.key for r in direct.rows]
+
+
+def test_a_copy_with_other_rows_uses_no_kept_sum_or_check():
+    tally = Tally(rows=DEEP.rows, levels=DEEP.levels)
+    tally.sum_to("land")
+    copy = tally.model_copy(update={"rows": DEEP.rows[:1]})
+    assert copy.sum_to("land").total() == 5
+    assert not copy._is_checked
