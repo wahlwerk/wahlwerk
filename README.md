@@ -396,6 +396,14 @@ uv run mypy --strict src     # types (with pydantic's mypy plugin)
 uv run ruff check src tests  # lint
 ```
 
+The API reference is built from the code with Sphinx (`docs/`) and published at
+<https://wahlwerk.github.io/wahlwerk/>:
+
+```bash
+uv sync --group docs
+uv run sphinx-build -b html docs docs/_build/html
+```
+
 ## Non-goals
 - **Forecasting.** Predicting vote shares is a separate and much weaker discipline; the
   counterfactual engine needs none of it to be useful.

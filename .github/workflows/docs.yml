@@ -1,0 +1,51 @@
+# The API reference: built with Sphinx from the code, published to GitHub Pages at
+# https://wahlwerk.github.io/wahlwerk/. Pages must be set to "GitHub Actions" in the
+# repository settings once.
+name: docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # The engine's dev group names wahlwerk-ui by path (../wahlwerk-ui), so both are
+      # checked out side by side, as they are locally.
+      - uses: actions/checkout@v4
+        with:
+          path: wahlwerk
+      - uses: actions/checkout@v4
+        with:
+          repository: wahlwerk/wahlwerk-ui
+          path: wahlwerk-ui
+      - uses: astral-sh/setup-uv@v5
+      - name: Build the reference
+        working-directory: wahlwerk
+        run: |
+          uv sync --group docs
+          uv run sphinx-build -b html docs docs/_build/html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: wahlwerk/docs/_build/html
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

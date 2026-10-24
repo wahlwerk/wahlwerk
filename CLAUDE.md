@@ -65,6 +65,28 @@ pydantic validates the id at runtime.
 pytest, mypy and ruff are currently listed under runtime `dependencies` in
 `pyproject.toml`; they belong in the dev group (`uv add --dev`).
 
+### Documentation
+
+Two kinds, two places. **wahlwerk-site** explains concepts with sketches and real
+elections. **The API reference** is here, in `docs/` (Sphinx, MyST Markdown): one page
+per role in `docs/api/`, every module through `automodule`, every pydantic field with
+its `Field(description=...)` through autodoc_pydantic, so the reference is the code.
+A new module gets a line in its role's page. Build it with
+
+```bash
+uv sync --group docs
+uv run sphinx-build -b html docs docs/_build/html
+```
+
+`.github/workflows/docs.yml` publishes it to `https://wahlwerk.github.io/wahlwerk/`; the
+site links each concept to its anchor there (`api/vote.html#wahlwerk.vote.popular.tally.TallyRow`).
+
+**References**, three kinds from three homes (decision 0003 in `.github-private`):
+literature in `docs/references.bib`, exported from Zotero (Better BibLaTeX, keys
+`{first author}.{ThreeWordTitle}.{year}`, pinned when cited; never edit the file),
+cited in a docstring with `` :cite:`key` ``; statutes are `Law` objects, one per version,
+never in Zotero; data sources are each bundle's `[source]`.
+
 The engine has **no** jupyter or matplotlib dependency and must not grow one; notebooks
 live in wahlwerk-execute.
 
