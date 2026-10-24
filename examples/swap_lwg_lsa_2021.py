@@ -19,7 +19,7 @@ from wahlwerk.apportionment.divisor import DHondt, SainteLague
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.io.bundle import read_bundle
-from wahlwerk.law.de.st.lwg import ALLOCATE, LWG_2021
+from wahlwerk.law.de.st.lwg import ALLOCATE, LWG_2021, QUALIFY
 from wahlwerk.law.edit import find, replace
 from wahlwerk.process.allocation.allocate import derive
 from wahlwerk.process.allocation.base import AllocationProtocol, check_protocol
@@ -46,6 +46,7 @@ def row(name: str, protocol: AllocationProtocol) -> str:
 VOTE = read_bundle(GOLDEN)
 P = LWG_2021.protocol
 LOOP = find(P, RepeatForMehrsitze)[0][0]
+QUAL = P.index(QUALIFY)
 
 if __name__ == "__main__":
     print(f"{'':46} size " + " ".join(f"{p:>4}" for p in PARTIES))
@@ -56,7 +57,11 @@ if __name__ == "__main__":
     print(row("threshold 3 %", replace(P, ApplyThreshold, threshold=RelativeThreshold(share=Fraction(3, 100)))))
     # The loop holds the allocation, so dropping it means putting the sequence in its place.
     print(row("no Mehrsitze balancing", (*P[:LOOP], ALLOCATE, *P[LOOP + 1 :])))
+    # Reorders: the chamber size and the counting need nothing of each other, nor do the
+    # Wahlkreis winners and the threshold; what the counts decide needs the counts.
+    print(f"can swap steps 1 and 2: {can_swap(P, 0, 1)}")
+    print(row("order: count before setting the chamber size", (P[1], P[0], *P[2:])))
+    swapped = QUALIFY.model_copy(update={"steps": QUALIFY.steps[::-1]})
+    print(row("order: threshold before Wahlkreis winners", (*P[:QUAL], swapped, *P[QUAL + 1 :])))
     print(f"can swap steps 2 and 3: {can_swap(P, 1, 2)}")
-    print(row("order: Land sum before the Wahlkreis winners", (P[0], P[2], P[1], *P[3:])))
-    print(f"can swap steps 5 and 6: {can_swap(P, 4, 5)}")
-    print(row("order: the loop before the chamber size", (*P[:4], P[5], P[4], *P[6:])))
+    print(row("order: decide before counting", (P[0], P[2], P[1], *P[3:])))

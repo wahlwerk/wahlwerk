@@ -33,9 +33,35 @@ from wahlwerk.process.allocation.mehrsitze import FraktionSize, RepeatForMehrsit
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
 
-__all__ = ["ALLOCATE", "LWG_2021"]
+__all__ = ["ALLOCATE", "COUNT", "LWG_2021", "QUALIFY"]
 
 _FIVE_PERCENT = Fraction(5, 100)
+
+COUNT = StepSequence(
+    title="count the votes",
+    citation="Sec. 31, 32, 35 (2)",
+    steps=(
+        SumVotes(level="wahlkreis", citation="Sec. 31, 32"),
+        SumVotes(level="land", citation="Sec. 35 (2)"),
+    ),
+)
+"""The counting: the votes summed per Wahlkreis and for the Land. Reads only the tally."""
+
+QUALIFY = StepSequence(
+    title="decide the Wahlkreise and who takes part",
+    citation="Sec. 33, 35 (3)",
+    steps=(
+        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 33"),
+        ApplyThreshold(
+            threshold=RelativeThreshold(share=_FIVE_PERCENT),
+            section="zweitstimme",
+            level="land",
+            citation="Sec. 35 (3)",
+        ),
+    ),
+)
+"""What the counts decide before any seat is apportioned: the winner of each Wahlkreis,
+and the parties past the threshold. Reads only the sums."""
 
 ALLOCATE = StepSequence(
     title="allocate the seats of one chamber size",
@@ -67,17 +93,12 @@ LWG_2021 = Law(
         "https://www.landtag.sachsen-anhalt.de/fileadmin/Downloads/Rechtsgrundlagen/"
         "Gesetze_8.WP/2021_Wahlgesetz_LWG.pdf"
     ),
+    # In stages: what needs nothing but the law and the tally first (the chamber size,
+    # the counting), then what the counts decide, then the seats, then the chamber.
     protocol=(
-        SumVotes(level="wahlkreis", citation="Sec. 31, 32"),
-        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 33"),
-        SumVotes(level="land", citation="Sec. 35 (2)"),
-        ApplyThreshold(
-            threshold=RelativeThreshold(share=_FIVE_PERCENT),
-            section="zweitstimme",
-            level="land",
-            citation="Sec. 35 (3)",
-        ),
         SetChamberSize(seats=83, citation="Sec. 1 (1)"),  # "mindestens 83": also the minimum
+        COUNT,
+        QUALIFY,
         RepeatForMehrsitze(
             protocol=(ALLOCATE,),
             factor=2,

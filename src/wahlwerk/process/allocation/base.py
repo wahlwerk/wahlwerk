@@ -317,7 +317,8 @@ def check_protocol(
         missing = step.reads - facts
         if missing:
             # The kind and the paragraph name the step; its repr can hold a whole law.
-            name = type(step).__name__ + (f" ({step.citation})" if step.citation else "")
+            title = getattr(step, "title", None)  # a sequence is named by its title
+            name = type(step).__name__ + (f" {title!r}" if title else "") + (f" ({step.citation})" if step.citation else "")
             raise ValueError(
                 f"step {position} {name} reads {sorted(missing)}, "
                 f"which no earlier step writes; established: {sorted(facts)}"

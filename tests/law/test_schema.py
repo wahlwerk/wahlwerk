@@ -110,9 +110,7 @@ def test_a_misspelled_field_is_rejected(schema: dict[str, Any]) -> None:
 
 def test_a_share_is_a_fraction_string(schema: dict[str, Any]) -> None:
     data = _law_data("de.st.lwg.2021")
-    threshold = next(
-        step["threshold"] for step in data["law"]["protocol"] if "threshold" in step
-    )
+    threshold = data["law"]["protocol"][2]["steps"][1]["threshold"]  # inside QUALIFY
     assert threshold["share"] == "1/20"
     threshold["share"] = 0.05
     assert _errors(schema, data)

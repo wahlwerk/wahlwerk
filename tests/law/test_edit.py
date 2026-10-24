@@ -23,14 +23,14 @@ P = LWG_2021.protocol
 def test_steps_walks_nested_protocols_depth_first():
     paths = [path for path, _ in steps(P)]
     assert paths[0] == (0,)
-    assert (5, "protocol", 0, "steps", 1) in paths
-    assert paths.index((5,)) < paths.index((5, "protocol", 0)) < paths.index((5, "protocol", 0, "steps", 1)) < paths.index((6,))
-    assert isinstance(step_at(P, (5, "protocol", 0, "steps", 1)), ApportionSeats)
+    assert (3, "protocol", 0, "steps", 1) in paths
+    assert paths.index((3,)) < paths.index((3, "protocol", 0)) < paths.index((3, "protocol", 0, "steps", 1)) < paths.index((4,))
+    assert isinstance(step_at(P, (3, "protocol", 0, "steps", 1)), ApportionSeats)
 
 
 def test_find_reaches_into_the_mehrsitze_loop():
-    assert find(P, ApportionSeats) == [(5, "protocol", 0, "steps", 1)]
-    assert find(P, RepeatForMehrsitze) == [(5,)]
+    assert find(P, ApportionSeats) == [(3, "protocol", 0, "steps", 1)]
+    assert find(P, RepeatForMehrsitze) == [(3,)]
 
 
 def test_replace_changes_every_occurrence():
@@ -40,9 +40,9 @@ def test_replace_changes_every_occurrence():
 
 
 def test_replace_one_occurrence():
-    edited = replace(P, ApportionSeats, at=(5, "protocol", 0, "steps", 1), method=DHondt())
-    assert isinstance(step_at(edited, (5, "protocol", 0, "steps", 1)).method, DHondt)
-    assert step_at(edited, (5, "protocol", 0, "steps", 0)) == step_at(P, (5, "protocol", 0, "steps", 0))
+    edited = replace(P, ApportionSeats, at=(3, "protocol", 0, "steps", 1), method=DHondt())
+    assert isinstance(step_at(edited, (3, "protocol", 0, "steps", 1)).method, DHondt)
+    assert step_at(edited, (3, "protocol", 0, "steps", 0)) == step_at(P, (3, "protocol", 0, "steps", 0))
 
 
 def test_replace_validates_and_names_what_is_wrong():
@@ -60,15 +60,15 @@ def test_substitute_insert_remove():
     threshold = ApplyThreshold(
         threshold=RelativeThreshold(share=Fraction(1, 10)), section="zweitstimme", level="land"
     )
-    assert step_at(substitute(P, (3,), threshold), (3,)) == threshold
-    longer = insert(P, (5, "protocol", 0, "steps", 0), SumVotes(level="land"))
-    assert len(step_at(longer, (5, "protocol", 0)).steps) == 4
-    shorter = remove(P, (5, "protocol", 0, "steps", 2))
-    assert len(step_at(shorter, (5, "protocol", 0)).steps) == 2
+    assert step_at(substitute(P, (2, "steps", 1), threshold), (2, "steps", 1)) == threshold
+    longer = insert(P, (3, "protocol", 0, "steps", 0), SumVotes(level="land"))
+    assert len(step_at(longer, (3, "protocol", 0)).steps) == 4
+    shorter = remove(P, (3, "protocol", 0, "steps", 2))
+    assert len(step_at(shorter, (3, "protocol", 0)).steps) == 2
     with pytest.raises(KeyError):
         remove(P, (42,))
     with pytest.raises(KeyError, match="step path"):
-        step_at(P, (5, "protocol"))
+        step_at(P, (3, "protocol"))
 
 
 def test_revise_makes_a_counterfactual_that_is_never_in_force():
@@ -91,4 +91,4 @@ def test_revise_needs_a_new_id_and_a_valid_protocol():
     with pytest.raises(ValueError, match="no field"):
         LWG_2021.revise(id="example.x", seats=101)
     with pytest.raises(ValueError, match="forms no chamber"):
-        LWG_2021.revise(id="example.x", protocol=remove(P, (6,)))
+        LWG_2021.revise(id="example.x", protocol=remove(P, (4,)))

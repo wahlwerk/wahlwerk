@@ -36,9 +36,35 @@ from wahlwerk.process.allocation.mehrsitze import RaiseForAusgleich
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
 
-__all__ = ["ALLOCATE", "LKWG_2011"]
+__all__ = ["ALLOCATE", "COUNT", "LKWG_2011", "QUALIFY"]
 
 _FIVE_PERCENT = Fraction(5, 100)
+
+COUNT = StepSequence(
+    title="count the votes",
+    citation="Sec. 57, 58 (2) S. 1",
+    steps=(
+        SumVotes(level="wahlkreis", citation="Sec. 57"),
+        SumVotes(level="land", citation="Sec. 58 (2) S. 1"),
+    ),
+)
+"""The counting: the votes summed per Wahlkreis and for the Land. Reads only the tally."""
+
+QUALIFY = StepSequence(
+    title="decide the Wahlkreise and who takes part",
+    citation="Sec. 57, 58 (1)",
+    steps=(
+        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 57"),
+        ApplyThreshold(
+            threshold=RelativeThreshold(share=_FIVE_PERCENT),
+            section="zweitstimme",
+            level="land",
+            citation="Sec. 58 (1)",
+        ),
+    ),
+)
+"""What the counts decide before any seat is apportioned: the winner of each Wahlkreis,
+and the parties past the threshold. Reads only the sums."""
 
 ALLOCATE = StepSequence(
     title="allocate the seats of one chamber size",
@@ -71,17 +97,12 @@ LKWG_2011 = Law(
     body="de.mv.landtag",
     source="https://www.landesrecht-mv.de/bsmv/document/jlr-LKWGMVrahmen",
     in_force_from=date(2011, 1, 1),
+    # In stages: the chamber size and the counting, then what the counts decide, then
+    # the seats, then the chamber.
     protocol=(
-        SumVotes(level="wahlkreis", citation="Sec. 57"),
-        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 57"),
-        SumVotes(level="land", citation="Sec. 58 (2) S. 1"),
-        ApplyThreshold(
-            threshold=RelativeThreshold(share=_FIVE_PERCENT),
-            section="zweitstimme",
-            level="land",
-            citation="Sec. 58 (1)",
-        ),
         SetChamberSize(seats=71, citation="Art. 20 (2) Verf. M-V"),  # "mindestens 71": also the minimum
+        COUNT,
+        QUALIFY,
         RaiseForAusgleich(
             protocol=(ALLOCATE,), limit=2, has_odd_size=True, citation="Sec. 58 (6)"
         ),

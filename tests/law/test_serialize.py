@@ -22,7 +22,7 @@ def test_a_revised_law_round_trips():
 def test_models_carry_their_type_and_exact_values():
     data = json.loads(law_to_json(LWG_2021))
     assert data["schema"] == 1
-    threshold = data["law"]["protocol"][3]["threshold"]
+    threshold = data["law"]["protocol"][2]["steps"][1]["threshold"]  # inside QUALIFY
     assert threshold == {
         "type": "wahlwerk.apportionment.threshold.RelativeThreshold",
         "share": "1/20",
