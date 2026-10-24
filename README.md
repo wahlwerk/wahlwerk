@@ -390,6 +390,20 @@ Then, toward laws built by hand (decision 0004 in `.github-private`):
 - The engine in the browser (Pyodide) on wahlwerk-site, a law editor there; a
   standalone app or a server for parameter sweeps only if it is needed
 
+Then, the formula library (decision 0005 in `.github-private`): every formula as a plain
+function in `wahlwerk.formula`, dicts and numbers in, dicts and numbers out, called by the
+models in `apportionment` and `measure`, so a step in a law and a hand call share one
+implementation:
+
+- F0: the contract (plain inputs, `TieError` and `lot=`, doctests run by pytest)
+- F1: the apportionment arithmetic moved there, golden tests unchanged; more divisor and
+  quota methods and `divisor_range`
+- F2: proportionality (moved from `measure`), fragmentation, turnout, swing, seats-votes
+- F3: majorities and coalitions; F4: power indices, exact
+- F5: a chamber in one line, `Chamber.apply(fn, by="caucus")` and `measure.report`
+- F6, later: biproportional apportionment, ranking profiles for other tools, paradox
+  checks for parameter sweeps
+
 Alongside:
 
 - A trace of how a result was derived: one helper that applies a protocol and records
