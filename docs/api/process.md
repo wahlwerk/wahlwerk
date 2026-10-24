@@ -38,10 +38,10 @@ Steps, protocols and the processes that apply them.
 .. automodule:: wahlwerk.process.allocation.count
 ```
 
-## `wahlwerk.process.allocation.district`
+## `wahlwerk.process.allocation.elect`
 
 ```{eval-rst}
-.. automodule:: wahlwerk.process.allocation.district
+.. automodule:: wahlwerk.process.allocation.elect
 ```
 
 ## `wahlwerk.process.allocation.eligibility`

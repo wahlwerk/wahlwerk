@@ -4,12 +4,13 @@ Ausgleich of Sec. 58 (6) LKWG M-V."""
 
 from fractions import Fraction
 
+from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.process.allocation.base import Allocation, check_protocol
 from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.district import ElectDistricts
+from wahlwerk.process.allocation.elect import ElectPerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
     SetChamberSize,
@@ -49,7 +50,7 @@ def tally(winners, zweit):
 def law(base, repeat):
     return (
         SumVotes(level="wahlkreis"),
-        ElectDistricts(section="erststimme", level="wahlkreis"),
+        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumVotes(level="land"),
         ApplyThreshold(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
         SetChamberSize(seats=base),

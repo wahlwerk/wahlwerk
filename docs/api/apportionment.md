@@ -38,6 +38,12 @@ How seats are divided among keys, free of any law.
 .. automodule:: wahlwerk.apportionment.majority
 ```
 
+## `wahlwerk.apportionment.plurality`
+
+```{eval-rst}
+.. automodule:: wahlwerk.apportionment.plurality
+```
+
 ## `wahlwerk.apportionment.threshold`
 
 ```{eval-rst}

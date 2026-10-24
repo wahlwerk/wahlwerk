@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.apportionment.tie import Tie
 from wahlwerk.process.allocation.base import (
     Allocation,
@@ -9,7 +10,7 @@ from wahlwerk.process.allocation.base import (
     check_protocol,
 )
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.district import ElectDistricts
+from wahlwerk.process.allocation.elect import ElectPerUnit
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
 LEVELS = (
@@ -56,7 +57,7 @@ TALLY = Tally(
     ),
 )
 START = Allocation(tally=TALLY)
-ELECT = ElectDistricts(section="erststimme", level="wahlkreis")
+ELECT = ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis")
 
 
 # ===========================================================
@@ -88,7 +89,7 @@ def test_allocation_rejects_a_level_summed_twice():
 
 
 # ===========================================================
-# ElectDistricts
+# ElectPerUnit
 # ===========================================================
 def districts():
     return {d.unit: d for d in ELECT(SumVotes(level="wahlkreis")(START)).districts}
@@ -120,7 +121,7 @@ def test_elect_needs_its_total():
 
 
 def test_elect_without_votes_in_section():
-    other = ElectDistricts(section="stimme", level="wahlkreis")
+    other = ElectPerUnit(method=Plurality(), section="stimme", level="wahlkreis")
     with pytest.raises(ValueError, match="no 'stimme' votes"):
         other(SumVotes(level="wahlkreis")(START))
 
@@ -145,7 +146,7 @@ def test_check_protocol_returns_the_facts_at_the_end():
 
 
 def test_check_protocol_refuses_a_misordered_law():
-    with pytest.raises(ValueError, match=r"step 1 .*ElectDistricts.* reads \['total:wahlkreis'\]"):
+    with pytest.raises(ValueError, match=r"step 1 .*ElectPerUnit.* reads \['total:wahlkreis'\]"):
         check_protocol((ELECT, SumVotes(level="wahlkreis")))
 
 
@@ -156,8 +157,8 @@ def test_check_protocol_sees_the_wrong_level():
 
 def test_steps_are_data():
     assert SumVotes(level="wahlkreis") == SumVotes(level="wahlkreis")
-    assert hash(ELECT) == hash(ElectDistricts(section="erststimme", level="wahlkreis"))
-    assert "ElectDistricts" in repr(ELECT)
+    assert hash(ELECT) == hash(ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis"))
+    assert "ElectPerUnit" in repr(ELECT)
 
 
 def test_a_step_must_write_what_it_declares():
@@ -175,3 +176,16 @@ def test_a_step_must_write_what_it_declares():
 
     with pytest.raises(ValueError, match=r"did not establish \['districts'\]"):
         Forgetful()(START)
+
+
+def test_each_unit_is_a_contest_the_method_decides():
+    # The step only turns the tally into contests; the method alone picks the winner.
+    from wahlwerk.process.allocation.elect import contests
+
+    allocation = SumVotes(level="wahlkreis")(START)
+    per_unit = contests(allocation, "erststimme", "wahlkreis")
+    assert per_unit and all(isinstance(v, int) for unit in per_unit.values() for v in unit.values())
+    assert per_unit["de.st.wk.001"] == {("afd", None): 65, ("cdu", None): 60}
+    elected = ELECT(allocation)
+    for result in elected.districts or ():
+        assert result.votes == max(per_unit[result.unit].values())

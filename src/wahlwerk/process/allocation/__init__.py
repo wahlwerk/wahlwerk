@@ -5,7 +5,7 @@ The package exposes its modules, never their names, grouped by what the steps de
 
 - ``base``: the working record, the step base, protocols and :func:`check_protocol`
 - ``count``: summing the tally to the levels the law counts at
-- ``district``: who wins each single-seat unit
+- ``elect``: one winner per single-seat unit, chosen by a method such as plurality
 - ``eligibility``: which parties take part, and how many seats they share
 - ``seats``: each party's entitlement, and its list seats after its Wahlkreis seats
 - ``mehrsitze``: raising the chamber size for Mehrsitze and allocating again
@@ -23,7 +23,7 @@ from wahlwerk.process.allocation import (
     base,
     chamber,
     count,
-    district,
+    elect,
     eligibility,
     mehrsitze,
     seats,
@@ -34,7 +34,7 @@ __all__ = [
     "base",
     "chamber",
     "count",
-    "district",
+    "elect",
     "eligibility",
     "mehrsitze",
     "seats",

@@ -8,8 +8,9 @@ step in a law and a formula called by hand give the same seats by construction.
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from fractions import Fraction
+from typing import ClassVar
 
 from wahlwerk.apportionment.result import Apportionment
 from wahlwerk.calc.result import SeatResult
@@ -20,6 +21,11 @@ __all__ = ["ApportionmentMethod"]
 
 class ApportionmentMethod(Model):
     """A way to divide seats among keys in proportion to their weights."""
+
+    formula: ClassVar[Callable[..., SeatResult]]
+    """The function in ``wahlwerk.calc`` that :meth:`calculate` calls, set by each
+    family and called through this attribute, so the link from a method to its formula
+    (shown by :func:`wahlwerk.process.allocation.flow.describe`) is the call itself."""
 
     def apportion(self, weights: Mapping[str, int | Fraction], seats: int) -> Apportionment:
         """Divide ``seats`` among the keys of ``weights``.

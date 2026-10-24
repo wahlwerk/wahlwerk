@@ -17,12 +17,13 @@ from __future__ import annotations
 from fractions import Fraction
 
 from wahlwerk.apportionment.majority import MajorityFirst
+from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.law.base import Law
 from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.district import ElectDistricts
+from wahlwerk.process.allocation.elect import ElectPerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
     SetChamberSize,
@@ -68,7 +69,7 @@ LWG_2021 = Law(
     ),
     protocol=(
         SumVotes(level="wahlkreis", citation="Sec. 31, 32"),
-        ElectDistricts(section="erststimme", level="wahlkreis", citation="Sec. 33"),
+        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 33"),
         SumVotes(level="land", citation="Sec. 35 (2)"),
         ApplyThreshold(
             threshold=RelativeThreshold(share=_FIVE_PERCENT),

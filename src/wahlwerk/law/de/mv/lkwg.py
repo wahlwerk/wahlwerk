@@ -20,12 +20,13 @@ from datetime import date
 from fractions import Fraction
 
 from wahlwerk.apportionment.majority import MajorityFirst
+from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.law.base import Law
 from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.district import ElectDistricts
+from wahlwerk.process.allocation.elect import ElectPerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
     SetChamberSize,
@@ -72,7 +73,7 @@ LKWG_2011 = Law(
     in_force_from=date(2011, 1, 1),
     protocol=(
         SumVotes(level="wahlkreis", citation="Sec. 57"),
-        ElectDistricts(section="erststimme", level="wahlkreis", citation="Sec. 57"),
+        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis", citation="Sec. 57"),
         SumVotes(level="land", citation="Sec. 58 (2) S. 1"),
         ApplyThreshold(
             threshold=RelativeThreshold(share=_FIVE_PERCENT),

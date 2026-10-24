@@ -39,6 +39,7 @@ from wahlwerk.process.allocation.base import (
 
 __all__ = [
     "StepNode",
+    "Use",
     "can_swap",
     "describe",
     "movable",
@@ -47,6 +48,7 @@ __all__ = [
     "protocol_table",
     "sources",
     "stages",
+    "uses",
 ]
 
 
@@ -139,6 +141,15 @@ def _flow(
 # ===========================================================
 # Describing a protocol: for tables, drawings and the site
 # ===========================================================
+class Use(Model):
+    """A law-free model a step uses, and the formula it computes with: one link of
+    the chain from a step down to ``wahlwerk.calc``."""
+
+    field: str = Field(description="Where it sits in the step, e.g. ``method`` or ``method.method``.")
+    kind: str = Field(description="Its class, e.g. ``Plurality``.")
+    formula: str = Field(description="The function in ``wahlwerk.calc`` it calls, e.g. ``wahlwerk.calc.plurality.plurality``.")
+
+
 class StepNode(Model):
     """One step as a reader sees it: what it is, what it follows, what it reads and
     writes, its stage, and the steps it holds."""
@@ -154,6 +165,7 @@ class StepNode(Model):
     stage: int = Field(ge=0, description="Its stage among its siblings: 0 reads only what comes from outside.")
     depends_on: tuple[int, ...] = Field(default_factory=tuple, description="The positions of the siblings it reads from.")
     holds: str | None = Field(default=None, description="The field holding its own steps, e.g. ``steps`` or ``protocol``.")
+    uses: tuple[Use, ...] = Field(default_factory=tuple, description="The models it computes with and their formulas, outermost first.")
     children: tuple[StepNode, ...] = Field(default_factory=tuple, description="The steps it holds, described the same way.")
 
 
@@ -187,10 +199,28 @@ def describe(
                 stage=stage[position],
                 depends_on=tuple(sorted({w for w in read_from[position].values() if w is not None})),
                 holds=holds,
+                uses=uses(step),
                 children=children,
             )
         )
     return tuple(nodes)
+
+
+def uses(model: BaseModel, prefix: str = "") -> tuple[Use, ...]:
+    """Each model held by ``model`` (and by those, and so on) that names a formula,
+    with that formula: ``ElectPerUnit`` uses ``Plurality``, which computes with
+    :func:`wahlwerk.calc.plurality.plurality`. Read from the objects, never declared."""
+    found: list[Use] = []
+    for name in type(model).model_fields:
+        value = getattr(model, name)
+        if not isinstance(value, BaseModel) or isinstance(value, AllocationStep):
+            continue
+        field = f"{prefix}{name}"
+        formula = getattr(type(value), "formula", None)
+        if callable(formula):
+            found.append(Use(field=field, kind=type(value).__name__, formula=f"{formula.__module__}.{formula.__qualname__}"))
+        found.extend(uses(value, f"{field}."))
+    return tuple(found)
 
 
 def protocol_data(protocol: AllocationProtocol) -> list[dict[str, Any]]:
@@ -216,6 +246,8 @@ def protocol_table(protocol: AllocationProtocol) -> str:
                 ", ".join(node.writes),
             )
         )
+        for use in node.uses:
+            rows.append(("", "  " * (depth + 1) + f"-> {use.kind}: {use.formula.removeprefix('wahlwerk.')}", "", "", ""))
     widths = [max(len(row[i]) for row in rows) for i in range(len(rows[0]))]
     lines = ["  ".join(cell.ljust(width) for cell, width in zip(row, widths)).rstrip() for row in rows]
     lines.insert(1, "  ".join("-" * width for width in widths))

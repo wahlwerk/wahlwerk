@@ -8,6 +8,7 @@ import pytest
 
 from wahlwerk.apportionment.divisor import DHondt
 from wahlwerk.apportionment.majority import MajorityFirst
+from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import (
     AlternativeThresholds,
@@ -18,7 +19,7 @@ from wahlwerk.process.allocation.allocate import allocate
 from wahlwerk.process.allocation.base import Allocation, check_protocol
 from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.district import ElectDistricts
+from wahlwerk.process.allocation.elect import ElectPerUnit
 from wahlwerk.process.allocation.eligibility import (
     ApplyThreshold,
     SetChamberSize,
@@ -64,7 +65,7 @@ def tally(winners, zweit=ZWEIT):
 def law(base, threshold=FIVE_PERCENT, method=HARE):
     return (
         SumVotes(level="wahlkreis"),
-        ElectDistricts(section="erststimme", level="wahlkreis"),
+        ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
         SumVotes(level="land"),
         ApplyThreshold(threshold=threshold, section="zweitstimme", level="land"),
         SetChamberSize(seats=base),

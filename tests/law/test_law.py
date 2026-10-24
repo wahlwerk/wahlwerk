@@ -3,13 +3,14 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
+from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.law.base import Law, LawRegistry
 from wahlwerk.law.de.mv.lkwg import LKWG_2011
 from wahlwerk.law.de.st.lwg import LWG_2021
 from wahlwerk.law.registry import LAWS
 from wahlwerk.process.allocation.chamber import FormChamber
 from wahlwerk.process.allocation.count import SumVotes
-from wahlwerk.process.allocation.district import ElectDistricts
+from wahlwerk.process.allocation.elect import ElectPerUnit
 
 
 def law(law_id="de.xx.test.1", protocol=None, **fields):
@@ -49,7 +50,7 @@ def test_lkwg_2011_governs_the_elections_from_2011():
 
 def test_a_misordered_law_fails_when_created():
     with pytest.raises(ValidationError, match=r"reads \['total:wahlkreis'\]"):
-        law(protocol=(ElectDistricts(section="erststimme", level="wahlkreis"), FormChamber()))
+        law(protocol=(ElectPerUnit(method=Plurality(), section="erststimme", level="wahlkreis"), FormChamber()))
 
 
 def test_a_law_must_form_a_chamber():

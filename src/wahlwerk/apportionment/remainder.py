@@ -8,8 +8,9 @@ its quota from :mod:`wahlwerk.calc.quota`.
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from fractions import Fraction
+from typing import ClassVar
 
 from wahlwerk.apportionment.method import ApportionmentMethod
 from wahlwerk.calc import quota as quotas
@@ -24,13 +25,15 @@ class LargestRemainder(ApportionmentMethod):
     """Quota methods: each key gets the whole part of its weight over the quota, and the
     seats left go to the largest remainders, one each."""
 
+    formula: ClassVar[Callable[..., SeatResult]] = staticmethod(calc.largest_remainder)
+
     @abstractmethod
     def quota(self, total: Number, seats: int) -> Number:
         """The weight one seat is worth, given the total weight and the seats."""
 
     def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
         try:
-            return calc.largest_remainder(weights, seats, self.quota)
+            return self.formula(weights, seats, self.quota)
         except ValueError as error:
             raise ValueError(f"{type(self).__name__}: {error}") from None
 

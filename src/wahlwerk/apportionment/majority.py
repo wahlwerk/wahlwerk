@@ -3,8 +3,9 @@ weight gets a majority of the seats."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from fractions import Fraction
+from typing import ClassVar
 
 from pydantic import Field, SerializeAsAny
 
@@ -26,9 +27,11 @@ class MajorityFirst(ApportionmentMethod):
     gives it a majority. The formula is :func:`wahlwerk.calc.majority.majority_first`.
     """
 
+    formula: ClassVar[Callable[..., SeatResult]] = staticmethod(calc.majority_first)
+
     method: SerializeAsAny[LargestRemainder] = Field(
         description="The largest remainder method the clause adjusts, e.g. ``HareNiemeyer()``.",
     )
 
     def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
-        return calc.majority_first(weights, seats, self.method.quota)
+        return self.formula(weights, seats, self.method.quota)

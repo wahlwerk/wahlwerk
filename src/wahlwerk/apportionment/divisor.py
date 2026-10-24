@@ -9,9 +9,9 @@ methods apart.
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from fractions import Fraction
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import Field, field_validator
 
@@ -26,13 +26,15 @@ class DivisorMethod(ApportionmentMethod):
     """Highest averages: seat ``k + 1`` of a key is claimed by its weight over the
     ``k``-th divisor, and the seats go to the largest claims."""
 
+    formula: ClassVar[Callable[..., SeatResult]] = staticmethod(calc.highest_averages)
+
     @property
     @abstractmethod
     def signposts(self) -> calc.Signposts:
         """The method's rounding, as ``wahlwerk.calc`` names it."""
 
     def calculate(self, weights: Mapping[str, int | Fraction], seats: int) -> SeatResult:
-        return calc.highest_averages(weights, seats, self.signposts)
+        return self.formula(weights, seats, self.signposts)
 
 
 class DHondt(DivisorMethod):

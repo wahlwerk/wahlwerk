@@ -30,6 +30,7 @@ Modules, one per family or piece:
 - ``tie``: :class:`Tie`, seats decided by lot
 - ``divisor``: divisor methods; ``remainder``: largest remainder methods
 - ``majority``: majority clauses around a method (:class:`MajorityFirst`)
+- ``plurality``: the most weight wins (:class:`Plurality`), the single-winner choice
 - ``threshold``: which keys take part at all
 - ``ausgleich``: Überhang, and adding seats until it is covered
 
@@ -48,6 +49,7 @@ from wahlwerk.apportionment import (
     divisor,
     majority,
     method,
+    plurality,
     remainder,
     result,
     threshold,
@@ -61,6 +63,7 @@ __all__ = [
     "divisor",
     "majority",
     "method",
+    "plurality",
     "remainder",
     "result",
     "threshold",
