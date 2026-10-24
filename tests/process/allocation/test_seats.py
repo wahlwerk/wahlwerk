@@ -66,7 +66,7 @@ def law(base, threshold=FIVE_PERCENT, method=HARE):
     return (
         SumGroupBy(section="erststimme", level="wahlkreis"),
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
-        SumGroupBy(section="zweitstimme", level="land"),
+        SumGroupBy(section="zweitstimme", level="land", by="party"),
         ApplyThresholdToOptions(threshold=threshold, section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
         SetSeatTotal(section="zweitstimme"),
@@ -113,7 +113,7 @@ def test_grundmandatsklausel_reads_the_wahlkreise():
 def test_a_grundmandatsklausel_before_the_wahlkreise_is_refused():
     rule = AlternativeThresholds(thresholds=(FIVE_PERCENT, SeatThreshold(seats=3)))
     misordered = (
-        SumGroupBy(section="zweitstimme", level="land"),
+        SumGroupBy(section="zweitstimme", level="land", by="party"),
         ApplyThresholdToOptions(threshold=rule, section="zweitstimme", level="land"),
     )
     with pytest.raises(ValueError, match=r"reads \['unit_mandates'\]"):
@@ -215,13 +215,18 @@ def test_the_minimum_is_written_once_unless_it_differs():
 def test_each_section_keeps_its_own_eligible_options():
     # A threshold on the Erststimme as well as on the Zweitstimme: two facts, apart.
     start = Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"]))
-    allocation = SumGroupBy(section="erststimme", level="land")(SumGroupBy(section="zweitstimme", level="land")(start))
+    by_party = (
+        SumGroupBy(section="zweitstimme", level="land", by="party"),
+        SumGroupBy(section="erststimme", level="land", by="party"),
+    )
+    allocation = by_party[1](by_party[0](start))
     on_lists = ApplyThresholdToOptions(threshold=FIVE_PERCENT, section="zweitstimme", level="land")
     on_units = ApplyThresholdToOptions(threshold=FIVE_PERCENT, section="erststimme", level="land")
     assert on_lists.writes == {"zweitstimme:eligible_options"}
     both = on_units(on_lists(allocation))
     assert both.eligible("zweitstimme") == {"afd", "cdu", "linke"}
-    assert "de.st.wk.002.eb" in both.eligible("erststimme")
+    # Counted by party, the Einzelbewerber's Erststimmen count for no party.
+    assert "afd" in both.eligible("erststimme") and "de.st.wk.002.eb" not in both.eligible("erststimme")
     assert {"zweitstimme:eligible_options", "erststimme:eligible_options"} <= both.facts
     assert on_lists(both).eligible("erststimme") == both.eligible("erststimme")  # replaced, not stacked
     with pytest.raises(KeyError, match="no eligible options of section 'stimme'"):

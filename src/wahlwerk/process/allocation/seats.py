@@ -42,7 +42,7 @@ class ApportionSeats(AllocationStep):
     @property
     def inputs(self) -> dict[str, str]:
         return {
-            "votes": counts_fact(self.level, self.section),
+            "votes": counts_fact(self.section, self.level, "party"),
             "eligible": eligible_fact(self.section),
             "seats": "seat_total",
         }
@@ -53,10 +53,10 @@ class ApportionSeats(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        return {"method": (("votes", "votes of the eligible options"), ("seats", "seats"))}
+        return {"method": (("votes", "votes of the eligible parties"), ("seats", "seats"))}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.count(self.level, self.section).per_option()
+        votes = allocation.count(self.section, self.level, "party").per_column()
         eligible = allocation.eligible(self.section)
         weights = {party: n for party, n in votes.items() if party in eligible}
         seats = allocation.seat_total or 0

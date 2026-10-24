@@ -45,7 +45,7 @@ class ApplyThresholdToOptions(AllocationStep):
 
     @property
     def inputs(self) -> dict[str, str]:
-        given = {"votes": counts_fact(self.level, self.section)}
+        given = {"votes": counts_fact(self.section, self.level, "party")}
         if self.threshold.uses_won:
             given["won"] = "unit_mandates"
         return given
@@ -56,13 +56,13 @@ class ApplyThresholdToOptions(AllocationStep):
 
     @property
     def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
-        given: tuple[tuple[str, str], ...] = (("votes", "votes per option, summed over the units"),)
+        given: tuple[tuple[str, str], ...] = (("votes", "votes per party, summed over the units"),)
         if self.threshold.uses_won:
             given += (("won", "units won per party"),)
         return {"threshold": given}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.count(self.level, self.section).per_option()
+        votes = allocation.count(self.section, self.level, "party").per_column()
         won = allocation.unit_wins() if self.threshold.uses_won else None
         others = tuple((s, o) for s, o in allocation.eligible_options if s != self.section)
         passed = self.threshold.select(votes, won)

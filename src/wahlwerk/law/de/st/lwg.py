@@ -33,7 +33,7 @@ from wahlwerk.process.allocation.eligibility import (
 from wahlwerk.process.allocation.overhang import (
     RaiseByOverhang,
     RaiseChamberSize,
-    SetMinimumCaucusSize,
+    SetCaucusSize,
 )
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
@@ -47,7 +47,7 @@ COUNT = StepSequence(
     citation="Sec. 31, 32, 35 (2)",
     steps=(
         SumGroupBy(section="erststimme", level="wahlkreis", citation="Sec. 31, 32"),
-        SumGroupBy(section="zweitstimme", level="land", citation="Sec. 35 (2)"),
+        SumGroupBy(section="zweitstimme", level="land", by="party", citation="Sec. 35 (2)"),
     ),
 )
 """The counting: the Erststimmen per Wahlkreis and option, the Zweitstimmen in the Land per
@@ -85,7 +85,7 @@ ALLOCATE = StepSequence(
 )
 """Sec. 35 (4) to (7): the seats of one chamber size, which Sec. 35 (8) repeats."""
 
-CAUCUS = SetMinimumCaucusSize(
+CAUCUS = SetCaucusSize(
     share=_FIVE_PERCENT,
     section="zweitstimme",
     level="land",

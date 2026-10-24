@@ -32,7 +32,7 @@ class SingleMandatePerUnit(AllocationStep):
     """One mandate per unit: elect one option in each unit of ``level`` by ``method``, from
     the valid votes in ``section`` summed over channels (Urne and Brief).
 
-    Its argument ``votes`` is the table ``<level>:option:<section>``: each row one unit's
+    Its argument ``votes`` is the table ``<section> by <level> × option``: each row one unit's
     contest, its options and their votes, an option being a candidate, or a party's
     nominee where the tally names no candidate. ``method`` chooses one winner from a row
     alone. Where it cannot (equal votes at the top, or no votes at all), the unit's
@@ -58,7 +58,7 @@ class SingleMandatePerUnit(AllocationStep):
 
     @property
     def inputs(self) -> dict[str, str]:
-        return {"votes": counts_fact(self.level, self.section)}
+        return {"votes": counts_fact(self.section, self.level, "option")}
 
     @property
     def writes(self) -> frozenset[str]:
@@ -69,7 +69,7 @@ class SingleMandatePerUnit(AllocationStep):
         return {"method": (("votes", "one row of votes"), ("seats", str(self.SEATS)))}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        table = allocation.count(self.level, self.section)
+        table = allocation.count(self.section, self.level, "option")
         if not table.rows:
             raise ValueError(f"{type(self).__name__}: no {table.fact!r} votes to elect from")
         return allocation.with_values(

@@ -53,15 +53,16 @@ protocol of steps over one working model**. The six slots survive as the modules
 steps are grouped in, not as types.
 
 - **`Allocation` is the working model.** It holds what the law establishes along the
-  way: tables of counts (`wahlkreis:option:erststimme`), Wahlkreis winners, the parties past the threshold, the seat
+  way: tables of counts (`erststimme by wahlkreis × option`), Wahlkreis winners, the parties past the threshold, the seat
   total, each party's entitlement, and its Wahlkreis and list seats. It sits in
   `process/`, not `state/`, since it exists only while a result is being derived.
 - **Each step declares what it reads and what it writes.** A protocol that apportions
   before applying the threshold then fails when the law is written, not in the middle
   of a run. A step reads like a function: `inputs` names each argument and the fact it
-  takes (`SingleMandatePerUnit(votes=wahlkreis:option:erststimme)`), its fields are
-  its settings, the facts it writes its results. A table of counts is named by its
-  headers, rows, columns and values: `wahlkreis:option:erststimme`.
+  takes (`SingleMandatePerUnit(votes=erststimme by wahlkreis × option)`), its fields are
+  its settings, the facts it writes its results. A table of counts is named by what it
+  counts and by what: `erststimme by wahlkreis × option` (each unit's contest),
+  `zweitstimme by land × party` (what the list allocation divides).
 - **A step may hold a protocol.** § 35 (8) is a step whose field is the sub-protocol it
   repeats; there is no other way to write it without special cases.
 - **Apportionment methods have no German content.** Opaque options, exact weights, a seat
@@ -118,13 +119,13 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
             DeductUnitSeats(),                                      # § 35 (7): the overhang
         ),
     ),
-    SetMinimumCaucusSize(share="5/100", section="zweitstimme",             # § 35 (8a); stage 3
+    SetCaucusSize(share="5/100", section="zweitstimme",             # § 35 (8a); stage 3
                   level="land", quota=HareQuota()),
     RaiseByOverhang(                                                # § 35 (8), (8a); stage 4
         protocol=(                                                  # one round, only while
             RaiseChamberSize(factor=2),                             # there is overhang
             ALLOCATE,                                               # the sequence above
-            CAUCUS,                                                 # SetMinimumCaucusSize again
+            CAUCUS,                                                 # SetCaucusSize again
         ),
         full_rounds=2,
     ),
@@ -273,7 +274,7 @@ Stimmkreise inside Wahlkreise still nest by prefix.
    Sachsen-Anhalt 2026 against the official Sitzverteilung
    (`tests/golden/test_de_landtag_st.py`). **Done**: equal party by party, 41
    Wahlkreis and 42 list seats, 83 in all.
-6. `RaiseByOverhang` and `SetMinimumCaucusSize`, on constructed tallies (balanced within
+6. `RaiseByOverhang` and `SetCaucusSize`, on constructed tallies (balanced within
    the full rounds, kept after them, further rounds beyond half a Fraktion), then the
    Landtag 2021 as a second golden test. **Done**: 2021 gives 97 seats, CDU 40 (all from
    Wahlkreise), AfD 23, Linke 12, SPD 9, FDP 7, Grüne 6, as published. The law moved to

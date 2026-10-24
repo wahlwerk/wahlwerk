@@ -45,7 +45,7 @@ COUNT = StepSequence(
     citation="Sec. 57, 58 (2) S. 1",
     steps=(
         SumGroupBy(section="erststimme", level="wahlkreis", citation="Sec. 57"),
-        SumGroupBy(section="zweitstimme", level="land", citation="Sec. 58 (2) S. 1"),
+        SumGroupBy(section="zweitstimme", level="land", by="party", citation="Sec. 58 (2) S. 1"),
     ),
 )
 """The counting: the Erststimmen per Wahlkreis and option, the Zweitstimmen in the Land per

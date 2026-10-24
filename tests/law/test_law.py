@@ -49,13 +49,13 @@ def test_lkwg_2011_governs_the_elections_from_2011():
 
 
 def test_a_misordered_law_fails_when_created():
-    with pytest.raises(ValidationError, match=r"reads \['wahlkreis:option:erststimme'\]"):
+    with pytest.raises(ValidationError, match=r"reads \['erststimme by wahlkreis × option'\]"):
         law(protocol=(SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"), FillVacantSeatsFromLists()))
 
 
 def test_a_law_must_form_a_chamber():
     with pytest.raises(ValidationError, match="forms no chamber"):
-        law(protocol=(SumGroupBy(section="zweitstimme", level="land"),))
+        law(protocol=(SumGroupBy(section="zweitstimme", level="land", by="party"),))
 
 
 def test_dates_must_be_in_order():
