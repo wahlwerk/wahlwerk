@@ -358,6 +358,12 @@ Built one small step at a time; each step leaves the package importable.
   Wahlkreis; fixtures and sources in `tests/golden/`
 - Measures of disproportionality in `wahlwerk.measure.proportionality`, exact, after
   votelib
+- Speed: a tally is checked once per instance, not at every allocation step; an
+  allocation on a real Wahlbezirk tally (about 70,000 rows) went from 2.2 s to 0.3 s
+  (`benchmarks/allocate.py`)
+- Laws can be edited: `Law.revise` makes a counterfactual law (`based_on`, in force on no
+  date), `wahlwerk.law.edit` changes a protocol by step type or path, nested loops
+  included, and `wahlwerk.law.serialize` writes a law as JSON and reads it back
 
 **Next**
 
@@ -370,6 +376,15 @@ The path from a popular vote to a chamber, and how it was built, is in
   M-V under which the Landtag was elected from 1994 to 2006 (bundles are in
   wahlwerk-data; the law's text is still to be obtained); Mecklenburg-Vorpommern 2026
   as a golden test once its final result is published
+
+Then, toward laws built by hand (decision 0004 in `.github-private`):
+
+- A JSON Schema for every step type, from the models, to drive a form-based law editor
+- Allocations in milliseconds: sum the tally once per election to the levels a law
+  counts at; find a divisor method's divisor, and the house an Ausgleich needs, directly
+  instead of a seat at a time; cache results by (vote, law), both frozen and hashable
+- The engine in the browser (Pyodide) on wahlwerk-site, a law editor there; a
+  standalone app or a server for parameter sweeps only if it is needed
 
 Alongside:
 

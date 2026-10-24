@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import date
+from typing import Any
 
 from pydantic import Field, SerializeAsAny, model_validator
 
@@ -58,6 +59,13 @@ class Law(Model):
         min_length=1,
         description="The allocation protocol, from the tally to the chamber.",
     )
+    based_on: LawId | None = Field(
+        default=None,
+        description=(
+            "The law this one was revised from (:meth:`revise`); ``None`` for a law as "
+            "enacted."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check(self) -> Law:
@@ -71,9 +79,43 @@ class Law(Model):
             raise ValueError(f"law {self.id!r} forms no chamber; end its protocol with FormChamber")
         return self
 
+    def revise(self, *, id: str, **changes: Any) -> Law:
+        """A new law from this one: the same, except for ``changes``, under a new ``id``.
+
+        A revised law is a counterfactual, not a law that was enacted: it records
+        ``based_on`` (this law's id) and is in force on no date, so the registry never
+        picks it for an election, unless ``in_force_from`` or ``in_force_until`` are
+        given. It has no ``source`` of its own unless one is given. Change the protocol
+        with :mod:`wahlwerk.law.edit`::
+
+            LWG_2021.revise(
+                id="example.st.lwg.101",
+                title="LWG LSA with a house of 101",
+                protocol=replace(LWG_2021.protocol, SetHouse, seats=101),
+            )
+
+        Raises ``ValueError`` if ``id`` is this law's own, or the result fails a law's
+        checks (a protocol in the wrong order, one that forms no chamber).
+        """
+        if id == self.id:
+            raise ValueError(f"a revised law needs an id of its own, not {id!r}")
+        unknown = set(changes) - set(type(self).model_fields)
+        if unknown:
+            raise ValueError(f"Law has no field {sorted(unknown)}")
+        defaults: dict[str, Any] = {
+            "based_on": self.id,
+            "source": None,
+            "in_force_from": None,
+            "in_force_until": None,
+        }
+        return type(self).model_validate({**dict(self), **defaults, **changes, "id": id})
+
     def is_in_force(self, on: date) -> bool:
         """Whether an election on ``on`` was held under this version; an open side
-        (``None``) counts as in force."""
+        (``None``) counts as in force. A revised law (``based_on``) with no dates of its
+        own is in force on no date."""
+        if self.based_on is not None and self.in_force_from is None and self.in_force_until is None:
+            return False
         starts = self.in_force_from is None or self.in_force_from <= on
         ends = self.in_force_until is None or on <= self.in_force_until
         return starts and ends

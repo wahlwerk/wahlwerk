@@ -5,13 +5,14 @@ the versions of the Wahlgesetz of Sachsen-Anhalt. A law is rules, not recorded d
 it lives in the engine, is type-checked with it, and is what golden tests replay.
 
 Modules, exposed but never flattened: ``base`` (:class:`~wahlwerk.law.base.Law`,
-:class:`~wahlwerk.law.base.LawRegistry`), ``registry`` (``LAWS``, every known version)
-and ``de`` (the laws themselves). This package uses ``process`` and ``apportionment``;
+:class:`~wahlwerk.law.base.LawRegistry`), ``registry`` (``LAWS``, every known version),
+``de`` (the laws themselves), ``edit`` (a new protocol from an existing one, for a
+revised law) and ``serialize`` (a law as JSON and back). This package uses ``process`` and ``apportionment``;
 nothing in the engine imports it.
 """
 
 from __future__ import annotations
 
-from wahlwerk.law import base, de, registry
+from wahlwerk.law import base, de, edit, registry, serialize
 
-__all__ = ["base", "de", "registry"]
+__all__ = ["base", "de", "edit", "registry", "serialize"]

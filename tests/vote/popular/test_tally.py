@@ -278,3 +278,24 @@ def test_sum_to_unlisted_level_is_rejected():
 def test_sum_to_contradicting_depth_is_rejected():
     with pytest.raises(ValueError, match="depth 5 contradicts level 'wahlkreis'"):
         LEVELLED.sum_to("wahlkreis", depth=5)
+
+
+def test_a_tally_is_checked_once(monkeypatch):
+    """Passing a tally through validation again (as every allocation step does) does not
+    walk its rows again: a frozen tally that passed its checks stays valid."""
+    from wahlwerk.process.allocation.base import Allocation
+
+    reads = []
+    key = TallyRow.key
+    monkeypatch.setattr(TallyRow, "key", property(lambda self: reads.append(1) or key.fget(self)))
+    tally = Tally(rows=TALLY.rows)
+    assert reads  # checked when built
+    reads.clear()
+    allocation = Allocation(tally=tally).with_values(house=1).with_values(seat_total=1)
+    assert allocation.tally is tally
+    assert reads == []
+
+
+def test_a_new_tally_from_checked_rows_is_still_checked():
+    with pytest.raises(ValidationError, match="more than once"):
+        Tally(rows=(*TALLY.rows, TALLY.rows[0]))

@@ -17,7 +17,7 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 
 from wahlwerk.ids import CandidateId, LevelName, PartyId, Slug, UnitId
 from wahlwerk.model import Count, Model
@@ -183,8 +183,16 @@ class Tally(Model):
         ),
     )
 
+    _is_checked: bool = PrivateAttr(default=False)
+    """Whether the checks below have passed. Pydantic runs a model's "after" validators
+    again whenever an existing instance passes through validation (every time an
+    allocation step records a fact), and both checks walk every row. A tally is frozen,
+    so once its checks pass they hold for good: they run once per instance."""
+
     @model_validator(mode="after")
     def _check_unique(self) -> Tally:
+        if self._is_checked:
+            return self
         seen: set[tuple[Any, ...]] = set()
         for row in self.rows:
             if row.key in seen:
@@ -196,6 +204,8 @@ class Tally(Model):
 
     @model_validator(mode="after")
     def _check_levels(self) -> Tally:
+        if self._is_checked:
+            return self
         depths: dict[str, int] = {}
         for level in self.levels:
             if level.name in depths:
@@ -215,6 +225,12 @@ class Tally(Model):
                     f"unit {row.unit!r} has {segments} segments, but level "
                     f"{row.level!r} is {depths[row.level]} deep"
                 )
+        return self
+
+    @model_validator(mode="after")
+    def _mark_checked(self) -> Tally:
+        # Last of the validators: reached only when every check above has passed.
+        self._is_checked = True
         return self
 
     def __len__(self) -> int:
