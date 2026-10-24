@@ -366,6 +366,9 @@ Built one small step at a time; each step leaves the package importable.
 - Laws can be edited: `Law.revise` makes a counterfactual law (`based_on`, in force on no
   date), `wahlwerk.law.edit` changes a protocol by step type or path, nested loops
   included, and `wahlwerk.law.serialize` writes a law as JSON and reads it back
+- A law file has a JSON Schema, `wahlwerk.law.schema.law_schema()`, from the models:
+  every step type, method and threshold with its fields and descriptions, the ground
+  for a form-based law editor
 
 **Next**
 
@@ -381,7 +384,6 @@ The path from a popular vote to a chamber, and how it was built, is in
 
 Then, toward laws built by hand (decision 0004 in `.github-private`):
 
-- A JSON Schema for every step type, from the models, to drive a form-based law editor
 - Allocations in milliseconds, the rest: find a divisor method's divisor, and the house
   an Ausgleich needs, directly instead of a seat at a time, once a law needs it; cache
   results by (vote, law), both frozen and hashable

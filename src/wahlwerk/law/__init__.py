@@ -7,12 +7,13 @@ it lives in the engine, is type-checked with it, and is what golden tests replay
 Modules, exposed but never flattened: ``base`` (:class:`~wahlwerk.law.base.Law`,
 :class:`~wahlwerk.law.base.LawRegistry`), ``registry`` (``LAWS``, every known version),
 ``de`` (the laws themselves), ``edit`` (a new protocol from an existing one, for a
-revised law) and ``serialize`` (a law as JSON and back). This package uses ``process`` and ``apportionment``;
+revised law), ``serialize`` (a law as JSON and back) and ``schema`` (the JSON Schema
+of that file, for an editor). This package uses ``process`` and ``apportionment``;
 nothing in the engine imports it.
 """
 
 from __future__ import annotations
 
-from wahlwerk.law import base, de, edit, registry, serialize
+from wahlwerk.law import base, de, edit, registry, schema, serialize
 
-__all__ = ["base", "de", "edit", "registry", "serialize"]
+__all__ = ["base", "de", "edit", "registry", "schema", "serialize"]

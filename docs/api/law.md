@@ -20,6 +20,12 @@ Electoral laws and Geschäftsordnungen as protocols, by jurisdiction.
 .. automodule:: wahlwerk.law.serialize
 ```
 
+## `wahlwerk.law.schema`
+
+```{eval-rst}
+.. automodule:: wahlwerk.law.schema
+```
+
 ## `wahlwerk.law.registry`
 
 ```{eval-rst}
