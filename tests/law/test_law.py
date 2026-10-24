@@ -8,7 +8,7 @@ from wahlwerk.law.base import Law, LawRegistry
 from wahlwerk.law.de.mv.lkwg import LKWG_2011
 from wahlwerk.law.de.st.lwg import LWG_2021
 from wahlwerk.law.registry import LAWS
-from wahlwerk.process.allocation.chamber import FormChamber
+from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 
@@ -50,7 +50,7 @@ def test_lkwg_2011_governs_the_elections_from_2011():
 
 def test_a_misordered_law_fails_when_created():
     with pytest.raises(ValidationError, match=r"reads \['total:wahlkreis'\]"):
-        law(protocol=(SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"), FormChamber()))
+        law(protocol=(SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"), FillVacantSeatsFromLists()))
 
 
 def test_a_law_must_form_a_chamber():

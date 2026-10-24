@@ -22,7 +22,7 @@ from wahlwerk.calc._input import PerKey, Values, prepare_pair
 from wahlwerk.calc.divisor import sainte_lague
 from wahlwerk.calc.result import SeatResult
 
-__all__ = ["SeatRule", "overhang", "remaining", "smallest_size"]
+__all__ = ["SeatRule", "overhang", "raised", "remaining", "smallest_size"]
 
 SeatRule = Callable[[Any, int], SeatResult]
 """A seat formula of votes and seats, e.g. :func:`wahlwerk.calc.divisor.sainte_lague`."""
@@ -33,6 +33,21 @@ def overhang(seats: Values, minimum: Values) -> PerKey:
     s, m = prepare_pair(seats, minimum, names=("seats", "minimum"))
     over = np.maximum(m.values - s.values, 0)
     return s.wrap(over)
+
+
+def raised(size: int, overhang: Values, factor: int = 1) -> int:
+    r"""The size raised for an Überhang: :math:`S + f \sum_i u_i`, ``factor`` seats more
+    per seat of Überhang (Sec. 35 (8) LWG LSA: twice).
+
+    >>> raised(83, {"cdu": 6}, factor=2)
+    95
+    """
+    if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+        raise ValueError(f"size must be a non-negative int, got {size!r}")
+    if isinstance(factor, bool) or not isinstance(factor, int) or factor < 0:
+        raise ValueError(f"factor must be a non-negative int, got {factor!r}")
+    values = list(overhang.values()) if isinstance(overhang, dict) else list(np.asarray(overhang).ravel())
+    return size + factor * int(sum(int(v) for v in values))
 
 
 def remaining(seats: Values, won: Values) -> PerKey:

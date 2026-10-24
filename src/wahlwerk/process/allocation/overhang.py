@@ -13,6 +13,7 @@ from typing import Any, ClassVar
 from pydantic import Field, SerializeAsAny
 
 from wahlwerk.apportionment.quota import Quota
+from wahlwerk.calc import compensation
 from wahlwerk.calc import quota as calc_quota
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.model import Share
@@ -25,7 +26,7 @@ from wahlwerk.process.allocation.base import (
     written_by,
 )
 
-__all__ = ["RaiseByOverhang", "RaiseUntilBalanced", "SetCaucusSize"]
+__all__ = ["RaiseByOverhang", "RaiseChamberSize", "RaiseUntilBalanced", "SetCaucusSize"]
 
 
 class SetCaucusSize(AllocationStep):
@@ -60,7 +61,7 @@ class SetCaucusSize(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({total_fact(self.level), "eligible", "seat_total"})
+        return frozenset({total_fact(self.level), "eligible_keys", "seat_total"})
 
     @property
     def writes(self) -> frozenset[str]:
@@ -78,7 +79,7 @@ class SetCaucusSize(AllocationStep):
 
     def _apply(self, allocation: Allocation) -> Allocation:
         votes = allocation.votes_by_party(self.level, self.section)
-        eligible = allocation.eligible or frozenset()
+        eligible = allocation.eligible_keys or frozenset()
         fictitious = self.share * sum(votes.values())
         counted = sum(n for party, n in votes.items() if party in eligible) + fictitious
         if not counted or not allocation.seat_total:
@@ -88,62 +89,99 @@ class SetCaucusSize(AllocationStep):
         return allocation.with_values(caucus_size=seats)
 
 
-class RaiseByOverhang(AllocationStep):
-    """Allocate the seats of the chamber size with ``protocol`` (the rules from the seat
-    total to the list seats, usually one :class:`~wahlwerk.process.allocation.sequence.StepSequence`);
-    then, while a party holds overhang (Mehrsitze in the LWG LSA), raise the ``chamber_size`` and
-    allocate again. The loop holds its allocation, so a law writes it once.
+class RaiseChamberSize(AllocationStep):
+    """Raise the ``chamber_size`` by ``factor`` seats per seat of ``overhang`` (Sec. 35 (8)
+    LWG LSA: twice the Mehrsitze). The step a :class:`RaiseByOverhang` takes each round,
+    before it allocates again."""
 
-    As in Sec. 35 (8) LWG LSA: the first ``full_rounds`` times, the chamber size grows by
-    ``factor`` times the overhang and the allocation is repeated. After that, overhang
-    that remains is kept unbalanced (the chamber then has that many seats more) unless
-    it exceeds half of the ``caucus_size`` the block measured (a
-    :class:`SetCaucusSize` step in ``protocol``); a block without one has no further
-    rounds. Every seat won in a Wahlkreis is kept throughout.
-    """
+    formulas: ClassVar[tuple[Callable[..., Any], ...]] = (compensation.raised,)
 
-    protocol: tuple[SerializeAsAny[AllocationStep], ...] = Field(
-        min_length=1,
-        description="The allocation of one chamber size, run first and again for each raised size, e.g. seat total, apportionment, deduction.",
-    )
     factor: int = Field(
-        default=2,
+        default=1,
         ge=1,
         description="How many seats the chamber size grows by per seat of overhang, e.g. 2.",
-    )
-    full_rounds: int = Field(
-        default=2,
-        ge=0,
-        description="How many rounds are repeated whatever the overhang.",
     )
 
     @property
     def reads(self) -> frozenset[str]:
-        return _loop_reads(self.protocol)
-
-    @property
-    def optional_reads(self) -> frozenset[str]:
-        return outside_reads(self.protocol, optional=True)
+        return frozenset({"chamber_size", "overhang"})
 
     @property
     def writes(self) -> frozenset[str]:
-        return written_by(self.protocol) | {"chamber_size"}
+        return frozenset({"chamber_size"})
+
+    @property
+    def passes(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        return {"": (("size", "chamber_size"), ("overhang", "per party"), ("factor", str(self.factor)))}
+
+    def _apply(self, allocation: Allocation) -> Allocation:
+        (raised,) = self.formulas
+        size: int = raised(allocation.chamber_size or 0, dict(allocation.overhang or ()), self.factor)
+        return allocation.with_values(chamber_size=size)
+
+
+class RaiseByOverhang(AllocationStep):
+    """While the allocation leaves overhang to balance, run ``protocol`` again: usually
+    raise the chamber size (:class:`RaiseChamberSize`), allocate its seats, and measure
+    the caucus size. A law runs the allocation once before it; with no overhang the loop
+    does nothing, and the chamber is filled from the lists.
+
+    The condition, as in Sec. 35 (8) LWG LSA: in the first ``full_rounds`` rounds, any
+    overhang is balanced; after that only overhang exceeding half the ``caucus_size``
+    the last round measured (a :class:`SetCaucusSize` step); overhang left then is kept
+    unbalanced (the chamber has that many seats more). Every seat won in a unit is kept
+    throughout.
+    """
+
+    protocol: tuple[SerializeAsAny[AllocationStep], ...] = Field(
+        min_length=1,
+        description="What one round does, e.g. raise the chamber size, allocate, measure the caucus size.",
+    )
+    full_rounds: int = Field(
+        default=2,
+        ge=0,
+        description="How many rounds balance any overhang, before the caucus size limits them.",
+    )
+
+    @property
+    def condition(self) -> str:
+        """When another round runs, in words."""
+        return (
+            f"while overhang > 0; after {self.full_rounds} rounds, "
+            "while 2 × overhang > caucus_size"
+        )
+
+    @property
+    def reads(self) -> frozenset[str]:
+        return outside_reads(self.protocol) | {"overhang"}
+
+    @property
+    def optional_reads(self) -> frozenset[str]:
+        return outside_reads(self.protocol, optional=True) | {"caucus_size"}
+
+    @property
+    def writes(self) -> frozenset[str]:
+        return written_by(self.protocol)
+
+    def _is_due(self, allocation: Allocation, done: int) -> bool:
+        excess = _overhang(allocation)
+        if not excess:
+            return False
+        if done < self.full_rounds:
+            return True
+        limit = allocation.caucus_size  # measured by the last round, if the law does
+        return limit is not None and 2 * excess > limit
 
     def rounds(self, allocation: Allocation) -> tuple[Allocation, ...]:
-        """Each run of the block, in order: the first at the chamber size given, then one
-        per raise. The last is the result; the ones before show how it was reached (what a
-        drawing of the rule needs). ``allocation`` must hold what the step reads."""
+        """The allocation it starts from, then one per round run. The last is the
+        result; the ones before show how it was reached (what a drawing of the rule
+        needs). ``allocation`` must hold what the step reads."""
         missing = self.reads - allocation.facts
         if missing:
             raise ValueError(f"{type(self).__name__} reads {sorted(missing)}, which are not established")
-        done = [_run(self.protocol, allocation)]
-        while excess := sum(n for _, n in done[-1].overhang or ()):
-            if len(done) - 1 >= self.full_rounds:
-                limit = done[-1].caucus_size  # measured by the block, if it has the step
-                if limit is None or 2 * excess <= limit:
-                    break
-            size = (done[-1].chamber_size or 0) + self.factor * excess
-            done.append(_run(self.protocol, done[-1].with_values(chamber_size=size)))
+        done = [allocation]
+        while self._is_due(done[-1], len(done) - 1):
+            done.append(_run(self.protocol, done[-1]))
         return tuple(done)
 
     def _apply(self, allocation: Allocation) -> Allocation:

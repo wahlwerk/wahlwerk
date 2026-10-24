@@ -19,7 +19,7 @@ from wahlwerk.apportionment.divisor import DHondt, SainteLague
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.io.bundle import read_bundle
-from wahlwerk.law.de.st.lwg import ALLOCATE, LWG_2021, QUALIFY
+from wahlwerk.law.de.st.lwg import LWG_2021, QUALIFY
 from wahlwerk.law.edit import find, replace
 from wahlwerk.process.allocation.allocate import derive
 from wahlwerk.process.allocation.base import AllocationProtocol, check_protocol
@@ -55,8 +55,8 @@ if __name__ == "__main__":
     print(row("method: D'Hondt", replace(P, ApportionSeats, method=DHondt())))
     print(row("method: Hare/Niemeyer, no majority clause", replace(P, ApportionSeats, method=HareNiemeyer())))
     print(row("threshold 3 %", replace(P, ApplyThresholdToKeys, threshold=RelativeThreshold(share=Fraction(3, 100)))))
-    # The loop holds the allocation, so dropping it means putting the sequence in its place.
-    print(row("no overhang balancing", (*P[:LOOP], ALLOCATE, *P[LOOP + 1 :])))
+    # The law allocates once before the loop, so dropping the loop leaves that allocation.
+    print(row("no overhang balancing", (*P[:LOOP], *P[LOOP + 1 :])))
     # Reorders: the chamber size and the counting need nothing of each other, nor do the
     # Wahlkreis winners and the threshold; what the counts decide needs the counts.
     print(f"can swap steps 1 and 2: {can_swap(P, 0, 1)}")

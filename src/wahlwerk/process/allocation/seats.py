@@ -17,7 +17,7 @@ __all__ = ["ApportionSeats", "DeductUnitSeats"]
 
 
 class ApportionSeats(AllocationStep):
-    """Apportion ``seat_total`` among the ``eligible`` parties by ``method``, on their
+    """Apportion ``seat_total`` among the ``eligible_keys`` parties by ``method``, on their
     valid votes in ``section`` summed at ``level``: their ``entitlement``.
 
     A tie in the apportionment stays in the entitlement; the lot is applied before the
@@ -36,7 +36,7 @@ class ApportionSeats(AllocationStep):
 
     @property
     def reads(self) -> frozenset[str]:
-        return frozenset({total_fact(self.level), "eligible", "seat_total"})
+        return frozenset({total_fact(self.level), "eligible_keys", "seat_total"})
 
     @property
     def writes(self) -> frozenset[str]:
@@ -48,7 +48,7 @@ class ApportionSeats(AllocationStep):
 
     def _apply(self, allocation: Allocation) -> Allocation:
         votes = allocation.votes_by_party(self.level, self.section)
-        eligible = allocation.eligible or frozenset()
+        eligible = allocation.eligible_keys or frozenset()
         weights = {party: n for party, n in votes.items() if party in eligible}
         seats = allocation.seat_total or 0
         return allocation.with_values(entitlement=self.method.apportion(weights, seats))

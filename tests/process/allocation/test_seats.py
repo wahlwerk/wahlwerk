@@ -17,7 +17,7 @@ from wahlwerk.apportionment.threshold import (
 )
 from wahlwerk.process.allocation.allocate import allocate
 from wahlwerk.process.allocation.base import Allocation, check_protocol
-from wahlwerk.process.allocation.chamber import FormChamber
+from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
@@ -86,7 +86,7 @@ def test_seats_won_outside_the_allocation_leave_the_total():
     # Wahlkreis 2 to an Einzelbewerber, 3 to the FDP under 5 %: 10 - 2 = 8 seats.
     # Hare on 8 among 970: afd 4.12, cdu 2.47, linke 1.40 -> 4, 3, 1.
     result = run(law(10), Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"])))
-    assert result.eligible == {"afd", "cdu", "linke"}
+    assert result.eligible_keys == {"afd", "cdu", "linke"}
     assert result.seat_total == 8
     assert result.entitlement.as_dict() == {"afd": 4, "cdu": 3, "linke": 1}
     assert dict(result.list_seats) == {"afd": 3, "cdu": 3, "linke": 1}
@@ -106,7 +106,7 @@ def test_grundmandatsklausel_reads_the_wahlkreise():
     step = ApplyThresholdToKeys(threshold=rule, section="zweitstimme", level="land")
     assert "unit_mandates" in step.reads
     result = run(law(20, threshold=rule), Allocation(tally=tally(["fdp", "fdp", "fdp"])))
-    assert "fdp" in result.eligible
+    assert "fdp" in result.eligible_keys
     assert result.seat_total == 20
 
 
@@ -163,10 +163,10 @@ def test_seat_total_cannot_go_below_zero():
 
 
 # ===========================================================
-# FormChamber and allocate
+# FillVacantSeatsFromLists and allocate
 # ===========================================================
 def test_form_chamber_names_seats_by_how_they_were_won():
-    protocol = (*law(10), FormChamber(minimum_mandates=10))
+    protocol = (*law(10), FillVacantSeatsFromLists(minimum_mandates=10))
     result = run(protocol, Allocation(tally=tally(["afd", "de.st.wk.002.eb", "fdp"])))
     chamber = result.chamber
     ids = [m.id for m in chamber.mandates]
@@ -180,7 +180,7 @@ def test_form_chamber_names_seats_by_how_they_were_won():
 
 
 def test_overhang_seats_stay_in_the_chamber():
-    protocol = (*law(10), FormChamber(minimum_mandates=10))
+    protocol = (*law(10), FillVacantSeatsFromLists(minimum_mandates=10))
     chamber = run(protocol, Allocation(tally=tally(["linke", "linke", "linke"]))).chamber
     assert chamber.size == 11  # 10 + Linke's one Mehrsitz, not yet balanced
     assert chamber.is_above_minimum
@@ -195,10 +195,10 @@ def test_allocate_needs_a_chamber_forming_step():
 def test_allocate_sets_the_term():
     vote = PopularVote(source=SOURCE, tally=tally(["afd"]))
     term = Term(body="de.st.landtag")
-    chamber = allocate(vote, (*law(10), FormChamber()), term=term)
+    chamber = allocate(vote, (*law(10), FillVacantSeatsFromLists()), term=term)
     assert chamber.body == "de.st.landtag"
     assert chamber.minimum_mandates == 10  # "at least 10": SetChamberSize set it
-    assert allocate(vote, (*law(10), FormChamber())).term is None
+    assert allocate(vote, (*law(10), FillVacantSeatsFromLists())).term is None
 
 
 def test_the_minimum_is_written_once_unless_it_differs():
@@ -207,6 +207,6 @@ def test_the_minimum_is_written_once_unless_it_differs():
         step.model_copy(update={"is_minimum": False}) if isinstance(step, SetChamberSize) else step
         for step in law(10)
     )
-    assert allocate(vote, (*no_minimum, FormChamber())).minimum_mandates is None
-    assert allocate(vote, (*no_minimum, FormChamber(minimum_mandates=8))).minimum_mandates == 8
-    assert allocate(vote, (*law(10), FormChamber(minimum_mandates=8))).minimum_mandates == 8
+    assert allocate(vote, (*no_minimum, FillVacantSeatsFromLists())).minimum_mandates is None
+    assert allocate(vote, (*no_minimum, FillVacantSeatsFromLists(minimum_mandates=8))).minimum_mandates == 8
+    assert allocate(vote, (*law(10), FillVacantSeatsFromLists(minimum_mandates=8))).minimum_mandates == 8

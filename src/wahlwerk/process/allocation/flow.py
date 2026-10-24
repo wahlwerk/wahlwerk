@@ -178,6 +178,7 @@ class StepNode(Model):
     stage: int = Field(ge=0, description="Its stage among its siblings: 0 reads only what comes from outside.")
     depends_on: tuple[int, ...] = Field(default_factory=tuple, description="The positions of the siblings it reads from.")
     holds: str | None = Field(default=None, description="The field holding its own steps, e.g. ``steps`` or ``protocol``.")
+    condition: str | None = Field(default=None, description="For a loop, when another round runs, in words.")
     uses: tuple[Use, ...] = Field(default_factory=tuple, description="The core concepts it computes with, outermost first.")
     calls: tuple[Call, ...] = Field(default_factory=tuple, description="The functions in ``wahlwerk.calc`` it computes with itself.")
     arguments: tuple[tuple[str, str], ...] = Field(default_factory=tuple, description="What it hands those functions, in words, e.g. ``(\"seats\", \"chamber_size\")``.")
@@ -214,6 +215,7 @@ def describe(
                 stage=stage[position],
                 depends_on=tuple(sorted({w for w in read_from[position].values() if w is not None})),
                 holds=holds,
+                condition=getattr(step, "condition", None),
                 uses=uses(step),
                 calls=calls_of(step),
                 arguments=step.passes.get("", ()),
@@ -297,6 +299,8 @@ def protocol_table(protocol: AllocationProtocol) -> str:
                 ", ".join(node.writes),
             )
         )
+        if node.condition:
+            rows.append(("", "  " * (depth + 1) + f"? {node.condition}", "", "", ""))
         for call in node.calls:
             rows.append(("", "  " * (depth + 1) + f"= {call.formula.removeprefix('wahlwerk.')}", "", "", ""))
         for use in node.uses:

@@ -11,10 +11,10 @@ from wahlwerk.state.chamber import Chamber
 from wahlwerk.state.mandate import Mandate
 from wahlwerk.state.mandate_origin import MandateOrigin, MandateSource
 
-__all__ = ["FormChamber"]
+__all__ = ["FillVacantSeatsFromLists"]
 
 
-class FormChamber(AllocationStep):
+class FillVacantSeatsFromLists(AllocationStep):
     """Form the chamber: a mandate for each Wahlkreis won, then each party's list seats.
 
     A Wahlkreis seat is named after its unit's last two segments (``de.st.wk.001`` gives

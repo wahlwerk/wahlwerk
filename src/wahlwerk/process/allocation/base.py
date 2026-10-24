@@ -13,7 +13,7 @@ its own facts again when applied.
 
 Facts are named by strings: ``tally`` (the input), ``total:<level>`` (the tally summed
 to a level, see :class:`~wahlwerk.process.allocation.count.SumVotes`), and one per
-optional field of :class:`Allocation`, named like it: ``unit_mandates``, ``eligible``,
+optional field of :class:`Allocation`, named like it: ``unit_mandates``, ``eligible_keys``,
 ``chamber_size``, ``minimum_mandates``, ``seat_total``, ``entitlement``, ``list_seats``,
 ``overhang``, ``chamber``.
 
@@ -59,7 +59,7 @@ INPUT_FACTS = frozenset({"tally"})
 OPTIONAL_FACTS = (
     "unit_mandates",
     "caucus_size",
-    "eligible",
+    "eligible_keys",
     "chamber_size",
     "minimum_mandates",
     "seat_total",
@@ -143,7 +143,7 @@ class Allocation(Model):
         default=None,
         description="The result of each single-seat unit; ``None`` until decided.",
     )
-    eligible: frozenset[PartyId] | None = Field(
+    eligible_keys: frozenset[PartyId] | None = Field(
         default=None,
         description="The parties taking part in the proportional allocation, past the threshold.",
     )
@@ -336,8 +336,8 @@ def check_protocol(
         missing = step.reads - facts
         if missing:
             # The kind and the paragraph name the step; its repr can hold a whole law.
-            title = getattr(step, "title", None)  # a sequence is named by its title
-            name = type(step).__name__ + (f" {title!r}" if title else "") + (f" ({step.citation})" if step.citation else "")
+            named = getattr(step, "name", None)  # a sequence's name is its kind
+            name = (named if isinstance(named, str) else type(step).__name__) + (f" ({step.citation})" if step.citation else "")
             raise ValueError(
                 f"step {position} {name} reads {sorted(missing)}, "
                 f"which no earlier step writes; established: {sorted(facts)}"

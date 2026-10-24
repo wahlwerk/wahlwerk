@@ -20,7 +20,7 @@ Sachsen-Anhalt (LWG LSA) as amended on 6 July 2021.
 | `AllocationStep`, `AllocationProtocol` | `process/allocation/base.py` | one rule of the law, and the law as an ordered tuple of them; `check_protocol` refuses a law that reads a fact before it is written |
 | steps | `process/allocation/count.py`, `elect.py`, `eligibility.py`, `seats.py` | `SumVotes`, `SingleMandatePerUnit`, `ApplyThresholdToKeys`, `SetSeatTotal`, `ApportionSeats`, `DeductUnitSeats`; each names the section and level it counts |
 | `StepSequence`, flow | `process/allocation/sequence.py`, `flow.py` | several steps used as one; the structure derived from reads and writes (below) |
-| `allocate(vote, protocol)`, `FormChamber` | `process/allocation/allocate.py`, `chamber.py` | the process: applies the protocol, returns a `Chamber` |
+| `allocate(vote, protocol)`, `FillVacantSeatsFromLists` | `process/allocation/allocate.py`, `chamber.py` | the process: applies the protocol, returns a `Chamber` |
 
 The names follow the four terms of the README ("Approach"): the vote is *input*, the
 law is a *protocol*, `allocate` is the *process*, the chamber is new *state*. A
@@ -101,29 +101,31 @@ LWG_LSA_2021: AllocationProtocol = (                                # in stage o
     StepSequence(name="ElectAndQualify", steps=(                    # stage 1
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),  # § 33
         ApplyThresholdToKeys(threshold=RelativeThreshold(share="5/100"),  # § 35 (3)
-                       section="zweitstimme", level="land"),
+                         section="zweitstimme", level="land"),
     )),
-    RaiseByOverhang(                                             # § 35 (8), (8a); stage 2
-        protocol=(
-            StepSequence(                                           # § 35 (4) to (7)
-                name="AllocateSeats",
-                steps=(
-                    SetSeatTotal(),                                 # § 35 (4)
-                    ApportionSeats(                                 # § 35 (5), (6)
-                        method=MajorityFirst(method=HareNiemeyer()),
-                        section="zweitstimme",
-                        level="land",
-                    ),
-                    DeductUnitSeats(),                              # § 35 (7)
-                ),
+    StepSequence(                                                   # § 35 (4) to (7); stage 2
+        name="AllocateSeats",
+        steps=(
+            SetSeatTotal(),                                         # § 35 (4)
+            ApportionSeats(                                         # § 35 (5), (6)
+                method=MajorityFirst(method=HareNiemeyer()),
+                section="zweitstimme",
+                level="land",
             ),
-            SetCaucusSize(share="5/100", section="zweitstimme",     # § 35 (8a): measured
-                          level="land", quota=HareQuota()),         # after each round
+            DeductUnitSeats(),                                      # § 35 (7): the overhang
         ),
-        factor=2,
+    ),
+    SetCaucusSize(share="5/100", section="zweitstimme",             # § 35 (8a); stage 3
+                  level="land", quota=HareQuota()),
+    RaiseByOverhang(                                                # § 35 (8), (8a); stage 4
+        protocol=(                                                  # one round, only while
+            RaiseChamberSize(factor=2),                             # there is overhang
+            ALLOCATE,                                               # the sequence above
+            CAUCUS,                                                 # SetCaucusSize again
+        ),
         full_rounds=2,
     ),
-    FormChamber(),                                                  # stage 3
+    FillVacantSeatsFromLists(),                                                  # stage 5
 )
 ```
 
@@ -138,11 +140,13 @@ writes:
 - **A sequence** (`StepSequence`, `sequence.py`) is a named row of steps that acts as one
   step: it reads what its steps need from outside it and writes what they write. Sec. 35
   (4) to (7) is one (`ALLOCATE` in the law module), written once and used by the loop.
-- **A loop holds its block.** `RaiseByOverhang` and `RaiseUntilBalanced` run their
-  protocol first, then raise the chamber size and run it again while the law asks, so the
-  allocation of one chamber size is not written twice (once before the loop, once inside).
+- **A loop checks before each round.** `RaiseByOverhang` reads the overhang the
+  allocation before it left: none, and it does nothing, so the law goes straight on to
+  `FillVacantSeatsFromLists`; otherwise it runs its round (`RaiseChamberSize`, then the
+  allocation and the caucus size again) while its `condition` holds. `RaiseUntilBalanced`
+  still holds its block and runs it first.
 - **A number the statute states once is written once.** `SetChamberSize(seats=83)` writes
-  the starting `chamber_size` and the `minimum_mandates` the chamber keeps; `FormChamber`
+  the starting `chamber_size` and the `minimum_mandates` the chamber keeps; `FillVacantSeatsFromLists`
   reads it unless given its own (`is_minimum=False` where a law gives two numbers).
 
 `flow.py` derives the rest: each step's **stage** (one more than the latest step it reads
@@ -262,7 +266,7 @@ Stimmkreise inside Wahlkreise still nest by prefix.
    Linke 5, and no overhang. Constructed tallies cover Einzelbewerber, a party under
    5 % winning a Wahlkreis, overhang, a Grundmandatsklausel, and ties that stop the
    next step.
-5. `FormChamber` and `allocate(...)` building the `Chamber`; the golden test for
+5. `FillVacantSeatsFromLists` and `allocate(...)` building the `Chamber`; the golden test for
    Sachsen-Anhalt 2026 against the official Sitzverteilung
    (`tests/golden/test_de_landtag_st.py`). **Done**: equal party by party, 41
    Wahlkreis and 42 list seats, 83 in all.

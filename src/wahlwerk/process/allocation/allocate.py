@@ -41,10 +41,10 @@ def allocate(
     The term (body, dates) is a fact about the election, not the law, so it is passed
     here rather than being a step. Raises ``ValueError`` if the protocol never forms a
     chamber, e.g. because it lacks a
-    :class:`~wahlwerk.process.allocation.chamber.FormChamber` step.
+    :class:`~wahlwerk.process.allocation.chamber.FillVacantSeatsFromLists` step.
     """
     if "chamber" not in check_protocol(protocol):
-        raise ValueError("the protocol forms no chamber; end it with FormChamber")
+        raise ValueError("the protocol forms no chamber; end it with FillVacantSeatsFromLists")
     chamber = derive(vote, protocol).chamber
     if chamber is None:  # every step checks its writes, so this cannot happen
         raise ValueError("the protocol formed no chamber")

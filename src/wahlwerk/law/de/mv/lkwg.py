@@ -24,7 +24,7 @@ from wahlwerk.apportionment.plurality import Plurality
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.law.base import Law
-from wahlwerk.process.allocation.chamber import FormChamber
+from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
@@ -106,7 +106,7 @@ LKWG_2011 = Law(
         RaiseUntilBalanced(
             protocol=(ALLOCATE,), limit=2, has_odd_size=True, citation="Sec. 58 (6)"
         ),
-        FormChamber(),
+        FillVacantSeatsFromLists(),
     ),
 )
 """The LKWG as it has governed the Landtag elections since 2011 (2011, 2016, 2021, 2026)."""

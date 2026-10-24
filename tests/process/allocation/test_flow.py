@@ -19,8 +19,9 @@ GOLDEN = "tests/golden/de.landtag.st.2021"
 
 
 def test_stages_follow_the_facts():
-    # chamber size and counting -> winners and threshold -> the allocation loop -> the chamber
-    assert flow.stages(P) == (0, 0, 1, 2, 3)
+    # chamber size and counting -> winners and threshold -> allocate -> caucus size
+    # -> the loop, only while there is overhang -> fill the seats from the lists
+    assert flow.stages(P) == (0, 0, 1, 2, 3, 4, 5)
     assert flow.stages(LKWG_2011.protocol) == (0, 0, 1, 2, 3)
     # the laws are written in stage order, each stage one step or one sequence
     assert list(flow.stages(P)) == sorted(flow.stages(P))
@@ -31,7 +32,8 @@ def test_sources_name_the_last_writer():
     assert read[1] == {"tally": None}
     assert read[2] == {"total:land": 1, "total:wahlkreis": 1}
     assert read[3]["chamber_size"] == 0 and read[3]["unit_mandates"] == 2
-    assert read[4] == {"unit_mandates": 2, "list_seats": 3, "minimum_mandates": 0}
+    assert read[5]["overhang"] == 3 and read[5]["chamber_size"] == 0
+    assert read[6] == {"unit_mandates": 2, "list_seats": 5, "minimum_mandates": 0}
 
 
 def test_independent_steps_can_swap_and_dependent_ones_cannot():
@@ -63,7 +65,7 @@ def test_movable_gives_the_range_a_step_can_go():
 
 
 def test_a_sequence_is_one_step():
-    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "eligible", "total:land"}
+    assert ALLOCATE.reads == {"chamber_size", "unit_mandates", "eligible_keys", "total:land"}
     assert ALLOCATE.writes == {"seat_total", "entitlement", "list_seats", "overhang"}
     inline = (*P[:3], ALLOCATE, P[4])
     flat = (*P[:3], *ALLOCATE.steps, P[4])
@@ -87,28 +89,33 @@ def test_a_sequence_in_the_wrong_place_is_refused():
 def test_describe_and_the_table():
     nodes = flow.describe(P)
     assert [n.kind for n in nodes] == [
-        "SetChamberSize", "CountVotes", "ElectAndQualify", "RaiseByOverhang", "FormChamber",
+        "SetChamberSize", "CountVotes", "ElectAndQualify", "AllocateSeats", "SetCaucusSize",
+        "RaiseByOverhang", "FillVacantSeatsFromLists",
     ]
     assert [c.kind for c in nodes[1].children] == ["SumVotes", "SumVotes"]
     assert [c.kind for c in nodes[2].children] == ["SingleMandatePerUnit", "ApplyThresholdToKeys"]
-    loop = nodes[3]
+    loop = nodes[5]
     assert loop.citation == "Sec. 35 (8), (8a)"
-    assert loop.depends_on == (0, 1, 2)
-    sequence, caucus = loop.children
+    assert loop.condition == "while overhang > 0; after 2 rounds, while 2 × overhang > caucus_size"
+    raise_, sequence, caucus = loop.children
+    assert raise_.kind == "RaiseChamberSize" and raise_.writes == ("chamber_size",)
     assert caucus.kind == "SetCaucusSize" and caucus.writes == ("caucus_size",)
     assert sequence.kind == "AllocateSeats"
-    assert [c.path for c in sequence.children] == [(3, "protocol", 0, "steps", i) for i in range(3)]
+    assert [c.path for c in sequence.children] == [(5, "protocol", 1, "steps", i) for i in range(3)]
     assert nodes[0].parameters == (("seats", "83"),)  # defaults left out
     table = flow.protocol_table(P)
     assert "Sec. 35 (8), (8a)" in table and "AllocateSeats" in table
     assert repr(LWG_2021).startswith("Law de.st.lwg.2021:")
     assert "<table" in LWG_2021._repr_html_()
     data = flow.protocol_data(P)
-    assert data[3]["children"][0]["kind"] == "AllocateSeats"
+    assert data[5]["children"][1]["kind"] == "AllocateSeats"
 
 
 def test_citations_are_data_and_survive_an_edit():
-    assert [s.citation for s in P] == ["Sec. 1 (1)", "Sec. 31, 32, 35 (2)", "Sec. 33, 35 (3)", "Sec. 35 (8), (8a)", None]
+    assert [s.citation for s in P] == [
+        "Sec. 1 (1)", "Sec. 31, 32, 35 (2)", "Sec. 33, 35 (3)", "Sec. 35 (4) to (7)", "Sec. 35 (8a)",
+        "Sec. 35 (8), (8a)", None,
+    ]
     assert [s.citation for s in QUALIFY.steps] == ["Sec. 33", "Sec. 35 (3)"]
     winners = SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis")
     assert winners != QUALIFY.steps[0]  # the citation is part of the step
@@ -127,14 +134,14 @@ def test_a_step_leads_down_to_its_formula():
     (call,) = elect.uses[0].calls
     assert call.formula == "wahlwerk.calc.plurality.plurality"
     assert call.call == "plurality(votes, seats=1)"  # the concept, here for one seat
-    apportion = flow.describe(P)[3].children[0].children[1]
+    apportion = flow.describe(P)[3].children[1]
     assert [(u.field, [c.formula for c in u.calls]) for u in apportion.uses] == [
         ("method", ["wahlwerk.calc.majority.majority_first"]),
         ("method.method", ["wahlwerk.calc.remainder.largest_remainder", "wahlwerk.calc.quota.hare"]),
     ]
     threshold = flow.describe(P)[2].children[1].uses[0]
     assert threshold.parameters == (("share", "1/20"),)
-    deduct = flow.describe(P)[3].children[0].children[2]
+    deduct = flow.describe(P)[3].children[2]
     assert [c.formula for c in deduct.calls] == [
         "wahlwerk.calc.compensation.remaining",
         "wahlwerk.calc.compensation.overhang",
@@ -164,7 +171,7 @@ def test_a_concept_shows_what_the_step_hands_it():
     threshold = flow.describe(P)[2].children[1].uses[0]
     assert threshold.arguments == (("keys", "parties"), ("votes", "zweitstimme per party"))
     assert threshold.parameters == (("share", "1/20"),)
-    caucus = flow.describe(P)[3].children[1]  # a step of its own, in the repeated block
+    caucus = flow.describe(P)[4]  # a step of its own, before the loop and in each round
     (quota,) = caucus.uses
     assert quota.kind == "HareQuota" and dict(quota.arguments)["seats"] == "seat_total"
     assert [c.formula for c in quota.calls] == ["wahlwerk.calc.quota.hare"]

@@ -22,7 +22,7 @@ from wahlwerk.apportionment.quota import HareQuota
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.law.base import Law
-from wahlwerk.process.allocation.chamber import FormChamber
+from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
@@ -30,7 +30,11 @@ from wahlwerk.process.allocation.eligibility import (
     SetChamberSize,
     SetSeatTotal,
 )
-from wahlwerk.process.allocation.overhang import RaiseByOverhang, SetCaucusSize
+from wahlwerk.process.allocation.overhang import (
+    RaiseByOverhang,
+    RaiseChamberSize,
+    SetCaucusSize,
+)
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.process.allocation.sequence import StepSequence
 
@@ -109,13 +113,14 @@ LWG_2021 = Law(
         SetChamberSize(seats=83, citation="Sec. 1 (1)"),  # "mindestens 83": also the minimum
         COUNT,
         QUALIFY,
-        RaiseByOverhang(
-            protocol=(ALLOCATE, CAUCUS),
-            factor=2,
+        ALLOCATE,
+        CAUCUS,
+        RaiseByOverhang(  # only while ALLOCATE left overhang to balance
+            protocol=(RaiseChamberSize(factor=2, citation="Sec. 35 (8)"), ALLOCATE, CAUCUS),
             full_rounds=2,
             citation="Sec. 35 (8), (8a)",
         ),
-        FormChamber(),
+        FillVacantSeatsFromLists(),
     ),
 )
 """The LWG as it governed the Landtag elections of 2021 and 2026. The day it first

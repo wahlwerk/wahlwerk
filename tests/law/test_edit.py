@@ -10,7 +10,7 @@ from wahlwerk.io.bundle import read_bundle
 from wahlwerk.law.de.st.lwg import LWG_2021
 from wahlwerk.law.edit import find, insert, remove, replace, step_at, steps, substitute
 from wahlwerk.process.allocation.allocate import allocate
-from wahlwerk.process.allocation.chamber import FormChamber
+from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.eligibility import ApplyThresholdToKeys, SetChamberSize
 from wahlwerk.process.allocation.overhang import RaiseByOverhang
@@ -23,14 +23,15 @@ P = LWG_2021.protocol
 def test_steps_walks_nested_protocols_depth_first():
     paths = [path for path, _ in steps(P)]
     assert paths[0] == (0,)
-    assert (3, "protocol", 0, "steps", 1) in paths
-    assert paths.index((3,)) < paths.index((3, "protocol", 0)) < paths.index((3, "protocol", 0, "steps", 1)) < paths.index((4,))
-    assert isinstance(step_at(P, (3, "protocol", 0, "steps", 1)), ApportionSeats)
+    assert (5, "protocol", 1, "steps", 1) in paths
+    assert paths.index((5,)) < paths.index((5, "protocol", 1)) < paths.index((5, "protocol", 1, "steps", 1)) < paths.index((6,))
+    assert isinstance(step_at(P, (5, "protocol", 1, "steps", 1)), ApportionSeats)
 
 
 def test_find_reaches_into_the_mehrsitze_loop():
-    assert find(P, ApportionSeats) == [(3, "protocol", 0, "steps", 1)]
-    assert find(P, RaiseByOverhang) == [(3,)]
+    # allocated once before the loop, and again in each of its rounds
+    assert find(P, ApportionSeats) == [(3, "steps", 1), (5, "protocol", 1, "steps", 1)]
+    assert find(P, RaiseByOverhang) == [(5,)]
 
 
 def test_replace_changes_every_occurrence():
@@ -40,9 +41,9 @@ def test_replace_changes_every_occurrence():
 
 
 def test_replace_one_occurrence():
-    edited = replace(P, ApportionSeats, at=(3, "protocol", 0, "steps", 1), method=DHondt())
-    assert isinstance(step_at(edited, (3, "protocol", 0, "steps", 1)).method, DHondt)
-    assert step_at(edited, (3, "protocol", 0, "steps", 0)) == step_at(P, (3, "protocol", 0, "steps", 0))
+    edited = replace(P, ApportionSeats, at=(5, "protocol", 1, "steps", 1), method=DHondt())
+    assert isinstance(step_at(edited, (5, "protocol", 1, "steps", 1)).method, DHondt)
+    assert step_at(edited, (3, "steps", 1)) == step_at(P, (3, "steps", 1))
 
 
 def test_replace_validates_and_names_what_is_wrong():
@@ -50,8 +51,8 @@ def test_replace_validates_and_names_what_is_wrong():
         replace(P, SetChamberSize, size=101)
     with pytest.raises(ValueError):
         replace(P, SetChamberSize, seats=-1)
-    with pytest.raises(KeyError, match="no FormChamber at"):
-        replace(P, FormChamber, at=(3,), minimum_mandates=1)
+    with pytest.raises(KeyError, match="no FillVacantSeatsFromLists at"):
+        replace(P, FillVacantSeatsFromLists, at=(3,), minimum_mandates=1)
     with pytest.raises(KeyError, match="has no"):
         replace((SumVotes(level="land"),), SetChamberSize, seats=1)
 
@@ -61,14 +62,14 @@ def test_substitute_insert_remove():
         threshold=RelativeThreshold(share=Fraction(1, 10)), section="zweitstimme", level="land"
     )
     assert step_at(substitute(P, (2, "steps", 1), threshold), (2, "steps", 1)) == threshold
-    longer = insert(P, (3, "protocol", 0, "steps", 0), SumVotes(level="land"))
-    assert len(step_at(longer, (3, "protocol", 0)).steps) == 4
-    shorter = remove(P, (3, "protocol", 0, "steps", 2))
-    assert len(step_at(shorter, (3, "protocol", 0)).steps) == 2
+    longer = insert(P, (5, "protocol", 1, "steps", 0), SumVotes(level="land"))
+    assert len(step_at(longer, (5, "protocol", 1)).steps) == 4
+    shorter = remove(P, (5, "protocol", 1, "steps", 2))
+    assert len(step_at(shorter, (5, "protocol", 1)).steps) == 2
     with pytest.raises(KeyError):
         remove(P, (42,))
     with pytest.raises(KeyError, match="step path"):
-        step_at(P, (3, "protocol"))
+        step_at(P, (5, "protocol"))
 
 
 def test_revise_makes_a_counterfactual_that_is_never_in_force():
@@ -91,4 +92,4 @@ def test_revise_needs_a_new_id_and_a_valid_protocol():
     with pytest.raises(ValueError, match="no field"):
         LWG_2021.revise(id="example.x", seats=101)
     with pytest.raises(ValueError, match="forms no chamber"):
-        LWG_2021.revise(id="example.x", protocol=remove(P, (4,)))
+        LWG_2021.revise(id="example.x", protocol=remove(P, (6,)))

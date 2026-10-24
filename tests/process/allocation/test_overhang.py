@@ -9,7 +9,7 @@ from wahlwerk.apportionment.quota import HareQuota
 from wahlwerk.apportionment.remainder import HareNiemeyer
 from wahlwerk.apportionment.threshold import RelativeThreshold
 from wahlwerk.process.allocation.base import Allocation, check_protocol
-from wahlwerk.process.allocation.chamber import FormChamber
+from wahlwerk.process.allocation.chamber import FillVacantSeatsFromLists
 from wahlwerk.process.allocation.count import SumVotes
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
 from wahlwerk.process.allocation.eligibility import (
@@ -19,6 +19,7 @@ from wahlwerk.process.allocation.eligibility import (
 )
 from wahlwerk.process.allocation.overhang import (
     RaiseByOverhang,
+    RaiseChamberSize,
     RaiseUntilBalanced,
     SetCaucusSize,
 )
@@ -48,7 +49,9 @@ def tally(winners, zweit):
     return Tally(rows=tuple(rows), levels=LEVELS)
 
 
-def law(base, repeat):
+def law(base, repeat, *, is_measured=True):
+    """A small law: count, decide, allocate once (and measure the caucus size), then the
+    loop, which only runs while the allocation left overhang."""
     return (
         SumVotes(level="wahlkreis"),
         SingleMandatePerUnit(method=Plurality(), section="erststimme", level="wahlkreis"),
@@ -56,8 +59,9 @@ def law(base, repeat):
         ApplyThresholdToKeys(threshold=RelativeThreshold(share=FIVE), section="zweitstimme", level="land"),
         SetChamberSize(seats=base),
         *ALLOCATE,
+        *((CAUCUS,) if is_measured else ()),
         repeat,
-        FormChamber(minimum_mandates=base),
+        FillVacantSeatsFromLists(minimum_mandates=base),
     )
 
 
@@ -70,7 +74,8 @@ def run(protocol, winners, zweit):
 
 
 ZWEIT = {"afd": 500, "cdu": 300, "linke": 170, "fdp": 30}
-LOOP = RaiseByOverhang(protocol=(*ALLOCATE, CAUCUS), factor=2, full_rounds=2)
+TALLY_EMPTY = Tally(rows=(), levels=LEVELS)
+LOOP = RaiseByOverhang(protocol=(RaiseChamberSize(factor=2), *ALLOCATE, CAUCUS), full_rounds=2)
 
 
 def test_balanced_within_the_full_rounds():
@@ -95,8 +100,8 @@ SMALL = {"afd": 540, "cdu": 400, "linke": 60}
 
 
 def test_without_a_caucus_size_overhang_left_after_the_full_rounds_are_kept():
-    loop = RaiseByOverhang(protocol=ALLOCATE, factor=2, full_rounds=2)
-    result = run(law(10, loop), MANY, SMALL)
+    loop = RaiseByOverhang(protocol=(RaiseChamberSize(factor=2), *ALLOCATE), full_rounds=2)
+    result = run(law(10, loop, is_measured=False), MANY, SMALL)
     kept = sum(n for _, n in result.overhang)
     assert kept > 0
     assert result.chamber.size == result.chamber_size + kept
@@ -104,7 +109,7 @@ def test_without_a_caucus_size_overhang_left_after_the_full_rounds_are_kept():
 
 
 def test_further_rounds_run_while_overhang_exceeds_half_a_caucus():
-    unlimited = run(law(10, RaiseByOverhang(protocol=ALLOCATE)), MANY, SMALL)
+    unlimited = run(law(10, RaiseByOverhang(protocol=(RaiseChamberSize(), *ALLOCATE)), is_measured=False), MANY, SMALL)
     limited = run(law(10, LOOP), MANY, SMALL)
     kept = sum(n for _, n in limited.overhang)
     assert 2 * kept <= limited.caucus_size  # measured in the last round
@@ -119,18 +124,29 @@ def test_caucus_size_counts_a_fictitious_five_percent_party():
         for p, n in {"a": 450, "b": 450, "c": 100}.items()
     )
     allocation = SumVotes(level="land")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
-    allocation = allocation.with_values(eligible=frozenset({"a", "b"}), seat_total=20)
+    allocation = allocation.with_values(eligible_keys=frozenset({"a", "b"}), seat_total=20)
     assert CAUCUS(allocation).caucus_size == 1
     assert CAUCUS(allocation.with_values(seat_total=97)).caucus_size == 5  # 97 * 50 / 950 = 5.1
-    assert CAUCUS.reads == {"total:land", "eligible", "seat_total"}
+    assert CAUCUS.reads == {"total:land", "eligible_keys", "seat_total"}
     assert CAUCUS.writes == {"caucus_size"}
 
 
 def test_loop_declares_what_it_reads_and_writes():
-    # It runs its allocation first, so the overhang it is driven by is its own.
-    assert {"chamber_size", "unit_mandates", "eligible", "total:land"} <= LOOP.reads
-    assert "overhang" not in LOOP.reads
+    # It checks the overhang the allocation before it left, before any round.
+    assert {"chamber_size", "unit_mandates", "eligible_keys", "total:land", "overhang"} <= LOOP.reads
+    assert "caucus_size" in LOOP.optional_reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= LOOP.writes
+
+
+def test_no_overhang_no_round():
+    before = run(law(10, LOOP)[:-2], ["afd"], ZWEIT)
+    assert LOOP.rounds(before) == (before,)
+
+
+def test_raise_chamber_size_by_twice_the_overhang():
+    step = RaiseChamberSize(factor=2)
+    allocation = Allocation(tally=TALLY_EMPTY).with_values(chamber_size=83, overhang=(("cdu", 6),))
+    assert step(allocation).chamber_size == 95
 
 
 # Sec. 58 (6) LKWG M-V: Ausgleich for Überhang, capped, and a raised chamber size made odd.
@@ -202,13 +218,13 @@ def test_no_ueberhang_leaves_the_chamber_size_even_if_odd_is_required():
 
 def test_step_declares_what_it_reads_and_writes():
     step = raise_for_ausgleich(limit=2, has_odd_size=True)
-    assert {"chamber_size", "unit_mandates", "eligible", "total:land"} <= step.reads
+    assert {"chamber_size", "unit_mandates", "eligible_keys", "total:land"} <= step.reads
     assert "overhang" not in step.reads
     assert {"chamber_size", "seat_total", "entitlement", "list_seats", "overhang"} <= step.writes
 
 
 def test_rounds_show_how_the_size_was_reached():
-    before = run(law(10, LOOP)[:-2], ["linke"] * 3, ZWEIT)  # up to the loop
+    before = run(law(10, LOOP)[:-2], ["linke"] * 3, ZWEIT)  # up to the loop, allocated once
     rounds = LOOP.rounds(before)
     assert [r.chamber_size for r in rounds] == [10, 12, 14]
     assert [sum(n for _, n in r.overhang) for r in rounds] == [1, 1, 0]

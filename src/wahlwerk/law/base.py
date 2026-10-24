@@ -81,7 +81,7 @@ class Law(Model):
             )
         facts = check_protocol(self.protocol)
         if "chamber" not in facts:
-            raise ValueError(f"law {self.id!r} forms no chamber; end its protocol with FormChamber")
+            raise ValueError(f"law {self.id!r} forms no chamber; end its protocol with FillVacantSeatsFromLists")
         return self
 
     def revise(self, *, id: str, **changes: Any) -> Law:
