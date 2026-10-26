@@ -364,7 +364,8 @@ Built one small step at a time; each step leaves the package importable.
   election day, equal the official Sitzverteilung exactly, party by party, Wahlkreis and
   list seats; and the Landtag Mecklenburg-Vorpommern 2011, 2016 (71 each) and 2021 (79,
   with Überhang and Ausgleich), equal to the official Mandate der Parteien Wahlkreis by
-  Wahlkreis; fixtures and sources in `tests/golden/`
+  Wahlkreis; Mecklenburg-Vorpommern 2026 (71) from its final result of 29 September
+  2026; fixtures and sources in `tests/golden/`
 - Measures of disproportionality, exact, after votelib (now in `wahlwerk.calc.proportionality`)
 - **wahlwerk.calc** (decision 0006): every formula as a plain function in its own
   subpackage, `wahlwerk.calc` (numpy only, nothing else of wahlwerk), in layers: shares, quotas, the
@@ -424,8 +425,7 @@ The path from a popular vote to a chamber, and how it was built, is in
 
 - The LWG of 2016 and earlier (87 seats, 43 Wahlkreise), and the Landeswahlgesetz
   M-V under which the Landtag was elected from 1994 to 2006 (bundles are in
-  wahlwerk-data; the law's text is still to be obtained); Mecklenburg-Vorpommern 2026
-  as a golden test once its final result is published
+  wahlwerk-data; the law's text is still to be obtained)
 
 Then, the tally (decision 0009 in `.github-private`), one point at a time:
 

@@ -3,8 +3,8 @@ law in force on election day, must equal the official Mandate der Parteien exact
 by party, Wahlkreis by Wahlkreis, Überhang and Ausgleich alike.
 
 2021 is the case for Sec. 58 (6) LKWG M-V: the SPD won 34 of 36 Wahlkreise, 3 more than
-its 31 seats of 71, and the chamber size rose to 78 for Ausgleich and to 79 to be odd. 2011 and
-2016 have no Überhang. The 2026 result is still preliminary. The fixtures and their
+its 31 seats of 71, and the chamber size rose to 78 for Ausgleich and to 79 to be odd. 2011,
+2016 and 2026 have no Überhang; 2026 is the final result of 29 September 2026. The fixtures and their
 sources are in the ``de.landtag.mv.<year>/README.md`` files beside this one. Golden tests
 never skip and never xfail.
 """
@@ -28,6 +28,7 @@ ELECTIONS = {
     2011: ("de.landtag.mv.2011", date(2011, 9, 4), 6),
     2016: ("de.landtag.mv.2016", date(2016, 9, 4), 7),
     2021: ("de.landtag.mv.2021", date(2021, 9, 26), 8),
+    2026: ("de.landtag.mv.2026", date(2026, 9, 20), 9),
 }
 
 # Party columns in the official files, to the tally's party ids.
@@ -35,6 +36,7 @@ PARTY_IDS = {
     "SPD": "spd",
     "CDU": "cdu",
     "DIE LINKE": "linke",
+    "Die Linke": "linke",  # 2026 spells it so
     "GRÜNE": "gruene",
     "NPD": "npd",
     "FDP": "fdp",
@@ -134,7 +136,7 @@ def test_ueberhang_and_ausgleich_equal_the_official_result(year, vote, law):
     ausgleich = {p: after[p] - before[p] for p in after if p not in ueberhang and after[p] > before[p]}
     assert ausgleich == {p: n for p, n in seats[LAND, "darunter Ausgleichsmandate"].items() if n}
     assert derived.overhang == ()
-    assert derived.chamber_size == {2011: 71, 2016: 71, 2021: 79}[year]
+    assert derived.chamber_size == {2011: 71, 2016: 71, 2021: 79, 2026: 71}[year]
 
 
 def test_chamber_meets_the_minimum(year, chamber):

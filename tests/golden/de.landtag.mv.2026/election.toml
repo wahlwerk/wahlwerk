@@ -1,0 +1,13 @@
+schema = 4
+
+[source]
+publisher = "Der Landeswahlleiter Mecklenburg-Vorpommern"
+title = "Wahl zum Landtag von Mecklenburg-Vorpommern am 20. September 2026: endgültiges Ergebnis der Wahlbezirke (29.09.2026, 12:11:18 Uhr)"
+url = "https://wahlen.mvnet.de/dateien/ergebnisse.2026/landtagswahl/csv/l_wahlbezirke.csv"
+licence = "keine Lizenz angegeben"
+attribution = "(c) Der Landeswahlleiter Mecklenburg-Vorpommern; Datensatz: https://wahlen.mvnet.de/dateien/ergebnisse.2026/landtagswahl/csv/l_wahlbezirke.csv; die Daten wurden geändert (in eine lange Tabelle je Wahlbezirk umgeformt)."
+retrieved = 2026-10-27
+sha256 = "5c8cbd3d2874b927747d72d7701ff6e8549c1529417a8ef95b5263db83becda0"
+
+[hierarchies.electoral]
+levels = ["land"]
