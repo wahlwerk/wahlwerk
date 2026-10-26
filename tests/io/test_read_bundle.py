@@ -48,15 +48,16 @@ def test_reads_source(tmp_path):
 
 
 def test_reads_rows_in_file_order(tmp_path):
-    eligible, voters, invalid, party, candidate = read_bundle(write(tmp_path)).tally.rows
+    tally = read_bundle(write(tmp_path)).tally
+    eligible, voters, invalid, party, candidate = tally.rows
     assert eligible.kind is TallyKind.ELIGIBLE
     assert eligible.channel is None
     assert voters.channel == "urne"
     assert invalid.kind is TallyKind.INVALID
     assert invalid.section == "zweitstimme"
-    assert party.option == party.party == "cdu"  # schema 1: a party's votes count for it
+    assert party.option == tally.party_of("cdu") == "cdu"  # schema 1: a party's votes count for it
     assert party.count == 61
-    assert candidate.party is None
+    assert tally.party_of("de.st.wk.001.mueller") is None
     assert candidate.option == "de.st.wk.001.mueller"
 
 
@@ -70,10 +71,18 @@ SCHEMA_3 = (
 
 def test_schema_3_names_the_option_and_its_party(tmp_path):
     election = ELECTION.replace("schema = 1", "schema = 3\n\n[levels]\nwahlkreis = 4")
-    lists, nominee, independent = read_bundle(write(tmp_path, election, SCHEMA_3)).tally.rows
-    assert (lists.option, lists.party) == ("cdu", "cdu")
-    assert (nominee.option, nominee.party) == ("de.st.wk.001.mueller", "cdu")
-    assert (independent.option, independent.party) == ("de.st.wk.001.schulz", None)
+    tally = read_bundle(write(tmp_path, election, SCHEMA_3)).tally
+    lists, nominee, independent = tally.rows
+    assert (lists.option, tally.party_of(lists.option)) == ("cdu", "cdu")
+    assert (nominee.option, tally.party_of(nominee.option)) == ("de.st.wk.001.mueller", "cdu")
+    assert (independent.option, tally.party_of(independent.option)) == ("de.st.wk.001.schulz", None)
+
+
+def test_schema_3_option_with_two_parties_is_rejected(tmp_path):
+    election = ELECTION.replace("schema = 1", "schema = 3\n\n[levels]\nwahlkreis = 4")
+    tally = SCHEMA_3 + "de.st.wk.001,wahlkreis,votes,zweitstimme,brief,cdu,csu,1\n"
+    with pytest.raises(ValueError, match="line 5: option 'cdu' stands for 'cdu' and 'csu'"):
+        read_bundle(write(tmp_path, election, tally))
 
 
 def test_schema_3_needs_its_own_header(tmp_path):
@@ -85,7 +94,6 @@ def test_schema_3_needs_its_own_header(tmp_path):
 def test_blank_cells_are_none_not_empty_strings(tmp_path):
     eligible = read_bundle(write(tmp_path)).tally.rows[0]
     assert eligible.section is None
-    assert eligible.party is None
     assert eligible.option is None
 
 
@@ -98,7 +106,7 @@ def test_header_only_gives_an_empty_tally(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("old", "new"), [("schema = 1\n", ""), ("schema = 1", "schema = 4")]
+    ("old", "new"), [("schema = 1\n", ""), ("schema = 1", "schema = 5")]
 )
 def test_unsupported_schema_is_rejected(tmp_path, old, new):
     with pytest.raises(ValueError, match=r"election\.toml: schema .* is not supported"):
@@ -392,3 +400,60 @@ def test_a_malformed_kind_is_rejected(tmp_path):
     )
     with pytest.raises(ValueError, match="kinds.blank"):
         read_bundle(write(tmp_path, election, SCHEMA_3))
+
+
+# ===========================================================
+# Schema 4: ids name their unit, options beside the rows
+# ===========================================================
+SCHEMA_4 = ELECTION.replace("schema = 1", "schema = 4") + (
+    '\n[hierarchies.electoral]\nlevels = ["land", "wahlkreis"]\n'
+)
+SCHEMA_4_TALLY = (
+    "unit,level,kind,section,channel,option,count\n"
+    + "de.st.gem.15081026.wbz.000001,wahlbezirk,votes,zweitstimme,urne,cdu,61\n"
+    + "de.st.gem.15081026.wbz.000001,wahlbezirk,votes,erststimme,urne,de.st.wk.001.mueller,7\n"
+    + "de.st.gem.15081026.wbz.000001,wahlbezirk,votes,erststimme,urne,de.st.wk.001.schulz,3\n"
+)
+OPTIONS = "option,party\ncdu,cdu\nde.st.wk.001.mueller,cdu\nde.st.wk.001.schulz,\n"
+ELECTORAL = (
+    "unit,level,parent\nde.st,land,\nde.st.wk.001,wahlkreis,de.st\n"
+    "de.st.gem.15081026.wbz.000001,wahlbezirk,de.st.wk.001\n"
+)
+
+
+def write_4(tmp_path, election=SCHEMA_4, tally=SCHEMA_4_TALLY, options=OPTIONS, electoral=ELECTORAL):
+    write(tmp_path, election, tally)
+    if options is not None:
+        (tmp_path / "options.csv").write_text(options, encoding="utf-8")
+    (tmp_path / "electoral.csv").write_text(electoral, encoding="utf-8")
+    return tmp_path
+
+
+def test_schema_4_reads_options_and_the_electoral_hierarchy(tmp_path):
+    vote = read_bundle(write_4(tmp_path))
+    assert vote.tally.levels == ()
+    assert vote.tally.party_of("de.st.wk.001.mueller") == "cdu"
+    assert vote.tally.party_of("de.st.wk.001.schulz") is None
+    electoral = vote.hierarchy("electoral")
+    assert vote.tally.sum_to("wahlkreis", hierarchy=electoral).sum_by("unit") == {"de.st.wk.001": 71}
+
+
+def test_schema_4_needs_its_options(tmp_path):
+    with pytest.raises(ValueError, match=r"options\.csv: missing"):
+        read_bundle(write_4(tmp_path, options=None))
+
+
+def test_schema_4_options_must_list_every_option(tmp_path):
+    with pytest.raises(ValueError, match="which options does not list"):
+        read_bundle(write_4(tmp_path, options="option,party\ncdu,cdu\n"))
+
+
+def test_schema_4_has_no_levels(tmp_path):
+    election = SCHEMA_4 + "\n[levels]\nwahlkreis = 4\n"
+    with pytest.raises(ValueError, match="schema 4 has no \\[levels\\]"):
+        read_bundle(write_4(tmp_path, election=election))
+
+
+def test_schema_4_rejects_the_schema_3_header(tmp_path):
+    with pytest.raises(ValueError, match="header"):
+        read_bundle(write_4(tmp_path, tally=SCHEMA_3))

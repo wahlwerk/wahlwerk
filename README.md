@@ -158,7 +158,7 @@ and mypy still refuses to pass a `PartyId` where a `UnitId` belongs.
 | `BodyId` | dotted | `de.bund.bundestag`, `de.by.landtag` |
 | `CandidateId` | dotted | `max-mustermann` |
 | `LawId` | dotted, jurisdiction first | `de.st.lwg.2021`, later `de.bund.bwahlg.2023` |
-| `UnitId` | dotted | `de.st.wk.001`, `de.st.wk.035.gem.15002000.wbz.000001` |
+| `UnitId` | dotted, names its unit only (schema 4) | `de.st.wk.001`, `de.st.gem.15002000.wbz.000001` |
 | `PartyId` | single segment | `cdu`, `gruene`, `team-todenhoefer` |
 | `CaucusId` | single segment, unique within a chamber | `spd`, `cdu-csu` |
 | `MandateId` | dotted, unique within a chamber | `wk.001`, `list.afd.001`, `spd.001` |
@@ -212,9 +212,11 @@ as data rather than as strings.
   actually happened. Inside an allocation a tie stops the next step, until a lot can be
   applied there too.
 - **One long table for all vote data.** A tally is a flat sequence of rows:
-  `unit, level, kind, section, channel, option, party, count`. The option is what a vote
-  counts for (a party's list, a candidate, an answer such as `ja`), the party the one it
-  stands for, if any. Cumulation is a bigger count; panachage is
+  `unit, level, kind, section, channel, option, count`. The option is what a vote
+  counts for (a party's list, a candidate, an answer such as `ja`); the party it stands
+  for, if any, is listed once beside the table (`options.csv`), and the units that group
+  the rows (Wahlkreise, Kreise) are hierarchies beside it too, never spelled in the ids.
+  Cumulation is a bigger count; panachage is
   more rows; a new Land quirk is new rows, never new columns. That table is also
   literally one CSV file, which is what makes the archive format and the in-memory
   format the same thing.
@@ -398,6 +400,13 @@ Built one small step at a time; each step leaves the package importable.
   Collapse (`Tally.collapse`); `SumGroupBy` is a composition of them (`operations`), and
   with `sections` counts several sections as one (Erst- and Zweitstimmen as
   Gesamtstimmen, Art. 42 (2) BayLWG)
+- Bundle schema 4 (decision 0009): a unit id names its unit only, and every grouping is
+  a hierarchy, the electoral one included (`electoral.csv`); a law counts along the
+  hierarchy it names (`SumGroupBy(hierarchy="electoral")`), so Wahlkreise drawn by
+  another law version are another hierarchy, not other data. The party of each option
+  is on `Tally.options` (`options.csv`), not on the row. Schemas 1 to 3 are still read;
+  wahlwerk-data and the golden fixtures are schema 4, converted without loss by
+  wahlwerk-data-processing's `migrate`
 - Kinds are open (decision 0009): beside the built-in `TallyKind`s a tally counts any
   kind it declares as a `Kind` (votes or people, with an option or without), from
   `[kinds.<name>]` in `election.toml`; built-in kinds stay enum members, so existing
@@ -417,11 +426,8 @@ The path from a popular vote to a chamber, and how it was built, is in
 
 Then, the tally (decision 0009 in `.github-private`), one point at a time:
 
-- `party` out of the row into a mapping beside the tally (option, list, party,
-  alliance); what a law counts as valid (Spain's blank votes) as a step's setting,
-  with the first law that needs it
-- Unit ids that name the lowest unit only; every grouping a hierarchy, the law naming
-  the one it counts along (bundle schema 4)
+- What a law counts as valid (Spain's blank votes) as a step's setting, and options
+  grouped beyond their party (lists, alliances), each with the first law that needs it
 - A profile beside the tally (each Stimmzettel across its sections, in order where the
   law needs it), with the first law that needs it (Sec. 32 S. 2 LWG LSA)
 

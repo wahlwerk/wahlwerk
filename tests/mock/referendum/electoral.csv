@@ -1,0 +1,12 @@
+unit,level,parent
+mock.referendum,whole,
+mock.referendum.unit01,unit,mock.referendum
+mock.referendum.unit02,unit,mock.referendum
+mock.referendum.unit03,unit,mock.referendum
+mock.referendum.unit04,unit,mock.referendum
+mock.referendum.unit05,unit,mock.referendum
+mock.referendum.unit06,unit,mock.referendum
+mock.referendum.unit07,unit,mock.referendum
+mock.referendum.unit08,unit,mock.referendum
+mock.referendum.unit09,unit,mock.referendum
+mock.referendum.unit10,unit,mock.referendum

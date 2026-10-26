@@ -1,4 +1,4 @@
-schema = 3
+schema = 4
 
 [source]
 publisher = "Die Landeswahlleiterin Mecklenburg-Vorpommern"
@@ -9,6 +9,5 @@ attribution = "(c) Die Landeswahlleiterin Mecklenburg-Vorpommern; Datensatz: htt
 retrieved = 2026-09-27
 sha256 = "dc4db0acbd78fc750c8c5b553f6848af12622b99a60aa2fc3471d1d9cef1e23c"
 
-[levels]
-land = 2
-wahlkreis = 4
+[hierarchies.electoral]
+levels = ["land"]

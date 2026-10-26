@@ -1,0 +1,8 @@
+unit,level,parent
+mock.pathological,whole,
+mock.pathological.unit01,unit,mock.pathological
+mock.pathological.unit02,unit,mock.pathological
+mock.pathological.unit03,unit,mock.pathological
+mock.pathological.unit04,unit,mock.pathological
+mock.pathological.unit05,unit,mock.pathological
+mock.pathological.unit06,unit,mock.pathological

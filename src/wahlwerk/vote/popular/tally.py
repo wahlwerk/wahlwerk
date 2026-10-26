@@ -7,8 +7,9 @@ names its ``unit`` and ``level``. Votes and the administrative
 counts around them (Wahlberechtigte, Wähler) share one row type, so all of a vote's data
 is one long table. An election and a referendum (Volksentscheid, Bürgerentscheid) share
 it too: every vote counts for an ``option``, what was voted for, be it a party, a
-candidate or an answer such as ``ja``; ``party`` says which party, if any, the option
-stands for.
+candidate or an answer such as ``ja``. Which party, if any, an option stands for is not
+on the row but beside it, in :attr:`Tally.options` (decision 0009): it is a fact about
+the option, the same in every unit.
 Chamber votes, secret or named, are not tallies; they belong in
 :mod:`wahlwerk.vote.chamber`.
 
@@ -23,7 +24,7 @@ step of the law.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from enum import Enum
 from typing import Any, Literal
 
@@ -33,7 +34,7 @@ from wahlwerk.ids import LevelName, OptionId, PartyId, Slug, UnitId
 from wahlwerk.model import Count, Model
 from wahlwerk.vote.popular.hierarchy import Hierarchy
 
-__all__ = ["BUILT_IN_KINDS", "Kind", "Level", "Tally", "TallyKind", "TallyRow"]
+__all__ = ["BUILT_IN_KINDS", "Kind", "Level", "Option", "Tally", "TallyKind", "TallyRow"]
 
 
 class TallyKind(Enum):
@@ -64,8 +65,8 @@ class TallyKind(Enum):
 class Kind(Model):
     """What one kind of :class:`TallyRow` counts, and so which fields its rows set.
 
-    Votes are counted in a section, people are not; votes for an option name it (and
-    its party where it has one), other rows name no option. Which kinds are *valid*,
+    Votes are counted in a section, people are not; votes for an option name it, other
+    rows name no option. Which kinds are *valid*,
     and what they count towards, is a matter of law, not of the kind.
     """
 
@@ -88,18 +89,15 @@ class Kind(Model):
 
     def check(self, row: TallyRow) -> None:
         """Raise ``ValueError`` if ``row`` does not set the fields this kind asks for."""
-        where = (
-            f"{self.name} row in unit {row.unit!r} (section={row.section!r}, "
-            f"option={row.option!r}, party={row.party!r})"
-        )
+        where = f"{self.name} row in unit {row.unit!r} (section={row.section!r}, option={row.option!r})"
         if self.counts == "votes" and row.section is None:
             raise ValueError(f"{where} names no section")
         if self.counts == "people" and row.section is not None:
             raise ValueError(f"{where} counts people, so it must name no section")
         if self.has_option and row.option is None:
             raise ValueError(f"{where} names no option")
-        if not self.has_option and (row.option is not None or row.party is not None):
-            raise ValueError(f"{where} must name no option or party")
+        if not self.has_option and row.option is not None:
+            raise ValueError(f"{where} must name no option")
 
 
 BUILT_IN_KINDS: dict[TallyKind, Kind] = {
@@ -172,14 +170,6 @@ class TallyRow(Model):
             "meaning is law-defined. Absent on every row that is not ``VOTES``."
         ),
     )
-    party: PartyId | None = Field(
-        default=None,
-        description=(
-            "The party the option stands for: the option itself when it is a party, the "
-            "nominating party of a candidate. Absent for an Einzelbewerber, an answer, "
-            "and on every row that is not ``VOTES``."
-        ),
-    )
     count: Count = Field(
         description="The number counted in this row.",
     )
@@ -206,7 +196,7 @@ _KEY_FIELDS = tuple(name for name in TallyRow.model_fields if name != "count")
 """The fields of :class:`TallyRow` that say what a row counts, i.e. all but ``count``."""
 
 
-_RELABEL_FIELDS = ("section", "channel", "option", "party")
+_RELABEL_FIELDS = ("section", "channel", "option")
 """The fields :meth:`Tally.relabel` and :meth:`Tally.collapse` may change: what is
 counted, not where (units move with :meth:`Tally.sum_to`) and not of what kind."""
 
@@ -217,14 +207,32 @@ def _check_fields(fields: tuple[str, ...] | list[str]) -> None:
         raise ValueError(f"{unknown} are not tally fields; expected some of {list(_KEY_FIELDS)}")
 
 
+class Option(Model):
+    """One option a tally counts votes for, and the party it stands for.
+
+    The party of a party's list is the party itself; of a candidate, the party that
+    nominated them; an Einzelbewerber and an answer (``ja``) stand for none. It belongs
+    to the option, not to a row, so it is recorded once, beside the rows.
+    """
+
+    option: OptionId = Field(
+        description="The option, as rows name it, e.g. ``cdu`` or ``de.st.wk.001.mueller``.",
+    )
+    party: PartyId | None = Field(
+        default=None,
+        description="The party it stands for; ``None`` for an Einzelbewerber or an answer.",
+    )
+
+
 class Level(Model):
     """One level of the units a tally names, and how deep its unit ids are.
 
     Unit ids are dotted with the narrowest scope last, so the depth says how many
     segments a unit of this level has: a Wahlkreis ``de.st.wk.001`` is 4 deep, a
     Wahlbezirk ``de.st.wk.001.gem.15081026.wbz.000001`` is 8. Two levels may share a
-    depth (Wahlbezirk and Briefwahlbezirk). These are the levels of the main hierarchy;
-    others sit beside it as a :class:`~wahlwerk.vote.popular.hierarchy.Hierarchy`.
+    depth (Wahlbezirk and Briefwahlbezirk). Bundles of schemas 2 and 3 spell their
+    electoral hierarchy in the ids this way; from schema 4 every hierarchy is a
+    :class:`~wahlwerk.vote.popular.hierarchy.Hierarchy` and the ids name only their unit.
     """
 
     name: LevelName = Field(
@@ -244,7 +252,8 @@ class Tally(Model):
     No two rows count the same thing: rows that agree in every field but ``count``
     would be counted twice when summed, so they are rejected. When ``levels`` is given,
     every row names a listed level, and its unit has that level's depth. Every row's
-    kind is built in or listed in ``kinds``, and the row sets the fields it asks for. Sums are
+    kind is built in or listed in ``kinds``, and the row sets the fields it asks for.
+    Every option a row names is listed once in ``options``, with its party. Sums are
     derived here and never stored; :meth:`sum_to` rolls rows up into larger units,
     :meth:`sum_by` totals them by any fields.
     """
@@ -267,6 +276,10 @@ class Tally(Model):
             "e.g. ``blank``; empty when there are none."
         ),
     )
+    options: tuple[Option, ...] = Field(
+        default_factory=tuple,
+        description="Every option the rows count votes for, once, with the party it stands for.",
+    )
 
     _checked_rows: tuple[TallyRow, ...] | None = PrivateAttr(default=None)
     """The rows the checks below passed for. Pydantic runs a model's "after" validators
@@ -279,9 +292,18 @@ class Tally(Model):
     _sums: dict[tuple[str, int], tuple[tuple[TallyRow, ...], Tally]] = PrivateAttr(
         default_factory=dict
     )
-    """The sums along the main hierarchy already made, by (level, depth), each with the
+    """The sums along the ids already made, by (level, depth), each with the
     rows it was made from (see ``_checked_rows``). A tally is frozen, so a sum never
     changes: every law replayed on one election sums it once."""
+
+    _hierarchy_sums: dict[tuple[str, str], tuple[tuple[TallyRow, ...], Hierarchy, Tally]] = PrivateAttr(
+        default_factory=dict
+    )
+    """The sums along a hierarchy already made, by (hierarchy name, level), each with the
+    rows and the hierarchy it was made from, likewise."""
+
+    _party_of: dict[str, str | None] | None = PrivateAttr(default=None)
+    """``options`` as a lookup, made on first use."""
 
     @property
     def _is_checked(self) -> bool:
@@ -348,6 +370,23 @@ class Tally(Model):
         return self
 
     @model_validator(mode="after")
+    def _check_options(self) -> Tally:
+        if self._is_checked:
+            return self
+        listed: set[str] = set()
+        for entry in self.options:
+            if entry.option in listed:
+                raise ValueError(f"option {entry.option!r} is listed more than once")
+            listed.add(entry.option)
+        for row in self.rows:
+            if row.option is not None and row.option not in listed:
+                raise ValueError(
+                    f"row in unit {row.unit!r} counts votes for option {row.option!r}, "
+                    "which options does not list"
+                )
+        return self
+
+    @model_validator(mode="after")
     def _mark_checked(self) -> Tally:
         # Last of the validators: reached only when every check above has passed.
         self._checked_rows = self.rows
@@ -355,6 +394,34 @@ class Tally(Model):
 
     def __len__(self) -> int:
         return len(self.rows)
+
+    @classmethod
+    def from_rows(
+        cls,
+        rows: Iterable[TallyRow],
+        parties: Mapping[str, str | None] | None = None,
+        **fields: Any,
+    ) -> Tally:
+        """A tally of ``rows`` whose options are every option they name, in order of
+        first appearance, each standing for its party in ``parties`` (an option not in
+        it for none): ``Tally.from_rows(rows, parties={"cdu": "cdu",
+        "de.st.wk.001.mueller": "cdu"}, levels=LEVELS)``. Other fields as for the tally.
+        """
+        rows = tuple(rows)
+        parties = parties or {}
+        named = dict.fromkeys(row.option for row in rows if row.option is not None)
+        options = tuple(Option(option=o, party=parties.get(o)) for o in named)
+        return cls(rows=rows, options=options, **fields)
+
+    def party_of(self, option: str) -> str | None:
+        """The party ``option`` stands for; ``None`` for an Einzelbewerber or an answer.
+        Raises ``KeyError`` for an option not listed."""
+        if self._party_of is None:
+            self._party_of = {entry.option: entry.party for entry in self.options}
+        try:
+            return self._party_of[option]
+        except KeyError:
+            raise KeyError(f"option {option!r} is not listed in the tally's options") from None
 
     # ===========================================================
     # Views
@@ -383,6 +450,7 @@ class Tally(Model):
             ),
             levels=self.levels,
             kinds=self.kinds,
+            options=self.options,
         )
 
     def relabel(self, field: str, mapping: Mapping[Any, Any]) -> Tally:
@@ -395,9 +463,12 @@ class Tally(Model):
 
         Rows that then agree in every field but ``count`` are summed into one, kept in
         order of first appearance, and ``levels`` are kept. Only what is counted can be
-        relabelled (``section``, ``channel``, ``option``, ``party``); units move with
-        :meth:`sum_to`. Raises ``ValueError`` for another field, or a relabelled row that
-        is no longer a valid :class:`TallyRow` (a vote mapped to no option).
+        relabelled (``section``, ``channel``, ``option``); units move with
+        :meth:`sum_to`. Relabelled options keep their party, so options merged into one
+        must stand for the same party: ``tally.relabel("option", {"de.st.wk.001.mueller":
+        "cdu"})`` counts a nominee's votes for the party's list. Raises ``ValueError`` for
+        another field, options of different parties merged, or a relabelled row that is
+        no longer a valid :class:`TallyRow` (a vote mapped to no option).
         """
         if field not in _RELABEL_FIELDS:
             raise ValueError(f"{field!r} cannot be relabelled; expected one of {list(_RELABEL_FIELDS)}")
@@ -409,7 +480,20 @@ class Tally(Model):
                 return key
             return (*key[:index], mapping[value], *key[index + 1 :])
 
-        return self._merge(renamed, levels=self.levels)
+        options = self.options
+        if field == "option":
+            parties: dict[str, str | None] = {}
+            for entry in self.options:
+                name = mapping.get(entry.option, entry.option)
+                if name is None:
+                    continue  # the rows mapped to no option are refused below
+                if name in parties and parties[name] != entry.party:
+                    raise ValueError(
+                        f"options merged into {name!r} stand for {parties[name]!r} and {entry.party!r}"
+                    )
+                parties[name] = entry.party
+            options = tuple(Option(option=name, party=party) for name, party in parties.items())
+        return self._merge(renamed, levels=self.levels, options=options)
 
     def collapse(self, *fields: str) -> Tally:
         """The rows with ``fields`` summed away (made absent), e.g.
@@ -417,7 +501,7 @@ class Tally(Model):
 
         Rows that then agree in every field but ``count`` are summed into one, kept in
         order of first appearance, and ``levels`` are kept. Only ``section``,
-        ``channel``, ``option`` and ``party`` can be collapsed. Raises ``ValueError`` for
+        ``channel`` and ``option`` can be collapsed. Raises ``ValueError`` for
         no field, another field, or a row that is then no longer a valid
         :class:`TallyRow` (a vote without its section or option).
         """
@@ -449,10 +533,14 @@ class Tally(Model):
         ``tally.sum_to("wahlkreis")``. A tally that records no levels needs it given:
         ``tally.sum_to("wahlkreis", depth=4)``.
 
-        Along another ``hierarchy``, each unit is looked up in it instead:
-        ``tally.sum_to("gemeinde", hierarchy=administrative)`` sums Halle's Wahlbezirke
-        into one Gemeinde across its four Wahlkreise. Its units are not prefixes of
-        each other, so the result records no ``levels``.
+        Along a ``hierarchy``, each unit is looked up in it instead:
+        ``tally.sum_to("wahlkreis", hierarchy=electoral)`` (from schema 4, the way a law
+        counts), ``tally.sum_to("gemeinde", hierarchy=administrative)`` sums Halle's
+        Wahlbezirke into one Gemeinde across its four Wahlkreise. Its units are not
+        prefixes of each other, so the result records no ``levels``. A level the
+        hierarchy does not have but every row is at (the Wahlkreis rows of a tally that
+        records nothing finer) leaves the tally as it is. Sums along a hierarchy are kept
+        like those along the ids.
 
         Rows that then agree in every field but ``count`` are summed into one, kept in
         order of first appearance; ``channel`` is kept, so Urne and Brief stay apart.
@@ -465,16 +553,7 @@ class Tally(Model):
         if hierarchy is not None:
             if depth is not None:
                 raise ValueError("give a depth or a hierarchy, not both")
-            units = hierarchy.units_at(level)
-
-            def along_hierarchy(unit: str) -> str:
-                if unit not in units:
-                    raise ValueError(
-                        f"hierarchy {hierarchy.name!r} places unit {unit!r} in no {level!r}"
-                    )
-                return units[unit]
-
-            return self._sum(level, along_hierarchy, levels=())
+            return self._sum_along(level, hierarchy)
 
         depth = self._depth_of(level, depth)
         cached = self._sums.get((level, depth))
@@ -503,6 +582,46 @@ class Tally(Model):
         self._sums[(level, depth)] = (self.rows, result)
         return result
 
+    def _sum_along(self, level: str, hierarchy: Hierarchy) -> Tally:
+        """The rows summed into the units of ``level`` along ``hierarchy``, kept."""
+        if level not in hierarchy.levels:
+            # The rows' own level: each unit is already one of it, nothing to roll up.
+            others = {row.level for row in self.rows} - {level}
+            if others:
+                raise ValueError(
+                    f"hierarchy {hierarchy.name!r} has no level {level!r}, and rows of "
+                    f"{sorted(others)} cannot be summed to it; expected one of {list(hierarchy.levels)}"
+                )
+            return self
+        cached = self._hierarchy_sums.get((hierarchy.name, level))
+        if cached is not None and cached[0] is self.rows and cached[1] is hierarchy:
+            return cached[2]
+        units = hierarchy.units_at(level)
+
+        def along_hierarchy(unit: str) -> str:
+            if unit not in units:
+                raise ValueError(
+                    f"hierarchy {hierarchy.name!r} places unit {unit!r} in no {level!r}"
+                )
+            return units[unit]
+
+        # As along the ids: a sum to a finer level of the same hierarchy already made
+        # holds the same counts in fewer rows, and its units lie in the same units.
+        index = hierarchy.levels.index(level)
+        finer = [
+            summed
+            for (name, finer_level), (rows, tree, summed) in self._hierarchy_sums.items()
+            if rows is self.rows
+            and tree is hierarchy
+            and name == hierarchy.name
+            and finer_level in hierarchy.levels
+            and hierarchy.levels.index(finer_level) > index
+        ]
+        source = min(finer, key=len) if finer else self
+        result = source._sum(level, along_hierarchy, levels=())
+        self._hierarchy_sums[(hierarchy.name, level)] = (self.rows, hierarchy, result)
+        return result
+
     def _sum(
         self, level: str, unit_of: Callable[[str], str], levels: tuple[Level, ...]
     ) -> Tally:
@@ -519,7 +638,10 @@ class Tally(Model):
         return self._merge(moved, levels=levels)
 
     def _merge(
-        self, new_key: Callable[[tuple[Any, ...]], tuple[Any, ...]], levels: tuple[Level, ...]
+        self,
+        new_key: Callable[[tuple[Any, ...]], tuple[Any, ...]],
+        levels: tuple[Level, ...],
+        options: tuple[Option, ...] | None = None,
     ) -> Tally:
         """Each row given ``new_key(row.key)``, and rows with the same key summed, in
         order of first appearance: the arithmetic of every operation that is a sum."""
@@ -534,6 +656,7 @@ class Tally(Model):
             ),
             levels=levels,
             kinds=self.kinds,
+            options=self.options if options is None else options,
         )
 
     def _depth_of(self, level: str, depth: int | None) -> int:

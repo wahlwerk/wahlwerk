@@ -3,8 +3,11 @@ from pydantic import ValidationError
 
 from wahlwerk.vote.popular import (
     BUILT_IN_KINDS,
+    Hierarchy,
+    HierarchyUnit,
     Kind,
     Level,
+    Option,
     Tally,
     TallyKind,
     TallyRow,
@@ -15,32 +18,27 @@ VOTE = {**UNIT, "section": "zweitstimme"}
 
 
 def test_valid_vote_row():
-    row = TallyRow(**VOTE, option="spd", party="spd", count=1234)
+    row = TallyRow(**VOTE, option="spd", count=1234)
     assert row.kind is TallyKind.VOTES
-    assert row.option == row.party == "spd"
+    assert row.option == "spd"
     assert row.channel is None
     assert row.count == 1234
 
 
-def test_valid_vote_row_for_an_independent_candidate():
-    row = TallyRow(**VOTE, option="de.st.wk.001.mueller", count=12)
-    assert row.party is None
-
-
-def test_a_candidate_of_a_party():
-    row = TallyRow(**VOTE, option="de.st.wk.001.mueller", party="cdu", count=12)
-    assert (row.option, row.party) == ("de.st.wk.001.mueller", "cdu")
+def test_a_row_names_no_party():
+    # Which party an option stands for is the tally's options, not the row (decision 0009).
+    with pytest.raises(ValidationError, match="party"):
+        TallyRow(**VOTE, option="de.st.wk.001.mueller", party="cdu", count=12)
 
 
 def test_referendum_row():
     row = TallyRow(**UNIT, section="frage-1", option="ja", count=5000)
     assert row.kind is TallyKind.VOTES
-    assert row.party is None
 
 
 def test_invalid_vote_row():
     row = TallyRow(**VOTE, kind=TallyKind.INVALID, count=56)
-    assert row.option is None and row.party is None
+    assert row.option is None
 
 
 @pytest.mark.parametrize("kind", [TallyKind.ELIGIBLE, TallyKind.VOTERS])
@@ -62,14 +60,12 @@ def test_kind_from_string():
 def test_valid_vote_row_without_option_is_rejected():
     with pytest.raises(ValidationError, match="names no option"):
         TallyRow(**VOTE, count=1)
-    with pytest.raises(ValidationError, match="names no option"):
-        TallyRow(**VOTE, party="spd", count=1)  # a party alone is not what was voted for
 
 
 @pytest.mark.parametrize("kind", [TallyKind.VOTES, TallyKind.INVALID])
 def test_vote_row_without_section_is_rejected(kind):
     with pytest.raises(ValidationError, match="names no section"):
-        TallyRow(**UNIT, kind=kind, option="spd", party="spd", count=1)
+        TallyRow(**UNIT, kind=kind, option="spd", count=1)
 
 
 @pytest.mark.parametrize("kind", [TallyKind.ELIGIBLE, TallyKind.VOTERS])
@@ -81,22 +77,22 @@ def test_people_row_with_section_is_rejected(kind):
 @pytest.mark.parametrize("kind", [TallyKind.INVALID, TallyKind.ELIGIBLE, TallyKind.VOTERS])
 @pytest.mark.parametrize(
     "recipient",
-    [{"party": "spd"}, {"option": "de.st.wk.001.mueller"}, {"option": "ja"}],
+    [{"option": "spd"}, {"option": "de.st.wk.001.mueller"}, {"option": "ja"}],
 )
 def test_non_vote_row_with_recipient_is_rejected(kind, recipient):
     section = {"section": "zweitstimme"} if kind is TallyKind.INVALID else {}
-    with pytest.raises(ValidationError, match="must name no option or party"):
+    with pytest.raises(ValidationError, match="must name no option"):
         TallyRow(**UNIT, **section, **recipient, kind=kind, count=1)
 
 
 def test_negative_count_is_rejected():
     with pytest.raises(ValidationError):
-        TallyRow(**VOTE, option="spd", party="spd", count=-1)
+        TallyRow(**VOTE, option="spd", count=-1)
 
 
 def test_unknown_field_is_rejected():
     with pytest.raises(ValidationError):
-        TallyRow(**VOTE, option="spd", party="spd", count=1, Stimmart="zweitstimme")
+        TallyRow(**VOTE, option="spd", count=1, Stimmart="zweitstimme")
 
 
 # ===========================================================
@@ -114,14 +110,19 @@ def row(unit, count, *, party="afd", section="zweitstimme", channel="urne", **fi
         section=section,
         channel=channel,
         option=party,
-        party=party,
         count=count,
         **fields,
     )
 
 
-TALLY = Tally(
-    rows=(
+def make_tally(rows, **fields):
+    """A tally whose every option is a party, standing for itself."""
+    rows = tuple(rows)
+    return Tally.from_rows(rows, parties={r.option: r.option for r in rows if r.option}, **fields)
+
+
+TALLY = make_tally(
+    (
         row(WBZ_1, 209),
         row(WBZ_1, 61, party="cdu"),
         row(WBZ_1, 217, section="erststimme"),
@@ -140,18 +141,18 @@ def test_empty_tally():
 
 def test_duplicate_rows_are_rejected():
     with pytest.raises(ValidationError, match="more than once"):
-        Tally(rows=(row(WBZ_1, 1), row(WBZ_1, 2)))
+        make_tally((row(WBZ_1, 1), row(WBZ_1, 2)))
 
 
 def test_rows_differing_in_one_field_are_not_duplicates():
-    assert len(Tally(rows=(row(WBZ_1, 1), row(WBZ_1, 2, channel="brief")))) == 2
+    assert len(make_tally((row(WBZ_1, 1), row(WBZ_1, 2, channel="brief")))) == 2
 
 
 def test_filter():
     zweit = TALLY.filter(kind="votes", section="zweitstimme")
     assert len(zweit) == 5
     assert TALLY.filter(kind=TallyKind.VOTES, section="zweitstimme") == zweit
-    assert TALLY.filter(party="cdu").total() == 111
+    assert TALLY.filter(option="cdu").total() == 111
 
 
 def test_filter_on_absent_field():
@@ -167,7 +168,7 @@ def test_filter_rejects_unknown_field_and_count():
 
 def test_sum_to_wahlkreis():
     wk = TALLY.filter(kind="votes", section="zweitstimme").sum_to("wahlkreis", depth=4)
-    assert {(r.unit, r.party, r.channel): r.count for r in wk.rows} == {
+    assert {(r.unit, r.option, r.channel): r.count for r in wk.rows} == {
         ("de.st.wk.001", "afd", "urne"): 309,
         ("de.st.wk.001", "cdu", "urne"): 61,
         ("de.st.wk.001", "afd", "brief"): 40,
@@ -178,7 +179,7 @@ def test_sum_to_wahlkreis():
 
 def test_sum_to_keeps_order_of_first_appearance():
     land = TALLY.filter(kind="votes", section="zweitstimme").sum_to("land", depth=2)
-    assert [(r.party, r.channel) for r in land.rows] == [
+    assert [(r.option, r.channel) for r in land.rows] == [
         ("afd", "urne"),
         ("cdu", "urne"),
         ("afd", "brief"),
@@ -204,14 +205,14 @@ def test_sum_to_without_levels_needs_depth():
 
 
 def test_sum_by_one_field_gives_plain_keys():
-    assert TALLY.filter(kind="votes", section="zweitstimme").sum_by("party") == {
+    assert TALLY.filter(kind="votes", section="zweitstimme").sum_by("option") == {
         "afd": 349,
         "cdu": 111,
     }
 
 
 def test_sum_by_several_fields_gives_tuple_keys():
-    by = TALLY.filter(kind="votes").sum_by("section", "party")
+    by = TALLY.filter(kind="votes").sum_by("section", "option")
     assert by == {("zweitstimme", "afd"): 349, ("zweitstimme", "cdu"): 111, ("erststimme", "afd"): 217}
 
 
@@ -230,7 +231,7 @@ LEVELS = (
     Level(name="wahlkreis", depth=4),
     Level(name="wahlbezirk", depth=8),
 )
-LEVELLED = Tally(rows=TALLY.rows, levels=LEVELS)
+LEVELLED = make_tally(TALLY.rows, levels=LEVELS)
 
 
 def test_level_depth_is_strict():
@@ -249,13 +250,13 @@ def test_levels_listed_twice_are_rejected():
 
 def test_row_at_unlisted_level_is_rejected():
     with pytest.raises(ValidationError, match="not one of"):
-        Tally(rows=TALLY.rows, levels=LEVELS[:2])
+        make_tally(TALLY.rows, levels=LEVELS[:2])
 
 
 def test_row_at_wrong_depth_is_rejected():
     rows = (row("de.st.wk.001", 1),)  # level wahlbezirk, but 4 segments
     with pytest.raises(ValidationError, match="has 4 segments, but level 'wahlbezirk' is 8"):
-        Tally(rows=rows, levels=LEVELS)
+        make_tally(rows, levels=LEVELS)
 
 
 def test_sum_to_takes_depth_from_levels():
@@ -265,7 +266,7 @@ def test_sum_to_takes_depth_from_levels():
 
 
 def test_sum_to_and_filter_keep_levels():
-    assert LEVELLED.filter(party="cdu").levels == LEVELS
+    assert LEVELLED.filter(option="cdu").levels == LEVELS
     assert LEVELLED.sum_to("land").levels == LEVELS
 
 
@@ -292,7 +293,7 @@ def test_a_tally_is_checked_once(monkeypatch):
     reads = []
     key = TallyRow.key
     monkeypatch.setattr(TallyRow, "key", property(lambda self: reads.append(1) or key.fget(self)))
-    tally = Tally(rows=TALLY.rows)
+    tally = make_tally(TALLY.rows)
     assert reads  # checked when built
     reads.clear()
     allocation = Allocation(tally=tally).with_values(chamber_size=1).with_values(seats_to_apportion=1)
@@ -302,13 +303,13 @@ def test_a_tally_is_checked_once(monkeypatch):
 
 def test_a_new_tally_from_checked_rows_is_still_checked():
     with pytest.raises(ValidationError, match="more than once"):
-        Tally(rows=(*TALLY.rows, TALLY.rows[0]))
+        make_tally((*TALLY.rows, TALLY.rows[0]))
 
 
 # Three levels deep, for the kept sums.
-DEEP = Tally(
-    rows=tuple(
-        TallyRow(unit=unit, level="wahlbezirk", section="zweitstimme", channel=channel, option=party, party=party, count=n)
+DEEP = make_tally(
+    tuple(
+        TallyRow(unit=unit, level="wahlbezirk", section="zweitstimme", channel=channel, option=party, count=n)
         for unit, channel, party, n in (
             ("de.st.wk.001.gem.1.wbz.1", "urne", "afd", 5),
             ("de.st.wk.001.gem.1.wbz.2", "urne", "cdu", 3),
@@ -326,20 +327,20 @@ DEEP = Tally(
 
 
 def test_a_sum_is_made_once_and_kept():
-    tally = Tally(rows=DEEP.rows, levels=DEEP.levels)
+    tally = make_tally(DEEP.rows, levels=DEEP.levels)
     assert tally.sum_to("wahlkreis") is tally.sum_to("wahlkreis")
 
 
 def test_a_coarse_sum_from_a_finer_one_equals_the_direct_sum():
-    direct = Tally(rows=DEEP.rows, levels=DEEP.levels).sum_to("land")
-    via = Tally(rows=DEEP.rows, levels=DEEP.levels)
+    direct = make_tally(DEEP.rows, levels=DEEP.levels).sum_to("land")
+    via = make_tally(DEEP.rows, levels=DEEP.levels)
     via.sum_to("wahlkreis")
     assert via.sum_to("land") == direct
     assert [r.key for r in via.sum_to("land").rows] == [r.key for r in direct.rows]
 
 
 def test_a_copy_with_other_rows_uses_no_kept_sum_or_check():
-    tally = Tally(rows=DEEP.rows, levels=DEEP.levels)
+    tally = make_tally(DEEP.rows, levels=DEEP.levels)
     tally.sum_to("land")
     copy = tally.model_copy(update={"rows": DEEP.rows[:1]})
     assert copy.sum_to("land").total() == 5
@@ -352,24 +353,24 @@ def test_a_copy_with_other_rows_uses_no_kept_sum_or_check():
 def test_filter_with_several_values_selects_any_of_them():
     both = TALLY.filter(section=("erststimme", "zweitstimme"))
     assert len(both) == 6  # every vote row, not the people
-    assert TALLY.filter(party=["cdu"]).total() == 111
+    assert TALLY.filter(option=["cdu"]).total() == 111
 
 
 def test_relabel_merges_sections_and_sums():
     merged = TALLY.relabel("section", {"erststimme": "gesamtstimme", "zweitstimme": "gesamtstimme"})
-    assert merged.filter(unit=WBZ_1, party="afd").rows[0].count == 209 + 217
+    assert merged.filter(unit=WBZ_1, option="afd").rows[0].count == 209 + 217
     assert merged.filter(section="gesamtstimme").total() == TALLY.filter(kind="votes").total()
     assert merged.total() == TALLY.total()
 
 
 def test_relabel_keeps_members_not_mapped_and_order():
-    renamed = TALLY.relabel("party", {"cdu": "union"})
-    assert renamed.sum_by("party") == {"afd": 566, "union": 111, None: 590}
+    renamed = TALLY.relabel("option", {"cdu": "union"})
+    assert renamed.sum_by("option") == {"afd": 566, "union": 111, None: 590}
     assert [r.unit for r in renamed.rows] == [r.unit for r in TALLY.rows]
 
 
 def test_relabel_keeps_levels():
-    tally = Tally(rows=(row(WBZ_1, 1),), levels=(Level(name="wahlbezirk", depth=8),))
+    tally = make_tally((row(WBZ_1, 1),), levels=(Level(name="wahlbezirk", depth=8),))
     assert tally.relabel("channel", {"urne": "lokal"}).levels == tally.levels
 
 
@@ -418,22 +419,22 @@ def test_a_built_in_kind_read_as_its_name_is_its_member():
 def test_another_kind_is_a_slug_the_tally_must_declare():
     blank = TallyRow(unit=WBZ_1, level="wahlbezirk", kind="blank", section="zweitstimme", count=3)
     assert blank.kind == "blank"
-    tally = Tally(rows=(blank,), kinds=(BLANK,))
+    tally = make_tally((blank,), kinds=(BLANK,))
     assert tally.filter(kind="blank").total() == 3
     assert tally.filter(kind=TallyKind.VOTES).total() == 0
     with pytest.raises(ValidationError, match="neither built in nor one of"):
-        Tally(rows=(blank,))
+        make_tally((blank,))
 
 
 def test_a_declared_kind_checks_its_rows():
     people = TallyRow(unit=WBZ_1, level="wahlbezirk", kind="voters-wahlschein", section="zweitstimme", count=3)
     with pytest.raises(ValidationError, match="counts people, so it must name no section"):
-        Tally(rows=(people,), kinds=(WAHLSCHEIN,))
+        make_tally((people,), kinds=(WAHLSCHEIN,))
     blank_for_a_party = TallyRow(
         unit=WBZ_1, level="wahlbezirk", kind="blank", section="zweitstimme", option="afd", count=3
     )
     with pytest.raises(ValidationError, match="must name no option"):
-        Tally(rows=(blank_for_a_party,), kinds=(BLANK,))
+        make_tally((blank_for_a_party,), kinds=(BLANK,))
 
 
 def test_kinds_cannot_redeclare_a_built_in_or_repeat():
@@ -450,8 +451,84 @@ def test_people_name_no_option():
 
 def test_operations_keep_the_kinds():
     blank = TallyRow(unit=WBZ_1, level="wahlbezirk", kind="blank", section="zweitstimme", channel="urne", count=3)
-    tally = Tally(rows=(blank, row(WBZ_1, 5)), kinds=(BLANK,))
+    tally = make_tally((blank, row(WBZ_1, 5)), kinds=(BLANK,))
     assert tally.filter(section="zweitstimme").kinds == (BLANK,)
     assert tally.collapse("channel").kinds == (BLANK,)
     assert tally.relabel("section", {"zweitstimme": "z"}).kinds == (BLANK,)
     assert tally.sum_to("wahlkreis", depth=4).filter(kind="blank").total() == 3
+
+
+# ===========================================================
+# Options beside the rows (decision 0009)
+# ===========================================================
+
+NOMINEE = TallyRow(**VOTE, option="de.st.wk.001.mueller", count=12)
+LIST = TallyRow(**VOTE, option="cdu", count=30)
+
+
+def test_options_give_each_option_its_party():
+    tally = Tally.from_rows((NOMINEE, LIST), parties={"de.st.wk.001.mueller": "cdu", "cdu": "cdu"})
+    assert tally.options == (Option(option="de.st.wk.001.mueller", party="cdu"), Option(option="cdu", party="cdu"))
+    assert tally.party_of("de.st.wk.001.mueller") == "cdu"
+    with pytest.raises(KeyError, match="not listed"):
+        tally.party_of("spd")
+
+
+def test_from_rows_leaves_an_option_not_given_without_party():
+    assert Tally.from_rows((NOMINEE,)).party_of("de.st.wk.001.mueller") is None
+
+
+def test_every_option_must_be_listed_once():
+    with pytest.raises(ValidationError, match="which options does not list"):
+        Tally(rows=(NOMINEE,))
+    with pytest.raises(ValidationError, match="listed more than once"):
+        Tally(rows=(LIST,), options=(Option(option="cdu", party="cdu"), Option(option="cdu")))
+
+
+def test_relabel_options_keeps_their_party():
+    tally = Tally.from_rows((NOMINEE, LIST), parties={"de.st.wk.001.mueller": "cdu", "cdu": "cdu"})
+    merged = tally.relabel("option", {"de.st.wk.001.mueller": "cdu"})
+    assert merged.sum_by("option") == {"cdu": 42}
+    assert merged.options == (Option(option="cdu", party="cdu"),)
+
+
+def test_relabel_cannot_merge_options_of_two_parties():
+    tally = Tally.from_rows((NOMINEE, LIST), parties={"de.st.wk.001.mueller": "spd", "cdu": "cdu"})
+    with pytest.raises(ValueError, match="stand for"):
+        tally.relabel("option", {"de.st.wk.001.mueller": "cdu"})
+
+
+ELECTORAL = Hierarchy(
+    name="electoral",
+    levels=("land", "wahlkreis"),
+    units=(
+        HierarchyUnit(unit="de.st", level="land"),
+        HierarchyUnit(unit="de.st.wk.001", level="wahlkreis", parent="de.st"),
+        HierarchyUnit(unit="de.st.wk.002", level="wahlkreis", parent="de.st"),
+        HierarchyUnit(unit="de.st.gem.15081026.wbz.000001", level="wahlbezirk", parent="de.st.wk.001"),
+        HierarchyUnit(unit="de.st.gem.15081026.wbz.000002", level="wahlbezirk", parent="de.st.wk.002"),
+    ),
+)
+FREE = make_tally(
+    (row("de.st.gem.15081026.wbz.000001", 3), row("de.st.gem.15081026.wbz.000002", 4, party="cdu"))
+)
+
+
+def test_ids_that_spell_nothing_are_summed_along_a_hierarchy():
+    wk = FREE.sum_to("wahlkreis", hierarchy=ELECTORAL)
+    assert wk.sum_by("unit") == {"de.st.wk.001": 3, "de.st.wk.002": 4}
+    assert FREE.sum_to("land", hierarchy=ELECTORAL).sum_by("unit") == {"de.st": 7}
+
+
+def test_a_sum_along_a_hierarchy_is_kept_and_a_coarse_one_made_from_it():
+    tally = make_tally(FREE.rows)
+    wk = tally.sum_to("wahlkreis", hierarchy=ELECTORAL)
+    assert tally.sum_to("wahlkreis", hierarchy=ELECTORAL) is wk
+    assert tally.sum_to("land", hierarchy=ELECTORAL) == FREE.sum_to("land", hierarchy=ELECTORAL)
+
+
+def test_the_rows_own_level_is_no_roll_up():
+    wahlkreise = make_tally((TallyRow(**VOTE, option="cdu", count=5),))
+    assert wahlkreise.sum_to("wahlkreis", hierarchy=Hierarchy(name="electoral", levels=("land",))) is wahlkreise
+    with pytest.raises(ValueError, match="has no level 'gemeinde'"):
+        FREE.sum_to("gemeinde", hierarchy=ELECTORAL)

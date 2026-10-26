@@ -11,6 +11,7 @@ from wahlwerk.process.allocation.base import (
 )
 from wahlwerk.process.allocation.count import SumGroupBy
 from wahlwerk.process.allocation.elect import SingleMandatePerUnit
+from wahlwerk.vote.popular.hierarchy import Hierarchy, HierarchyUnit
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
 LEVELS = (
@@ -33,12 +34,12 @@ def vote(unit, count, *, section="erststimme", party=None, candidate=None, level
         section=section,
         channel=channel,
         option=candidate or party,
-        party=party,
         count=count,
     )
 
 
-TALLY = Tally(
+TALLY = Tally.from_rows(
+    parties={p: p for p in ("afd", "cdu", "linke", "spd", "fdp")},
     levels=LEVELS,
     rows=(
         # Wahlkreis 1: AfD wins only once the Briefwahl is added (40 + 25 against 50 + 10).
@@ -237,3 +238,36 @@ def test_a_count_is_named_as_its_operations():
     assert [name for name, _ in plain.operations] == ["RollUp", "Select", "Collapse"]
     assert [name for name, _ in GESAMT.operations] == ["RollUp", "Select", "Relabel", "Collapse", "Relabel"]
     assert ("Relabel", "erststimme + zweitstimme -> gesamtstimme") in GESAMT.operations
+
+
+# ===========================================================
+# Counting along a hierarchy (schema 4)
+# ===========================================================
+
+WBZ = "de.st.gem.15081026.wbz.000001"
+ELECTORAL = Hierarchy(
+    name="electoral",
+    levels=("land", "wahlkreis"),
+    units=(
+        HierarchyUnit(unit="de.st", level="land"),
+        HierarchyUnit(unit="de.st.wk.007", level="wahlkreis", parent="de.st"),
+        HierarchyUnit(unit=WBZ, level="wahlbezirk", parent="de.st.wk.007"),
+    ),
+)
+FREE = Tally.from_rows((vote(WBZ, 4, party="cdu"), vote(WBZ, 3, party="spd")), parties={"cdu": "cdu", "spd": "spd"})
+
+
+def test_a_count_follows_the_hierarchy_its_law_names():
+    step = SumGroupBy(section="erststimme", level="wahlkreis", by="option")
+    table = step(Allocation(tally=FREE, hierarchies=(ELECTORAL,))).count("erststimme", "wahlkreis")
+    assert table.per_unit() == {"de.st.wk.007": {"cdu": 4, "spd": 3}}
+    # Another law's Wahlkreise are another hierarchy, not other data.
+    redrawn = ELECTORAL.model_copy(update={"name": "electoral-2016"})
+    other = SumGroupBy(section="erststimme", level="wahlkreis", by="option", hierarchy="electoral-2016")
+    assert other(Allocation(tally=FREE, hierarchies=(redrawn,))).count("erststimme", "wahlkreis").per_unit() == table.per_unit()
+
+
+def test_a_count_needs_its_hierarchy_or_ids_that_spell_it():
+    step = SumGroupBy(section="erststimme", level="wahlkreis", by="option")
+    with pytest.raises(ValueError, match="records no hierarchy 'electoral'"):
+        step(Allocation(tally=FREE))

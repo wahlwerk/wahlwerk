@@ -1,0 +1,17 @@
+unit,level,parent
+mock.mixed-member,whole,
+mock.mixed-member.unit01,unit,mock.mixed-member
+mock.mixed-member.unit02,unit,mock.mixed-member
+mock.mixed-member.unit03,unit,mock.mixed-member
+mock.mixed-member.unit04,unit,mock.mixed-member
+mock.mixed-member.unit05,unit,mock.mixed-member
+mock.mixed-member.unit06,unit,mock.mixed-member
+mock.mixed-member.unit07,unit,mock.mixed-member
+mock.mixed-member.unit08,unit,mock.mixed-member
+mock.mixed-member.unit09,unit,mock.mixed-member
+mock.mixed-member.unit10,unit,mock.mixed-member
+mock.mixed-member.unit11,unit,mock.mixed-member
+mock.mixed-member.unit12,unit,mock.mixed-member
+mock.mixed-member.unit13,unit,mock.mixed-member
+mock.mixed-member.unit14,unit,mock.mixed-member
+mock.mixed-member.unit15,unit,mock.mixed-member

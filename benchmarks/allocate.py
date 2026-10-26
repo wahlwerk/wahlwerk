@@ -18,7 +18,8 @@ Not a test: timings depend on the machine. Run it before and after a change to t
 allocation path and compare. Measured on 2026-10-24, Sachsen-Anhalt 2026 per Wahlbezirk
 (about 70,000 rows): 2.2 s per allocation; 0.3 s once a tally was checked once; then
 about 0.15 s cold and a few milliseconds warm once sums were kept and the Land summed
-from the Wahlkreise.
+from the Wahlkreise. Unchanged on 2026-10-26 with schema 4, counted along the
+``electoral`` hierarchy instead of the ids (about 0.1 s cold, 10 ms warm).
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ from pathlib import Path
 from wahlwerk.io.bundle import read_bundle
 from wahlwerk.law.registry import LAWS
 from wahlwerk.process.allocation.allocate import allocate
+from wahlwerk.vote.popular.hierarchy import Hierarchy, HierarchyUnit
 from wahlwerk.vote.popular.popular_vote import PopularVote
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
@@ -47,29 +49,36 @@ CASES = (
 
 
 def split(vote: PopularVote, units: int) -> PopularVote:
-    """``vote`` with every Wahlkreis row split over ``units`` Wahlbezirke one level
-    deeper; sums are unchanged."""
-    depth = {level.name: level.depth for level in vote.tally.levels}
+    """``vote`` with every Wahlkreis row split over ``units`` Wahlbezirke in it; sums are
+    unchanged. Along its electoral hierarchy (schema 4), the Wahlbezirke join it; a
+    vote whose ids spell the hierarchy (schema 3) gets a level one id pair deeper."""
     rows: list[TallyRow] = []
+    placed: list[HierarchyUnit] = []
     for row in vote.tally.rows:
         if row.level != "wahlkreis":
             rows.append(row)
             continue
         base, extra = divmod(row.count, units)
         for i in range(units):
+            unit = f"{row.unit}.wbz.{i + 1:03d}"
             rows.append(
                 row.model_copy(
-                    update={
-                        "unit": f"{row.unit}.wbz.{i + 1:03d}",
-                        "level": "wahlbezirk",
-                        "count": base + (1 if i < extra else 0),
-                    }
+                    update={"unit": unit, "level": "wahlbezirk", "count": base + (1 if i < extra else 0)}
                 )
             )
+            placed.append(HierarchyUnit(unit=unit, level="wahlbezirk", parent=row.unit))
+    electoral = vote.hierarchy("electoral") if any(h.name == "electoral" for h in vote.hierarchies) else None
+    if electoral is not None:
+        # The Wahlkreise were the rows, a level below the hierarchy's own; now the
+        # Wahlbezirke are, so the Wahlkreis becomes a level of it.
+        levels = electoral.levels if "wahlkreis" in electoral.levels else (*electoral.levels, "wahlkreis")
+        tree = Hierarchy(name=electoral.name, levels=levels, units=(*electoral.units, *dict.fromkeys(placed)))
+        tally = Tally(rows=tuple(rows), options=vote.tally.options, kinds=vote.tally.kinds)
+        return vote.model_copy(update={"tally": tally, "hierarchies": (tree,)})
+    depth = {level.name: level.depth for level in vote.tally.levels}
     levels = (*vote.tally.levels, Level(name="wahlbezirk", depth=depth["wahlkreis"] + 2))
-    return vote.model_copy(
-        update={"tally": Tally(rows=tuple(rows), levels=levels), "hierarchies": {}}
-    )
+    tally = Tally(rows=tuple(rows), levels=levels, options=vote.tally.options, kinds=vote.tally.kinds)
+    return vote.model_copy(update={"tally": tally, "hierarchies": ()})
 
 
 def timed(vote: PopularVote, law_id: str, repeat: int) -> tuple[float, float, dict[str, int]]:

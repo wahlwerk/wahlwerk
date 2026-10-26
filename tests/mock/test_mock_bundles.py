@@ -59,13 +59,17 @@ def test_all_bundles_are_present():
 def test_bundle_adds_up(name):
     """Per unit, channel and section, valid and invalid votes equal the voters; per
     unit (Wahlkreis), the voters, Brief included, are at most the eligible."""
-    tally = read(name).tally
+    vote = read(name)
+    tally = vote.tally
     sections = {row.section for row in tally.filter(kind="votes").rows}
     for (unit, channel), voters in tally.filter(kind="voters").sum_by("unit", "channel").items():
         for section in sections:
             cast = tally.filter(unit=unit, section=section, channel=channel).total()
             assert cast == voters, (unit, section, channel)
-    summed = tally.sum_to(tally.levels[1].name)
+    # Up to the units that elect: the Wahlkreise of a Landtag mock; the rows themselves
+    # (``unit``) elsewhere.
+    electoral = vote.hierarchy("electoral")
+    summed = tally.sum_to("wahlkreis" if "wahlkreis" in electoral.levels else "unit", hierarchy=electoral)
     eligible = summed.filter(kind="eligible").sum_by("unit")
     for unit, voters in summed.filter(kind="voters").sum_by("unit").items():
         assert voters <= eligible[unit], unit
@@ -166,22 +170,25 @@ def test_two_round_second_holds_only_undecided_units():
     assert "unit02" not in second_units
     assert "unit05" in second_units
     parties_in_08 = second.filter(unit="mock.two-round-second.unit08", kind="votes")
-    assert len({row.party for row in parties_in_08.rows}) == 3
+    assert len({second.party_of(row.option) for row in parties_in_08.rows}) == 3
 
 
 def test_pathological_edge_cases():
     tally = read("pathological").tally
     total = votes(tally)
     assert total == {"party-a": 6_000, "party-b": 6_000, "party-c": 3_000, "party-d": 0}
-    unit01 = tally.filter(unit="mock.pathological.unit01", kind="votes").sum_by("party")
+    unit01 = tally.filter(unit="mock.pathological.unit01", kind="votes").sum_by("option")
     assert unit01["party-a"] == unit01["party-b"]
 
 
 # Landtag mocks: Erst- and Zweitstimme, Urne and Brief, run under the real Landtag laws.
 
 
-def wahlkreis_winners(tally: Tally) -> dict[str, str]:
-    return mandate_winners_of(tally.sum_to("wahlkreis"), "erststimme")
+def wahlkreis_winners(vote: PopularVote, tally: Tally | None = None) -> dict[str, str]:
+    """The winner per Wahlkreis of ``vote``, or of ``tally``, a part of it."""
+    tally = vote.tally if tally is None else tally
+    summed = tally.sum_to("wahlkreis", hierarchy=vote.hierarchy("electoral"))
+    return mandate_winners_of(summed, "erststimme")
 
 
 def zweitstimmen(tally: Tally) -> dict[str, Fraction]:
@@ -208,14 +215,15 @@ def test_landtag_has_briefwahlbezirke():
 
 
 def test_landtag_overhang_one_party_wins_nearly_every_wahlkreis():
-    tally = read("landtag-overhang").tally
-    wins = list(wahlkreis_winners(tally).values())
+    vote = read("landtag-overhang")
+    tally = vote.tally
+    wins = list(wahlkreis_winners(vote).values())
     assert wins.count("party-a") >= 38
     assert zweitstimmen(tally)["party-a"] < Fraction(35, 100)
 
 
 def test_landtag_split_wins_two_parties_share_the_wahlkreise():
-    wins = list(wahlkreis_winners(read("landtag-split-wins").tally).values())
+    wins = list(wahlkreis_winners(read("landtag-split-wins")).values())
     assert wins.count("party-a") >= 15
     assert wins.count("party-b") >= 15
 
@@ -236,13 +244,13 @@ def test_landtag_bare_majority_of_counted_votes():
 
 
 def test_landtag_grundmandat_party_below_threshold_wins_three():
-    tally = read("landtag-grundmandat").tally
-    assert zweitstimmen(tally)["party-g"] < Fraction(5, 100)
-    assert list(wahlkreis_winners(tally).values()).count("party-g") == 3
+    vote = read("landtag-grundmandat")
+    assert zweitstimmen(vote.tally)["party-g"] < Fraction(5, 100)
+    assert list(wahlkreis_winners(vote).values()).count("party-g") == 3
 
 
 def test_landtag_einzelbewerber_wins_one_wahlkreis():
-    winners = wahlkreis_winners(read("landtag-einzelbewerber").tally)
+    winners = wahlkreis_winners(read("landtag-einzelbewerber"))
     assert winners["mock.landtag-einzelbewerber.wk.017"].endswith(".einzelbewerber")
     assert not winners["mock.landtag-einzelbewerber.wk.030"].endswith(".einzelbewerber")
 
@@ -255,8 +263,9 @@ def test_landtag_fragmented_has_seven_parties_above_threshold():
 
 
 def test_landtag_briefwahl_decides_wahlkreise():
-    tally = read("landtag-briefwahl-heavy").tally
+    vote = read("landtag-briefwahl-heavy")
+    tally = vote.tally
     assert tally.filter(kind="voters", channel="brief").total() > tally.filter(kind="voters", channel="urne").total()
-    everyone = wahlkreis_winners(tally)
-    urne = wahlkreis_winners(tally.filter(channel="urne"))
+    everyone = wahlkreis_winners(vote)
+    urne = wahlkreis_winners(vote, tally.filter(channel="urne"))
     assert sum(everyone[unit] != urne[unit] for unit in everyone) >= 10

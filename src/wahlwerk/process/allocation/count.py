@@ -18,7 +18,7 @@ from wahlwerk.process.allocation.base import (
     GroupBy,
     counts_fact,
 )
-from wahlwerk.vote.popular.tally import TallyKind
+from wahlwerk.vote.popular.tally import Tally, TallyKind
 
 __all__ = ["SumGroupBy"]
 
@@ -39,6 +39,10 @@ class SumGroupBy(AllocationStep):
     is refused; grouped by party, an option's votes go to its party, and votes for no
     party (an Einzelbewerber) are left out. Making a table again replaces it.
 
+    The units are those of ``level`` in ``hierarchy``, by default ``electoral``: the law
+    names the tree it counts along, so the Wahlkreise of another law version are
+    another hierarchy, not other data.
+
     In terms of the operations on a tally: ``filter`` (Select), ``sum_to`` (RollUp),
     ``relabel`` of the sections (Relabel), ``collapse`` of the channel (Collapse), see
     :attr:`operations`.
@@ -55,7 +59,15 @@ class SumGroupBy(AllocationStep):
         ),
     )
     level: LevelName = Field(
-        description="The level to group by, as listed in the tally's levels, e.g. ``wahlkreis``.",
+        description="The level to group by, a level of ``hierarchy``, e.g. ``wahlkreis``.",
+    )
+    hierarchy: Slug = Field(
+        default="electoral",
+        description=(
+            "The hierarchy the votes are counted along, as the popular vote names it, "
+            "e.g. ``electoral`` (Land, Wahlkreis). A vote of bundle schema 2 or 3 has "
+            "none: its ids spell it, and the tally's levels are used."
+        ),
     )
     by: GroupBy = Field(
         description="What to count per unit: each ``option`` voted for, or each ``party``; always stated.",
@@ -80,7 +92,7 @@ class SumGroupBy(AllocationStep):
         """The operations on the tally this step is made of, in order, each as
         (operation, what it is applied to), e.g. ``("RollUp", "wahlkreis")``."""
         steps = [
-            ("RollUp", self.level),
+            ("RollUp", f"{self.level} of {self.hierarchy}"),
             ("Select", f"votes of {', '.join(self.counted)}"),
         ]
         if self.sections is not None:
@@ -98,10 +110,24 @@ class SumGroupBy(AllocationStep):
     def writes(self) -> frozenset[str]:
         return frozenset({counts_fact(self.section, self.level, self.by)})
 
+    def _rolled_up(self, allocation: Allocation) -> Tally:
+        """The tally summed to ``level`` along ``hierarchy``; for a vote that records no
+        such hierarchy, along its ids, when its levels list ``level`` (schemas 2 and 3)."""
+        tally = allocation.tally
+        hierarchy = allocation.hierarchy(self.hierarchy)
+        if hierarchy is not None:
+            return tally.sum_to(self.level, hierarchy=hierarchy)
+        if any(level.name == self.level for level in tally.levels):
+            return tally.sum_to(self.level)
+        raise ValueError(
+            f"{self!r}: the vote records no hierarchy {self.hierarchy!r}, and its ids spell "
+            f"no level {self.level!r}; hierarchies: {[h.name for h in allocation.hierarchies]}"
+        )
+
     def _apply(self, allocation: Allocation) -> Allocation:
         # RollUp first: a tally keeps its sums, so every law replayed on one vote sums it
         # once; Select, Relabel and Collapse then work on the few rows of the level.
-        summed = allocation.tally.sum_to(self.level).filter(kind=TallyKind.VOTES, section=self.counted)
+        summed = self._rolled_up(allocation).filter(kind=TallyKind.VOTES, section=self.counted)
         if self.sections is not None:
             summed = summed.relabel("section", {name: self.section for name in self.sections})
         summed = summed.collapse("channel")
@@ -110,13 +136,11 @@ class SumGroupBy(AllocationStep):
         for row in summed.rows:
             option = row.option
             assert option is not None  # a VOTES row always names its option
-            if parties.setdefault(option, row.party) != row.party:
-                raise ValueError(
-                    f"{self!r}: option {option!r} stands for {parties[option]!r} and {row.party!r}"
-                )
+            party = summed.party_of(option)
+            parties.setdefault(option, party)
             # Relabel(option -> party) as the table is laid out: by party, a column per
             # party, and votes for no party have no column.
-            column = option if self.by == "option" else row.party
+            column = option if self.by == "option" else party
             if column is None:
                 continue
             counter = rows.setdefault(row.unit, {})

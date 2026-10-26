@@ -1,4 +1,4 @@
-schema = 3
+schema = 4
 
 [source]
 publisher = "Statistisches Landesamt Sachsen-Anhalt"
@@ -9,6 +9,5 @@ attribution = "Statistisches Landesamt Sachsen-Anhalt, Halle (Saale) 2021, eigen
 retrieved = 2026-09-27
 sha256 = "cf077394b91e75c7c867ccaccc41c81bd001df3496364a3e8522679aa5b90a14"
 
-[levels]
-land = 2
-wahlkreis = 4
+[hierarchies.electoral]
+levels = ["land"]

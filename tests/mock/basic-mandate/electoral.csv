@@ -1,0 +1,17 @@
+unit,level,parent
+mock.basic-mandate,whole,
+mock.basic-mandate.unit01,unit,mock.basic-mandate
+mock.basic-mandate.unit02,unit,mock.basic-mandate
+mock.basic-mandate.unit03,unit,mock.basic-mandate
+mock.basic-mandate.unit04,unit,mock.basic-mandate
+mock.basic-mandate.unit05,unit,mock.basic-mandate
+mock.basic-mandate.unit06,unit,mock.basic-mandate
+mock.basic-mandate.unit07,unit,mock.basic-mandate
+mock.basic-mandate.unit08,unit,mock.basic-mandate
+mock.basic-mandate.unit09,unit,mock.basic-mandate
+mock.basic-mandate.unit10,unit,mock.basic-mandate
+mock.basic-mandate.unit11,unit,mock.basic-mandate
+mock.basic-mandate.unit12,unit,mock.basic-mandate
+mock.basic-mandate.unit13,unit,mock.basic-mandate
+mock.basic-mandate.unit14,unit,mock.basic-mandate
+mock.basic-mandate.unit15,unit,mock.basic-mandate

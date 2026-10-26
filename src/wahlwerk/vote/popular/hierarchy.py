@@ -13,7 +13,7 @@ never replaces it; the law is never evaluated along it.
 
 from __future__ import annotations
 
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 
 from wahlwerk.ids import LevelName, Slug, UnitId
 from wahlwerk.model import Model
@@ -57,8 +57,18 @@ class Hierarchy(Model):
         description="Every unit of the hierarchy with its parent, in file order.",
     )
 
+    _units_at: dict[str, dict[str, UnitId]] = PrivateAttr(default_factory=dict)
+    """:meth:`units_at` per level, made once: a hierarchy is frozen."""
+
+    _checked: tuple[tuple[str, ...], tuple[HierarchyUnit, ...]] | None = PrivateAttr(default=None)
+    """The levels and units the tree check passed for. As for a tally, pydantic runs it
+    again whenever the hierarchy passes through validation (every allocation step), and
+    it walks every unit; a frozen hierarchy that passed stays valid, so it runs once."""
+
     @model_validator(mode="after")
     def _check_tree(self) -> Hierarchy:
+        if self._checked is not None and self._checked[0] is self.levels and self._checked[1] is self.units:
+            return self
         where = f"hierarchy {self.name!r}"
         if len(set(self.levels)) != len(self.levels):
             raise ValueError(f"{where} lists a level more than once: {self.levels}")
@@ -94,6 +104,7 @@ class Hierarchy(Model):
                     f"{where}: unit {entry.unit!r} ({entry.level}) lies in {entry.parent!r} "
                     f"({level_of[entry.parent]}), expected a unit at {expected!r}"
                 )
+        self._checked = (self.levels, self.units)
         return self
 
     def units_at(self, level: str) -> dict[str, UnitId]:
@@ -108,6 +119,9 @@ class Hierarchy(Model):
                 f"hierarchy {self.name!r} has no level {level!r}; "
                 f"expected one of {list(self.levels)}"
             )
+        kept = self._units_at.get(level)
+        if kept is not None:
+            return dict(kept)
         broader = set(self.levels[: self.levels.index(level)])
         parent_of = {entry.unit: entry.parent for entry in self.units}
         level_of = {entry.unit: entry.level for entry in self.units}
@@ -120,4 +134,5 @@ class Hierarchy(Model):
                 unit = parent_of[unit]
             if unit is not None:
                 found[entry.unit] = unit
-        return found
+        self._units_at[level] = found
+        return dict(found)

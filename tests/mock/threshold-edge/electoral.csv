@@ -1,0 +1,12 @@
+unit,level,parent
+mock.threshold-edge,whole,
+mock.threshold-edge.unit01,unit,mock.threshold-edge
+mock.threshold-edge.unit02,unit,mock.threshold-edge
+mock.threshold-edge.unit03,unit,mock.threshold-edge
+mock.threshold-edge.unit04,unit,mock.threshold-edge
+mock.threshold-edge.unit05,unit,mock.threshold-edge
+mock.threshold-edge.unit06,unit,mock.threshold-edge
+mock.threshold-edge.unit07,unit,mock.threshold-edge
+mock.threshold-edge.unit08,unit,mock.threshold-edge
+mock.threshold-edge.unit09,unit,mock.threshold-edge
+mock.threshold-edge.unit10,unit,mock.threshold-edge

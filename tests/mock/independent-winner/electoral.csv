@@ -1,0 +1,14 @@
+unit,level,parent
+mock.independent-winner,whole,
+mock.independent-winner.unit01,unit,mock.independent-winner
+mock.independent-winner.unit02,unit,mock.independent-winner
+mock.independent-winner.unit03,unit,mock.independent-winner
+mock.independent-winner.unit04,unit,mock.independent-winner
+mock.independent-winner.unit05,unit,mock.independent-winner
+mock.independent-winner.unit06,unit,mock.independent-winner
+mock.independent-winner.unit07,unit,mock.independent-winner
+mock.independent-winner.unit08,unit,mock.independent-winner
+mock.independent-winner.unit09,unit,mock.independent-winner
+mock.independent-winner.unit10,unit,mock.independent-winner
+mock.independent-winner.unit11,unit,mock.independent-winner
+mock.independent-winner.unit12,unit,mock.independent-winner

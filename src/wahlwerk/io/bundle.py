@@ -5,12 +5,11 @@ on disk, never the model. Each bundle sits under :data:`ELECTIONS_DIR` at the pa
 out, one directory per segment: ``de.landtag.st.2026`` is
 ``elections/de/landtag/st/2026/`` (see :func:`resolve_election_dir`).
 
-A bundle is a directory holding two files, by default named :data:`ELECTION_FILE` and
-:data:`TALLY_FILE`, and one file per alternative hierarchy. ``election.toml`` carries the
-format version, the source, the levels of the main hierarchy, and the alternative
-hierarchies::
+A bundle is a directory holding, by default, :data:`ELECTION_FILE`, :data:`TALLY_FILE`,
+:data:`OPTIONS_FILE` and one file per hierarchy. ``election.toml`` carries the format
+version, the source, the hierarchies and any kinds beside the built-in ones::
 
-    schema = 3
+    schema = 4
 
     [source]
     publisher = "Statistisches Landesamt Sachsen-Anhalt"
@@ -27,15 +26,25 @@ hierarchies::
     wahlbezirk = 8
     briefwahlbezirk = 8
 
+    [hierarchies.electoral]
+    levels = ["land", "wahlkreis"]
+
     [hierarchies.administrative]
     levels = ["land", "kreis", "gemeinde"]
 
     [kinds.blank]
     counts = "votes"
 
-``[levels]`` is the main hierarchy, the one the unit ids spell out: each level and the
-number of dotted segments in its ids, broadest first (see :class:`Level`). Every row
-must name a listed level and have its depth.
+From schema 4 (decision 0009) a unit id names only its unit
+(``de.st.gem.15081026.wbz.000001``), and every grouping of units is a hierarchy, the
+electoral one included: a law names the hierarchy it counts along, by default
+``electoral``, so Wahlkreise drawn by another law version are another hierarchy, not
+other ids. ``options.csv`` (:data:`OPTIONS_COLUMNS`) lists every option the tally counts
+votes for and the party it stands for, blank for none.
+
+In schemas 2 and 3, ``[levels]`` is the electoral hierarchy, spelled in the unit ids:
+each level and the number of dotted segments in its ids, broadest first (see
+:class:`Level`). Every row must name a listed level and have its depth.
 
 Each ``[hierarchies.<name>]`` table declares an alternative hierarchy with its own
 levels, broadest first; its units are in ``<name>.csv`` in the bundle, with exactly the
@@ -51,12 +60,13 @@ The tables are optional; a row of a kind neither built in nor declared is reject
 Schema 1 has neither: its tally records no levels, and summing it needs the depth
 given. Schemas 1 and 2 name what a vote counts for in three columns, ``party``,
 ``candidate`` and ``option`` (:data:`LEGACY_TALLY_COLUMNS`); schema 3 in one, ``option``,
-with the option's ``party`` beside it. An older row is read as schema 3 reads it: its
-option is the answer if it names one, else the candidate, else the party; its party is
-the party it names.
+with the option's ``party`` beside it on every row (:data:`SCHEMA_3_TALLY_COLUMNS`). An
+older row is read as schema 3 reads it: its option is the answer if it names one, else
+the candidate, else the party. The parties the rows of schemas 1 to 3 name become the
+tally's options; an option named with two parties is rejected.
 
 ``tally.csv`` is the long vote table, one :class:`TallyRow` per line, with exactly the
-columns in :data:`TALLY_COLUMNS`. A blank cell is an absent value (``None``), never an
+columns of its schema, from schema 4 :data:`TALLY_COLUMNS`. A blank cell is an absent value (``None``), never an
 empty string.
 """
 
@@ -73,7 +83,7 @@ from pydantic import TypeAdapter, ValidationError
 from wahlwerk.ids import DottedKey, Slug
 from wahlwerk.vote.popular.hierarchy import Hierarchy, HierarchyUnit
 from wahlwerk.vote.popular.popular_vote import PopularVote, Source
-from wahlwerk.vote.popular.tally import Kind, Level, Tally, TallyKind, TallyRow
+from wahlwerk.vote.popular.tally import Kind, Level, Option, Tally, TallyKind, TallyRow
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -85,8 +95,11 @@ __all__ = [
     "ELECTION_FILE",
     "HIERARCHY_COLUMNS",
     "LEGACY_TALLY_COLUMNS",
+    "OPTIONS_COLUMNS",
+    "OPTIONS_FILE",
     "SCHEMA",
     "SCHEMAS",
+    "SCHEMA_3_TALLY_COLUMNS",
     "TALLY_COLUMNS",
     "TALLY_FILE",
     "read_bundle",
@@ -95,10 +108,10 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-SCHEMA = 3
+SCHEMA = 4
 """The schema version of bundles this engine writes: the current format."""
 
-SCHEMAS = frozenset({1, 2, SCHEMA})
+SCHEMAS = frozenset({1, 2, 3, SCHEMA})
 """Schema versions of bundles this engine reads."""
 
 ELECTIONS_DIR = "elections"
@@ -117,10 +130,28 @@ TALLY_COLUMNS = (
     "section",
     "channel",
     "option",
-    "party",
     "count",
 )
 """The header of ``tally.csv``, in order: the fields of :class:`TallyRow`."""
+
+SCHEMA_3_TALLY_COLUMNS = (
+    "unit",
+    "level",
+    "kind",
+    "section",
+    "channel",
+    "option",
+    "party",
+    "count",
+)
+"""The header of ``tally.csv`` in schema 3, each option's party on every row; read into
+the rows and the tally's options."""
+
+OPTIONS_FILE = "options.csv"
+"""The file in a schema 4 bundle listing every option and the party it stands for."""
+
+OPTIONS_COLUMNS = ("option", "party")
+"""The header of ``options.csv``, in order: the fields of :class:`Option`."""
 
 LEGACY_TALLY_COLUMNS = (
     "unit",
@@ -171,8 +202,11 @@ def _require(file_path: Path) -> Path:
     return file_path
 
 
-def _parse_row(cells: list[str], columns: tuple[str, ...] = TALLY_COLUMNS) -> TallyRow:
-    """Build a row from its cells; a blank cell is an absent value, never ``""``."""
+def _parse_row(
+    cells: list[str], columns: tuple[str, ...] = TALLY_COLUMNS
+) -> tuple[TallyRow, str | None]:
+    """Build a row from its cells, and the party it names in schemas 1 to 3 (``None``
+    from schema 4); a blank cell is an absent value, never ``""``."""
     fields: dict[str, Any] = {
         column: cell for column, cell in zip(columns, cells) if cell != ""
     }
@@ -187,7 +221,8 @@ def _parse_row(cells: list[str], columns: tuple[str, ...] = TALLY_COLUMNS) -> Ta
     if "count" not in fields:
         raise ValueError("count is blank")
     fields["count"] = int(fields["count"])
-    return TallyRow.model_validate(fields)
+    party = fields.pop("party", None)
+    return TallyRow.model_validate(fields), party
 
 
 def _read_election(
@@ -208,15 +243,20 @@ def _read_election(
             f"expected one of {sorted(SCHEMAS)}"
         )
     source = raw.pop("source", None)
-    levels = raw.pop("levels", None) if schema >= 2 else None
+    levels = raw.pop("levels", None) if 2 <= schema <= 3 else None
     hierarchies = raw.pop("hierarchies", {}) if schema >= 2 else {}
     kinds = raw.pop("kinds", {})
+    if schema >= 4 and "levels" in raw:
+        raise ValueError(
+            f"{file_path}: schema {schema} has no [levels]; the ids name only their unit, "
+            "and the electoral hierarchy is [hierarchies.electoral]"
+        )
     if raw:
         raise ValueError(f"{file_path}: unknown keys {sorted(raw)}")
     # Bad file content, not a bad argument: one exception type for every format error.
     if not isinstance(source, dict):
         raise ValueError(f"{file_path}: expected a [source] table")  # noqa: TRY004
-    if schema >= 2 and not isinstance(levels, dict):
+    if 2 <= schema <= 3 and not isinstance(levels, dict):
         raise ValueError(f"{file_path}: expected a [levels] table")
     try:
         parsed_source = Source.model_validate(source)
@@ -310,9 +350,12 @@ def _read_tally(
     schema: int = SCHEMA,
     kinds: tuple[Kind, ...] = (),
 ) -> Tally:
-    columns = TALLY_COLUMNS if schema >= 3 else LEGACY_TALLY_COLUMNS
+    columns = (
+        TALLY_COLUMNS if schema >= 4 else SCHEMA_3_TALLY_COLUMNS if schema == 3 else LEGACY_TALLY_COLUMNS
+    )
     declared = {kind.name: kind for kind in kinds}
     rows = []
+    parties: dict[str, str | None] = {}  # schemas 1 to 3: each option's party, from its rows
     with _require(file_path).open(encoding="utf-8", newline="") as f:
         reader = csv.reader(f)
         header = next(reader, None)
@@ -328,7 +371,15 @@ def _read_tally(
                     f"expected {len(columns)}"
                 )
             try:
-                row = _parse_row(cells, columns)
+                row, party = _parse_row(cells, columns)
+                if (
+                    schema <= 3
+                    and row.option is not None
+                    and parties.setdefault(row.option, party) != party
+                ):
+                    raise ValueError(
+                        f"option {row.option!r} stands for {parties[row.option]!r} and {party!r}"
+                    )
                 if not isinstance(row.kind, TallyKind):
                     # Checked here as well as by the tally, so the error names the line.
                     if row.kind not in declared:
@@ -339,10 +390,35 @@ def _read_tally(
                 rows.append(row)
             except ValueError as e:  # ValidationError is a ValueError
                 raise ValueError(f"{file_path}: line {line}: {e}") from e
+    if schema >= 4:
+        options = _read_options(file_path.with_name(OPTIONS_FILE))
+    else:
+        options = tuple(Option(option=o, party=p) for o, p in parties.items())
     try:
-        return Tally(rows=tuple(rows), levels=levels, kinds=kinds)
+        return Tally(rows=tuple(rows), levels=levels, kinds=kinds, options=options)
     except ValidationError as e:
         raise ValueError(f"{file_path}: {e}") from e
+
+
+def _read_options(file_path: Path) -> tuple[Option, ...]:
+    options = []
+    with _require(file_path).open(encoding="utf-8", newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader, None)
+        if header is None or tuple(header) != OPTIONS_COLUMNS:
+            raise ValueError(f"{file_path}: header {header!r} is not {','.join(OPTIONS_COLUMNS)}")
+        for cells in reader:
+            line = reader.line_num
+            if len(cells) != len(OPTIONS_COLUMNS):
+                raise ValueError(
+                    f"{file_path}: line {line}: {len(cells)} cells, expected {len(OPTIONS_COLUMNS)}"
+                )
+            fields = {column: cell for column, cell in zip(OPTIONS_COLUMNS, cells) if cell != ""}
+            try:
+                options.append(Option.model_validate(fields))
+            except ValidationError as e:
+                raise ValueError(f"{file_path}: line {line}: {e}") from e
+    return tuple(options)
 
 
 def read_bundle(

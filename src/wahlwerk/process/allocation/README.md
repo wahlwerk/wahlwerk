@@ -184,12 +184,22 @@ an input of its own, not be guessed from the tally.
 A tally's units belong to two hierarchies that cross:
 
 - **electoral**: Land, Wahlkreis, Wahlbezirk. The law counts along it (§ 33 per
-  Wahlkreis, § 35 per Land), so it is the *main* hierarchy and the unit ids follow it.
+  Wahlkreis, § 35 per Land).
 - **administrative**: Land, Kreis, Gemeinde, Wahlbezirk. Useful for analysis, but
-  Halle, Magdeburg, Dessau-Roßlau, Leuna and Petersberg each lie in several Wahlkreise,
-  so it cannot be read off the ids. It sits beside the main one.
+  Halle, Magdeburg, Dessau-Roßlau, Leuna and Petersberg each lie in several Wahlkreise.
 
-### The main hierarchy: in the ids
+**From bundle schema 4 (decision 0009) both are explicit trees**, `electoral.csv` and
+`administrative.csv`, and a unit id names its unit only (`de.st.gem.15002000.wbz.000001`).
+The Wahlkreise are an annex of the law and change between versions, so they are not
+spelled into the data: `SumGroupBy(..., hierarchy="electoral")` counts along the tree the
+law names, and the Wahlkreise of another law version are another hierarchy over the same
+rows. A unit the source numbers only within its Wahlkreis (two Briefwahlbezirke 901 of
+one Gemeinde in Sachsen-Anhalt 2021) keeps the Wahlkreis in its id, since two units would
+otherwise share one. The rest of this section describes schemas 2 and 3, which the
+engine still reads: their electoral hierarchy is in the ids, and `SumGroupBy` falls back
+to it when a vote records no `electoral` tree.
+
+### Schemas 2 and 3: the electoral hierarchy in the ids
 
 The tally names every unit by a dotted id, narrowest scope last:
 
@@ -247,7 +257,8 @@ de.st.wk.035.gem.15002000.wbz.000001,wahlbezirk,de.st.gem.15002000
   workbook's Kreisschlüssel and Gemeindeschlüssel. The generator finds Kreise and
   Gemeinden through it when it checks the 822 published sums, so every published `KRS`
   and `GEM` line checks the file.
-- The law is never evaluated along an alternative hierarchy.
+- Until schema 4 the law was never evaluated along an alternative hierarchy; now it is
+  evaluated along the one it names.
 
 What the main hierarchy does not cover, and should not until a case needs it: a
 Wahlkreis across a Land border, or units redrawn within one election. Bayern's

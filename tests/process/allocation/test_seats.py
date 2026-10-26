@@ -31,6 +31,13 @@ from wahlwerk.state.term import Term
 from wahlwerk.vote.popular.popular_vote import PopularVote, Source
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
+
+def _tally(rows, **fields):
+    """A tally whose every option is a party standing for itself, but a candidate id (an
+    Einzelbewerber, dotted), which stands for none."""
+    rows = tuple(rows)
+    return Tally.from_rows(rows, parties={r.option: r.option for r in rows if r.option and "." not in r.option}, **fields)
+
 LEVELS = (Level(name="land", depth=2), Level(name="wahlkreis", depth=4))
 ZWEIT = {"afd": 500, "cdu": 300, "linke": 170, "fdp": 30}  # fdp: 3 %
 FIVE_PERCENT = RelativeThreshold(share=Fraction(5, 100))
@@ -52,14 +59,13 @@ def tally(winners, zweit=ZWEIT):
     rows = []
     for number, winner in enumerate(winners, start=1):
         unit = f"de.st.wk.{number:03d}"
-        nominee = {"option": winner} if "." in winner else {"option": winner, "party": winner}
-        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", count=100, **nominee))
-        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option="spd", party="spd", count=1))
+        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option=winner, count=100))
+        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option="spd", count=1))
     for party, count in zweit.items():
         rows.append(
-            TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=party, party=party, count=count)
+            TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=party, count=count)
         )
-    return Tally(rows=tuple(rows), levels=LEVELS)
+    return _tally(rows, levels=LEVELS)
 
 
 def law(base, threshold=FIVE_PERCENT, method=HARE):
@@ -140,13 +146,13 @@ def test_counterfactual_is_one_field():
 
 def test_a_tied_wahlkreis_stops_the_seats_to_apportion():
     rows = [
-        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="erststimme", option=party, party=party, count=5)
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="erststimme", option=party, count=5)
         for party in ("afd", "cdu")
     ] + [
-        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, party=p, count=n)
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, count=n)
         for p, n in ZWEIT.items()
     ]
-    tied = Allocation(tally=Tally(rows=tuple(rows), levels=LEVELS))
+    tied = Allocation(tally=_tally(rows, levels=LEVELS))
     with pytest.raises(ValueError, match=r"\['de.st.wk.001'\] are tied"):
         run(law(10), tied)
 

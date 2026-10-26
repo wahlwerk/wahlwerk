@@ -39,6 +39,7 @@ from wahlwerk.apportionment.tie import Tie
 from wahlwerk.ids import LevelName, OptionId, PartyId, Slug, UnitId
 from wahlwerk.model import Count, Model, Seats
 from wahlwerk.state.chamber import Chamber
+from wahlwerk.vote.popular.hierarchy import Hierarchy
 from wahlwerk.vote.popular.tally import Tally
 
 __all__ = [
@@ -206,6 +207,13 @@ class Allocation(Model):
     tally: Tally = Field(
         description="The tally of the popular vote, as recorded.",
     )
+    hierarchies: tuple[Hierarchy, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "The hierarchies over the tally's units, e.g. ``electoral`` (Land, Wahlkreis), "
+            "which a law counts along; as the popular vote records them."
+        ),
+    )
     counts: tuple[Counts, ...] = Field(
         default_factory=tuple,
         description="The tables of valid votes a step made, one per level and section, in the order made.",
@@ -284,6 +292,13 @@ class Allocation(Model):
             if result.party is not None:
                 wins[result.party] = wins.get(result.party, 0) + 1
         return wins
+
+    def hierarchy(self, name: str) -> Hierarchy | None:
+        """The hierarchy called ``name``; ``None`` if the vote records none of that name."""
+        for hierarchy in self.hierarchies:
+            if hierarchy.name == name:
+                return hierarchy
+        return None
 
     def count(self, section: str, level: str, by: str = "option") -> Counts:
         """The table ``<section> by <level> × <by>``; raises ``KeyError`` naming it if

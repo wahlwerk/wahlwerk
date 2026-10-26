@@ -1,6 +1,6 @@
 # Mock bundles: synthetic elections for testing laws
 
-Made-up elections in the bundle format (schema 3), so a law can be run against
+Made-up elections in the bundle format (schema 4), so a law can be run against
 situations that real data has rarely or never produced. They are not from any real
 election, and they are read with `read_bundle` like any other bundle.
 [`test_mock_bundles.py`](test_mock_bundles.py) checks that each one adds up and still
@@ -13,11 +13,11 @@ Everything is generic, and its meaning is left to the law under test:
 | Field | Values | Played as |
 |---|---|---|
 | `unit` | `mock.<scenario>.unit01`, … | a unit (a Wahlkreis, a constituency, a state) |
-| `level` | `unit` (depth 3); `whole` (depth 2) is declared for summing | |
+| `level` | `unit`; the `electoral` hierarchy (`electoral.csv`) puts every unit in the `whole` (`mock.<scenario>`), for summing | |
 | `section` | `type1`, `type2` | a ballot or vote type: candidate and list vote, first and second round |
 | `channel` | `channel1`, `channel2`, blank where not recorded | in person, by post |
 | `option` | `party-a` … `party-y`; `mock.<scenario>.unit04.indep1`; `option1`, `option2` | what a vote counts for: a party, an independent candidate, an answer in a referendum |
-| `party` | `party-a` … `party-y`, blank for an independent or an answer | the party the option stands for |
+| `party` (in `options.csv`) | `party-a` … `party-y`, blank for an independent or an answer | the party the option stands for |
 
 Every voter casts one vote in every section, so per unit, section and channel the
 valid and invalid votes add up to the voters. Postal ballots have fewer invalid votes
@@ -57,7 +57,9 @@ run on them unchanged and can be compared on the same votes: sections `erststimm
 (`.wk.001.wbz.01`, channel `urne`) and `briefwahlbezirk` (`.wk.001.bwb.01`, channel
 `brief`, with no `eligible` row, since its voters are counted among the Wahlbezirke's
 eligible). Each has 40 Wahlkreise of three Wahlbezirke and one Briefwahlbezirk; parties
-stay `party-a` and so on. A party's regional strength applies to both votes.
+stay `party-a` and so on. A party's regional strength applies to both votes. The ids
+still read like the hierarchy, but nothing reads them: the Wahlkreis of each unit is in
+`electoral.csv` (levels `land`, `wahlkreis`), as in every schema 4 bundle.
 
 The seats are what `LWG_2021` (Sachsen-Anhalt, at least 83) and `LKWG_2011`
 (Mecklenburg-Vorpommern, at least 71) make of each, for orientation only; the tests check

@@ -3,6 +3,12 @@ from pydantic import ValidationError
 
 from wahlwerk.vote.popular import Hierarchy, HierarchyUnit, Tally, TallyRow
 
+
+def _tally(rows, **fields):
+    """A tally whose every option is a party, standing for itself."""
+    rows = tuple(rows)
+    return Tally.from_rows(rows, parties={r.option: r.option for r in rows if r.option}, **fields)
+
 # Halle spans two Wahlkreise here, as it spans four in reality.
 HALLE_1 = "de.st.wk.035.gem.15002000.wbz.000001"
 HALLE_2 = "de.st.wk.036.gem.15002000.wbz.000002"
@@ -80,12 +86,10 @@ def test_parent_at_wrong_level():
 # Tally.sum_to along a hierarchy
 # ===========================================================
 def row(unit, count, level="wahlbezirk", party="afd"):
-    return TallyRow(unit=unit, level=level, section="zweitstimme", option=party, party=party, count=count)
+    return TallyRow(unit=unit, level=level, section="zweitstimme", option=party, count=count)
 
 
-TALLY = Tally(
-    rows=(row(HALLE_1, 10), row(HALLE_2, 20), row(LEUNA, 5, level="briefwahlbezirk"))
-)
+TALLY = _tally((row(HALLE_1, 10), row(HALLE_2, 20), row(LEUNA, 5, level="briefwahlbezirk")))
 
 
 def test_sum_to_gemeinde_along_hierarchy():
@@ -106,6 +110,22 @@ def test_sum_to_rejects_depth_with_hierarchy():
 
 
 def test_sum_to_rejects_unit_outside_hierarchy():
-    tally = Tally(rows=(row("de.st.wk.001.gem.15081026.wbz.000001", 1),))
+    tally = _tally((row("de.st.wk.001.gem.15081026.wbz.000001", 1),))
     with pytest.raises(ValueError, match="places unit .* in no 'gemeinde'"):
         tally.sum_to("gemeinde", hierarchy=ADMIN)
+
+
+def test_a_hierarchy_is_checked_once():
+    """Passing a hierarchy through validation again (as every allocation step does) does
+    not walk its units again: a frozen hierarchy that passed its check stays valid."""
+    from wahlwerk.process.allocation.base import Allocation
+
+    tree = hierarchy(*UNITS)
+    marker = tree._checked  # the full check stores a new tuple each time it runs
+    assert marker == (tree.levels, tree.units)
+    allocation = Allocation(tally=TALLY, hierarchies=(tree,)).with_values(chamber_size=1)
+    assert allocation.hierarchies[0] is tree
+    assert tree._checked is marker
+    # A copy with other units is checked again.
+    with pytest.raises(ValidationError, match="more than once"):
+        Hierarchy.model_validate({**tree.model_dump(), "units": (*tree.units, tree.units[0])})

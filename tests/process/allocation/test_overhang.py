@@ -29,6 +29,12 @@ from wahlwerk.process.allocation.overhang import (
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
+
+def _tally(rows, **fields):
+    """A tally whose every option is a party, standing for itself."""
+    rows = tuple(rows)
+    return Tally.from_rows(rows, parties={r.option: r.option for r in rows if r.option}, **fields)
+
 LEVELS = (Level(name="land", depth=2), Level(name="wahlkreis", depth=4))
 FIVE = Fraction(5, 100)
 CAUCUS = SetCaucusSizeFromAllVotes(
@@ -45,13 +51,13 @@ def tally(winners, zweit):
     rows = []
     for number, winner in enumerate(winners, start=1):
         unit = f"de.st.wk.{number:03d}"
-        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option=winner, party=winner, count=100))
-        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option="spd", party="spd", count=1))
+        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option=winner, count=100))
+        rows.append(TallyRow(unit=unit, level="wahlkreis", section="erststimme", option="spd", count=1))
     for party, count in zweit.items():
         rows.append(
-            TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=party, party=party, count=count)
+            TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=party, count=count)
         )
-    return Tally(rows=tuple(rows), levels=LEVELS)
+    return _tally(rows, levels=LEVELS)
 
 
 def law(base, repeat, *, is_measured=True):
@@ -79,7 +85,7 @@ def run(protocol, winners, zweit):
 
 
 ZWEIT = {"afd": 500, "cdu": 300, "linke": 170, "fdp": 30}
-TALLY_EMPTY = Tally(rows=(), levels=LEVELS)
+TALLY_EMPTY = _tally((), levels=LEVELS)
 LOOP = RaiseByOverhang(protocol=(RaiseChamberSize(increment=Increment(factor=2)), *ALLOCATE, CAUCUS), full_rounds=2)
 
 
@@ -125,10 +131,10 @@ def test_further_rounds_run_while_overhang_exceeds_half_a_caucus():
 def test_caucus_size_counts_a_fictitious_five_percent_party():
     # 5 % of 1000 = 50 fictitious votes beside 900 eligible: 20 * 50 / 950 = 1.05 -> 1.
     rows = tuple(
-        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, party=p, count=n)
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, count=n)
         for p, n in {"a": 450, "b": 450, "c": 100}.items()
     )
-    allocation = SumGroupBy(section="zweitstimme", level="land", by="party")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
+    allocation = SumGroupBy(section="zweitstimme", level="land", by="party")(Allocation(tally=_tally(rows, levels=LEVELS)))
     # a and b pass: the threshold leaves their columns as the eligible table.
     allocation = ApplyThresholdTo(threshold=RelativeThreshold(share=Fraction(45, 100)), section="zweitstimme", level="land")(allocation)
     allocation = allocation.with_values(seats_to_apportion=20)
@@ -148,10 +154,10 @@ def test_the_votes_below_the_threshold_raise_the_caucus_size():
     # 10 % below the threshold: the fictitious party's 5 % of all votes is 5.26 % of the
     # votes counted with it; on 59 seats 3.1 seats against 2.95 in the general case.
     rows = tuple(
-        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, party=p, count=n)
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, count=n)
         for p, n in {"a": 450, "b": 450, "c": 100}.items()
     )
-    allocation = SumGroupBy(section="zweitstimme", level="land", by="party")(Allocation(tally=Tally(rows=rows, levels=LEVELS)))
+    allocation = SumGroupBy(section="zweitstimme", level="land", by="party")(Allocation(tally=_tally(rows, levels=LEVELS)))
     allocation = ApplyThresholdTo(threshold=RelativeThreshold(share=Fraction(45, 100)), section="zweitstimme", level="land")(allocation)
     allocation = allocation.with_values(seats_to_apportion=59)
     general = SetCaucusSize(fictitious=FictitiousParty(share=FIVE), section="zweitstimme", level="land", quota=HareQuota())

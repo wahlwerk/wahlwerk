@@ -1,0 +1,17 @@
+unit,level,parent
+mock.electoral-college,whole,
+mock.electoral-college.unit01,unit,mock.electoral-college
+mock.electoral-college.unit02,unit,mock.electoral-college
+mock.electoral-college.unit03,unit,mock.electoral-college
+mock.electoral-college.unit04,unit,mock.electoral-college
+mock.electoral-college.unit05,unit,mock.electoral-college
+mock.electoral-college.unit06,unit,mock.electoral-college
+mock.electoral-college.unit07,unit,mock.electoral-college
+mock.electoral-college.unit08,unit,mock.electoral-college
+mock.electoral-college.unit09,unit,mock.electoral-college
+mock.electoral-college.unit10,unit,mock.electoral-college
+mock.electoral-college.unit11,unit,mock.electoral-college
+mock.electoral-college.unit12,unit,mock.electoral-college
+mock.electoral-college.unit13,unit,mock.electoral-college
+mock.electoral-college.unit14,unit,mock.electoral-college
+mock.electoral-college.unit15,unit,mock.electoral-college
