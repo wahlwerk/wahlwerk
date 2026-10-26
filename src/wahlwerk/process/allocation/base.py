@@ -40,6 +40,7 @@ from wahlwerk.ids import LevelName, OptionId, PartyId, Slug, UnitId
 from wahlwerk.model import Count, Model, Seats
 from wahlwerk.state.chamber import Chamber
 from wahlwerk.vote.popular.hierarchy import Hierarchy
+from wahlwerk.vote.popular.lot import Lot
 from wahlwerk.vote.popular.popular_vote import PopularVote
 from wahlwerk.vote.popular.tally import Tally
 
@@ -180,6 +181,10 @@ class UnitResult(Model):
         default=None,
         description="The options with equally many votes, for one seat; ``None`` if decided.",
     )
+    lot: Lot | None = Field(
+        default=None,
+        description="The lot that decided a tie for the seat, as recorded; ``None`` if the votes did.",
+    )
 
     @model_validator(mode="after")
     def _check_winner_or_tie(self) -> UnitResult:
@@ -190,6 +195,8 @@ class UnitResult(Model):
             )
         if self.tie is not None and self.tie.seats != 1:
             raise ValueError(f"unit {self.unit!r} has one seat, but the tie is over {self.tie.seats}")
+        if self.lot is not None and self.option not in self.lot.winners:
+            raise ValueError(f"unit {self.unit!r}: the lot gave the seat to {sorted(self.lot.winners)}, not {self.option!r}")
         return self
 
     @property
@@ -214,6 +221,10 @@ class Allocation(Model):
             "The hierarchies over the tally's units, e.g. ``electoral`` (Land, Wahlkreis), "
             "which a law counts along; as the popular vote records them."
         ),
+    )
+    lots: tuple[Lot, ...] = Field(
+        default_factory=tuple,
+        description="The lots actually drawn in this election, as the popular vote records them.",
     )
     counts: tuple[Counts, ...] = Field(
         default_factory=tuple,
@@ -299,7 +310,15 @@ class Allocation(Model):
         """The allocation a law starts from on ``vote``: its tally and its hierarchies,
         nothing established yet. ``derive`` starts here; so does a law stepped through by
         hand, which with only the tally would miss the hierarchies it counts along."""
-        return cls(tally=vote.tally, hierarchies=vote.hierarchies)
+        return cls(tally=vote.tally, hierarchies=vote.hierarchies, lots=vote.lots)
+
+    def lot_for(self, tie: Tie, section: str, unit: str | None) -> Lot | None:
+        """The recorded lot drawn for ``tie`` in ``section`` and ``unit``; ``None`` if no
+        lot was drawn for exactly that tie, which then stays undecided."""
+        for lot in self.lots:
+            if lot.decides(section, unit, tie.candidates, tie.seats):
+                return lot
+        return None
 
     def hierarchy(self, name: str) -> Hierarchy | None:
         """The hierarchy called ``name``; ``None`` if the vote records none of that name."""

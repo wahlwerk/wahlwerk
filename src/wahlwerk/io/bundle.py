@@ -35,6 +35,13 @@ version, the source, the hierarchies and any kinds beside the built-in ones::
     [kinds.blank]
     counts = "votes"
 
+    [[lots]]
+    section = "erststimme"
+    unit = "de.st.wk.017"
+    candidates = ["de.st.wk.017.mueller", "de.st.wk.017.schulz"]
+    winners = ["de.st.wk.017.schulz"]
+    source = "Niederschrift des Kreiswahlausschusses vom 10. September 2026"
+
 From schema 4 (decision 0009) a unit id names only its unit
 (``de.st.gem.15081026.wbz.000001``), and every grouping of units is a hierarchy, the
 electoral one included: a law names the hierarchy it counts along, by default
@@ -56,6 +63,10 @@ Each ``[kinds.<name>]`` table declares a kind the tally counts beside the built-
 (``votes``, ``invalid``, ``eligible``, ``voters``): whether its rows count ``votes`` or
 ``people``, and with ``has_option = true`` that they name an option (see :class:`Kind`).
 The tables are optional; a row of a kind neither built in nor declared is rejected.
+
+Each ``[[lots]]`` table records a tie decided by a lot actually drawn (see :class:`Lot`):
+the section, the unit (blank for none), every candidate, the winners and, optionally, the
+record of the draw. Lots are optional and rare.
 
 Schema 1 has neither: its tally records no levels, and summing it needs the depth
 given. Schemas 1 and 2 name what a vote counts for in three columns, ``party``,
@@ -82,6 +93,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from wahlwerk.ids import DottedKey, Slug
 from wahlwerk.vote.popular.hierarchy import Hierarchy, HierarchyUnit
+from wahlwerk.vote.popular.lot import Lot
 from wahlwerk.vote.popular.popular_vote import PopularVote, Source
 from wahlwerk.vote.popular.tally import Kind, Level, Option, Tally, TallyKind, TallyRow
 
@@ -227,8 +239,8 @@ def _parse_row(
 
 def _read_election(
     file_path: Path,
-) -> tuple[int, Source, tuple[Level, ...], dict[str, tuple[str, ...]], tuple[Kind, ...]]:
-    """The source, levels, declared hierarchies and kinds of a bundle, after checking its
+) -> tuple[int, Source, tuple[Level, ...], dict[str, tuple[str, ...]], tuple[Kind, ...], tuple[Lot, ...]]:
+    """The source, levels, declared hierarchies, kinds and lots of a bundle, after checking its
     schema; the schema describes the file format, so it stays here and is not part of
     the model."""
     try:
@@ -246,6 +258,7 @@ def _read_election(
     levels = raw.pop("levels", None) if 2 <= schema <= 3 else None
     hierarchies = raw.pop("hierarchies", {}) if schema >= 2 else {}
     kinds = raw.pop("kinds", {})
+    lots = raw.pop("lots", [])
     if schema >= 4 and "levels" in raw:
         raise ValueError(
             f"{file_path}: schema {schema} has no [levels]; the ids name only their unit, "
@@ -275,7 +288,21 @@ def _read_election(
         parsed_levels,
         _declared_hierarchies(file_path, hierarchies),
         _declared_kinds(file_path, kinds),
+        _recorded_lots(file_path, lots),
     )
+
+
+def _recorded_lots(file_path: Path, raw: object) -> tuple[Lot, ...]:
+    """Each ``[[lots]]`` table as a :class:`Lot`."""
+    if not isinstance(raw, list) or not all(isinstance(table, dict) for table in raw):
+        raise ValueError(f"{file_path}: expected [[lots]] tables")
+    lots = []
+    for number, table in enumerate(raw, start=1):
+        try:
+            lots.append(Lot.model_validate(table))
+        except ValidationError as e:
+            raise ValueError(f"{file_path}: lot {number}: {e}") from e
+    return tuple(lots)
 
 
 def _declared_kinds(file_path: Path, raw: object) -> tuple[Kind, ...]:
@@ -432,13 +459,13 @@ def read_bundle(
     Alternative hierarchies are read from ``<name>.csv`` beside them.
 
     Raises ``ValueError`` naming the file for a missing file, an unsupported schema, an
-    unknown key, a missing or malformed ``[levels]``, ``[hierarchies]`` or ``[kinds]`` table, a wrong
+    unknown key, a missing or malformed ``[levels]``, ``[hierarchies]``, ``[kinds]`` or ``[[lots]]`` table, a wrong
     header, a row that :class:`TallyRow` rejects, a row of a kind not declared, a row whose level or depth
     ``[levels]`` does not allow, two rows that count the same thing, a hierarchy that is
     not a tree, or one that does not cover every counted unit.
     """
     dir_path = Path(dir_path)
-    schema, source, levels, declared, kinds = _read_election(dir_path / election_file_name)
+    schema, source, levels, declared, kinds, lots = _read_election(dir_path / election_file_name)
     tally = _read_tally(dir_path / tally_file_name, levels, schema, kinds)
     hierarchies = tuple(
         _read_hierarchy(dir_path / f"{name}.csv", name, hierarchy_levels)
@@ -448,6 +475,6 @@ def read_bundle(
         "%s: read %d tally rows, %d hierarchies", dir_path, len(tally), len(hierarchies)
     )
     try:
-        return PopularVote(source=source, tally=tally, hierarchies=hierarchies)
+        return PopularVote(source=source, tally=tally, hierarchies=hierarchies, lots=lots)
     except ValidationError as e:
         raise ValueError(f"{dir_path}: {e}") from e

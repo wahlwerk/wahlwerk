@@ -209,8 +209,8 @@ as data rather than as strings.
 - **Ties are a result, not an error.** Where the law prescribes lots (Losentscheid), the
   engine returns an explicit [`Tie`](src/wahlwerk/apportionment/tie.py) rather than
   letting sort order decide, and `Apportionment.with_lot(winners)` applies a draw that
-  actually happened. Inside an allocation a tie stops the next step, until a lot can be
-  applied there too.
+  actually happened. Inside an allocation, a lot recorded with the vote (`Lot`, `[[lots]]`
+  in `election.toml`) decides the tie it was drawn for; any other tie stops the next step.
 - **One long table for all vote data.** A tally is a flat sequence of rows:
   `unit, level, kind, section, channel, option, count`. The option is what a vote
   counts for (a party's list, a candidate, an answer such as `ja`); the party it stands
@@ -407,6 +407,11 @@ Built one small step at a time; each step leaves the package importable.
   is on `Tally.options` (`options.csv`), not on the row. Schemas 1 to 3 are still read;
   wahlwerk-data and the golden fixtures are schema 4, converted without loss by
   wahlwerk-data-processing's `migrate`
+- Lots inside an allocation: a `Lot` recorded with the vote (`[[lots]]` in
+  `election.toml`: section, unit, candidates, winners, source) decides a tied Wahlkreis
+  (`SingleMandatePerUnit`, the result keeps the lot) or a tied entitlement
+  (`ApportionSeats`) when it was drawn for exactly that tie; a tie no lot covers, as in
+  most counterfactuals, still stops the next step
 - Kinds are open (decision 0009): beside the built-in `TallyKind`s a tally counts any
   kind it declares as a `Kind` (votes or people, with an option or without), from
   `[kinds.<name>]` in `election.toml`; built-in kinds stay enum members, so existing
@@ -417,8 +422,6 @@ Built one small step at a time; each step leaves the package importable.
 The path from a popular vote to a chamber, and how it was built, is in
 [`src/wahlwerk/process/allocation/README.md`](src/wahlwerk/process/allocation/README.md). In order:
 
-- A lot inside an allocation, so a tied Wahlkreis or entitlement can be decided as
-  recorded instead of stopping the run
 - The LWG of 2016 and earlier (87 seats, 43 Wahlkreise), and the Landeswahlgesetz
   M-V under which the Landtag was elected from 1994 to 2006 (bundles are in
   wahlwerk-data; the law's text is still to be obtained); Mecklenburg-Vorpommern 2026

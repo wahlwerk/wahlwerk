@@ -37,7 +37,9 @@ class SingleMandatePerUnit(AllocationStep):
     nominee where the tally names no candidate. ``method`` chooses one winner from a row
     alone. Where it cannot (equal votes at the top, or no votes at all), the unit's
     result is a :class:`~wahlwerk.apportionment.tie.Tie`, since the law decides it by
-    lot; nothing is guessed. The winner's party is the option's, from the table.
+    lot; nothing is guessed. A lot recorded with the vote for exactly that tie (this
+    section, this unit, these options) decides it, and the result keeps the lot; any other
+    tie stays. The winner's party is the option's, from the table.
     """
 
     SEATS: ClassVar[int] = 1
@@ -73,10 +75,12 @@ class SingleMandatePerUnit(AllocationStep):
         if not table.rows:
             raise ValueError(f"{type(self).__name__}: no {table.fact!r} votes to elect from")
         return allocation.with_values(
-            unit_mandates=tuple(self._elect(unit, votes, table) for unit, votes in table.per_unit().items())
+            unit_mandates=tuple(
+                self._elect(unit, votes, table, allocation) for unit, votes in table.per_unit().items()
+            )
         )
 
-    def _elect(self, unit: str, votes: dict[str, int], table: Counts) -> UnitResult:
+    def _elect(self, unit: str, votes: dict[str, int], table: Counts, allocation: Allocation) -> UnitResult:
         """The winner of one unit's contest, chosen by ``method``."""
         most = max(votes.values())
         if most:
@@ -87,7 +91,13 @@ class SingleMandatePerUnit(AllocationStep):
             tie = Tie(candidates=frozenset(votes), seats=1)
             winners = []
         if tie is not None:
-            return UnitResult.model_validate({"unit": unit, "votes": most, "tie": tie})
+            lot = allocation.lot_for(tie, self.section, unit)
+            if lot is None:
+                return UnitResult.model_validate({"unit": unit, "votes": most, "tie": tie})
+            (drawn,) = lot.winners
+            return UnitResult.model_validate(
+                {"unit": unit, "option": drawn, "party": table.party_of(drawn), "votes": most, "lot": lot}
+            )
         (option,) = winners
         return UnitResult.model_validate(
             {"unit": unit, "option": option, "party": table.party_of(option), "votes": votes[option]}

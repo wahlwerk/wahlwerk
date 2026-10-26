@@ -457,3 +457,19 @@ def test_schema_4_has_no_levels(tmp_path):
 def test_schema_4_rejects_the_schema_3_header(tmp_path):
     with pytest.raises(ValueError, match="header"):
         read_bundle(write_4(tmp_path, tally=SCHEMA_3))
+
+
+def test_schema_4_reads_its_lots(tmp_path):
+    election = SCHEMA_4 + (
+        '\n[[lots]]\nsection = "erststimme"\nunit = "de.st.wk.001"\n'
+        'candidates = ["de.st.wk.001.mueller", "de.st.wk.001.schulz"]\n'
+        'winners = ["de.st.wk.001.schulz"]\nsource = "Niederschrift"\n'
+    )
+    (lot,) = read_bundle(write_4(tmp_path, election=election)).lots
+    assert lot.winners == {"de.st.wk.001.schulz"} and lot.unit == "de.st.wk.001" and lot.source == "Niederschrift"
+
+
+def test_a_malformed_lot_names_its_number(tmp_path):
+    election = SCHEMA_4 + '\n[[lots]]\nsection = "erststimme"\ncandidates = ["a", "b"]\nwinners = ["c"]\n'
+    with pytest.raises(ValueError, match="(?s)lot 1: .*not among the candidates"):
+        read_bundle(write_4(tmp_path, election=election))

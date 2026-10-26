@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from wahlwerk.vote.popular.hierarchy import Hierarchy, HierarchyUnit
+from wahlwerk.vote.popular.lot import Lot
 from wahlwerk.vote.popular.popular_vote import PopularVote, Source
 from wahlwerk.vote.popular.tally import (
     BUILT_IN_KINDS,
@@ -20,6 +21,7 @@ __all__ = [
     "HierarchyUnit",
     "Kind",
     "Level",
+    "Lot",
     "Option",
     "PopularVote",
     "Source",

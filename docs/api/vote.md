@@ -19,3 +19,9 @@ What a vote recorded: input, never replaced by a process. A popular vote is a ta
 ```{eval-rst}
 .. automodule:: wahlwerk.vote.popular.hierarchy
 ```
+
+## `wahlwerk.vote.popular.lot`
+
+```{eval-rst}
+.. automodule:: wahlwerk.vote.popular.lot
+```

@@ -28,6 +28,7 @@ from wahlwerk.process.allocation.eligibility import (
 from wahlwerk.process.allocation.seats import ApportionSeats, DeductUnitSeats
 from wahlwerk.state.mandate_origin import MandateSource
 from wahlwerk.state.term import Term
+from wahlwerk.vote.popular.lot import Lot
 from wahlwerk.vote.popular.popular_vote import PopularVote, Source
 from wahlwerk.vote.popular.tally import Level, Tally, TallyRow
 
@@ -269,3 +270,53 @@ def test_no_threshold_is_the_eligible_table_left_out():
     without = remove(without, at)
     assert allocate(vote, without).seats_by_party == allocate(vote, zero).seats_by_party
     assert allocate(vote, without).seats_by_party != allocate(vote, protocol).seats_by_party
+
+
+# ===========================================================
+# A lot actually drawn decides the tie it was drawn for
+# ===========================================================
+def _tied_wahlkreis_rows():
+    return [
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="erststimme", option=party, count=5)
+        for party in ("afd", "cdu")
+    ] + [
+        TallyRow(unit="de.st.wk.001", level="wahlkreis", section="zweitstimme", option=p, count=n)
+        for p, n in ZWEIT.items()
+    ]
+
+
+def test_a_recorded_lot_decides_a_tied_wahlkreis():
+    lot = Lot(section="erststimme", unit="de.st.wk.001", candidates={"afd", "cdu"}, winners={"cdu"},
+              source="Niederschrift des Kreiswahlausschusses")
+    result = run(law(10), Allocation(tally=_tally(_tied_wahlkreis_rows(), levels=LEVELS), lots=(lot,)))
+    (wk,) = result.unit_mandates
+    assert (wk.option, wk.party, wk.votes, wk.tie, wk.lot) == ("cdu", "cdu", 5, None, lot)
+    assert result.unit_wins() == {"cdu": 1}
+
+
+def test_a_lot_drawn_for_another_tie_decides_nothing():
+    for other in (
+        Lot(section="erststimme", unit="de.st.wk.002", candidates={"afd", "cdu"}, winners={"cdu"}),
+        Lot(section="erststimme", unit="de.st.wk.001", candidates={"afd", "cdu", "spd"}, winners={"cdu"}),
+        Lot(section="zweitstimme", unit="de.st.wk.001", candidates={"afd", "cdu"}, winners={"cdu"}),
+    ):
+        tied = Allocation(tally=_tally(_tied_wahlkreis_rows(), levels=LEVELS), lots=(other,))
+        with pytest.raises(ValueError, match=r"\['de.st.wk.001'\] are tied"):
+            run(law(10), tied)
+
+
+def test_a_recorded_lot_decides_a_tied_entitlement():
+    # One seat left for three parties with equal votes: the lot gives it to the Linke.
+    zweit = {"afd": 1, "cdu": 1, "linke": 1}
+    lot = Lot(section="zweitstimme", unit="de.st", candidates={"afd", "cdu", "linke"}, winners={"linke"})
+    result = run(law(2, threshold=FIVE_PERCENT), Allocation(tally=tally(["de.st.wk.001.eb"], zweit), lots=(lot,)))
+    assert result.entitlement.is_decided
+    assert dict(result.list_seats) == {"afd": 0, "cdu": 0, "linke": 1}
+
+
+def test_allocate_reads_the_lots_of_the_vote():
+    lot = Lot(section="erststimme", unit="de.st.wk.001", candidates={"afd", "cdu"}, winners={"afd"})
+    vote = PopularVote(source=SOURCE, tally=_tally(_tied_wahlkreis_rows(), levels=LEVELS), lots=(lot,))
+    chamber = allocate(vote, (*law(10), FillVacantSeatsFromLists()))
+    assert chamber.size == 10
+    assert any(m.id == "wk.001" and m.party == "afd" for m in chamber.mandates)

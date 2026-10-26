@@ -23,8 +23,10 @@ class ApportionSeats(AllocationStep):
     takes, ``<section> by <level> × <by>`` (``zweitstimme by land × eligible party``), on
     their votes there: their ``entitlement``.
 
-    A tie in the apportionment stays in the entitlement; the lot is applied before the
-    seats are used.
+    A tie in the apportionment (equal remainders, equal quotients) is decided by the lot
+    recorded with the vote for exactly that tie: this section, the table's unit (the Land
+    when it has one row), these parties, as many seats. Any other tie stays in the
+    entitlement, and :class:`DeductUnitSeats` stops on it.
     """
 
     method: SerializeAsAny[ApportionmentMethod] = Field(
@@ -57,9 +59,16 @@ class ApportionSeats(AllocationStep):
         return {"method": (("votes", "votes per party"), ("seats", "seats"))}
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        votes = allocation.count(self.section, self.level, self.by).per_column()
+        table = allocation.count(self.section, self.level, self.by)
+        votes = table.per_column()
         seats = allocation.seats_to_apportion or 0
-        return allocation.with_values(entitlement=self.method.apportion(votes, seats))
+        entitlement = self.method.apportion(votes, seats)
+        if entitlement.tie is not None:
+            unit = table.rows[0][0] if len(table.rows) == 1 else None
+            lot = allocation.lot_for(entitlement.tie, self.section, unit)
+            if lot is not None:
+                entitlement = entitlement.with_lot(lot.winners)
+        return allocation.with_values(entitlement=entitlement)
 
 
 class DeductUnitSeats(AllocationStep):

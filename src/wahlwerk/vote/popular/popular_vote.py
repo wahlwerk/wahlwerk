@@ -20,6 +20,7 @@ from pydantic import Field, model_validator
 
 from wahlwerk.model import Model
 from wahlwerk.vote.popular.hierarchy import Hierarchy
+from wahlwerk.vote.popular.lot import Lot
 from wahlwerk.vote.popular.tally import Tally
 
 __all__ = ["PopularVote", "Source"]
@@ -74,9 +75,14 @@ class PopularVote(Model):
     hierarchies: tuple[Hierarchy, ...] = Field(
         default_factory=tuple,
         description=(
-            "Hierarchies beside the tally's main one, for analysis, e.g. the "
-            "administrative one (Land, Kreis, Gemeinde); each covers every counted unit."
+            "The hierarchies over the tally's units: ``electoral`` (Land, Wahlkreis), "
+            "which a law counts along, and others for analysis, e.g. the administrative "
+            "one (Land, Kreis, Gemeinde); each covers every counted unit."
         ),
+    )
+    lots: tuple[Lot, ...] = Field(
+        default_factory=tuple,
+        description="The ties of this election decided by a lot actually drawn, with who won.",
     )
 
     @model_validator(mode="after")
