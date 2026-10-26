@@ -1,7 +1,14 @@
 import pytest
 from pydantic import ValidationError
 
-from wahlwerk.vote.popular import Level, Tally, TallyKind, TallyRow
+from wahlwerk.vote.popular import (
+    BUILT_IN_KINDS,
+    Kind,
+    Level,
+    Tally,
+    TallyKind,
+    TallyRow,
+)
 
 UNIT = {"unit": "de.st.wk.001", "level": "wahlkreis"}
 VOTE = {**UNIT, "section": "zweitstimme"}
@@ -394,3 +401,57 @@ def test_collapse_rejects_no_field_and_fields_that_say_where():
 def test_collapse_to_a_row_that_is_not_valid_is_rejected():
     with pytest.raises(ValueError, match="names no section"):
         TALLY.collapse("section")
+
+
+# ===========================================================
+# Kinds beyond the built-in ones (decision 0009)
+# ===========================================================
+BLANK = Kind(name="blank", counts="votes")
+WAHLSCHEIN = Kind(name="voters-wahlschein", counts="people")
+
+
+def test_a_built_in_kind_read_as_its_name_is_its_member():
+    assert TallyRow(**UNIT, kind="voters", count=1).kind is TallyKind.VOTERS
+    assert {k.name for k in BUILT_IN_KINDS.values()} == {k.value for k in TallyKind}
+
+
+def test_another_kind_is_a_slug_the_tally_must_declare():
+    blank = TallyRow(unit=WBZ_1, level="wahlbezirk", kind="blank", section="zweitstimme", count=3)
+    assert blank.kind == "blank"
+    tally = Tally(rows=(blank,), kinds=(BLANK,))
+    assert tally.filter(kind="blank").total() == 3
+    assert tally.filter(kind=TallyKind.VOTES).total() == 0
+    with pytest.raises(ValidationError, match="neither built in nor one of"):
+        Tally(rows=(blank,))
+
+
+def test_a_declared_kind_checks_its_rows():
+    people = TallyRow(unit=WBZ_1, level="wahlbezirk", kind="voters-wahlschein", section="zweitstimme", count=3)
+    with pytest.raises(ValidationError, match="counts people, so it must name no section"):
+        Tally(rows=(people,), kinds=(WAHLSCHEIN,))
+    blank_for_a_party = TallyRow(
+        unit=WBZ_1, level="wahlbezirk", kind="blank", section="zweitstimme", option="afd", count=3
+    )
+    with pytest.raises(ValidationError, match="must name no option"):
+        Tally(rows=(blank_for_a_party,), kinds=(BLANK,))
+
+
+def test_kinds_cannot_redeclare_a_built_in_or_repeat():
+    with pytest.raises(ValidationError, match="is built in"):
+        Tally(kinds=(Kind(name="votes", counts="votes", has_option=True),))
+    with pytest.raises(ValidationError, match="more than once"):
+        Tally(kinds=(BLANK, BLANK))
+
+
+def test_people_name_no_option():
+    with pytest.raises(ValidationError, match="counts people"):
+        Kind(name="eligible-x", counts="people", has_option=True)
+
+
+def test_operations_keep_the_kinds():
+    blank = TallyRow(unit=WBZ_1, level="wahlbezirk", kind="blank", section="zweitstimme", channel="urne", count=3)
+    tally = Tally(rows=(blank, row(WBZ_1, 5)), kinds=(BLANK,))
+    assert tally.filter(section="zweitstimme").kinds == (BLANK,)
+    assert tally.collapse("channel").kinds == (BLANK,)
+    assert tally.relabel("section", {"zweitstimme": "z"}).kinds == (BLANK,)
+    assert tally.sum_to("wahlkreis", depth=4).filter(kind="blank").total() == 3

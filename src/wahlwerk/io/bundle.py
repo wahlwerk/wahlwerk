@@ -30,6 +30,9 @@ hierarchies::
     [hierarchies.administrative]
     levels = ["land", "kreis", "gemeinde"]
 
+    [kinds.blank]
+    counts = "votes"
+
 ``[levels]`` is the main hierarchy, the one the unit ids spell out: each level and the
 number of dotted segments in its ids, broadest first (see :class:`Level`). Every row
 must name a listed level and have its depth.
@@ -39,6 +42,11 @@ levels, broadest first; its units are in ``<name>.csv`` in the bundle, with exac
 columns in :data:`HIERARCHY_COLUMNS`: every unit, its level, and the unit it lies in
 (blank at the broadest level). It must cover every unit the tally counts. The table is
 optional.
+
+Each ``[kinds.<name>]`` table declares a kind the tally counts beside the built-in ones
+(``votes``, ``invalid``, ``eligible``, ``voters``): whether its rows count ``votes`` or
+``people``, and with ``has_option = true`` that they name an option (see :class:`Kind`).
+The tables are optional; a row of a kind neither built in nor declared is rejected.
 
 Schema 1 has neither: its tally records no levels, and summing it needs the depth
 given. Schemas 1 and 2 name what a vote counts for in three columns, ``party``,
@@ -65,7 +73,7 @@ from pydantic import TypeAdapter, ValidationError
 from wahlwerk.ids import DottedKey, Slug
 from wahlwerk.vote.popular.hierarchy import Hierarchy, HierarchyUnit
 from wahlwerk.vote.popular.popular_vote import PopularVote, Source
-from wahlwerk.vote.popular.tally import Level, Tally, TallyKind, TallyRow
+from wahlwerk.vote.popular.tally import Kind, Level, Tally, TallyKind, TallyRow
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -178,15 +186,14 @@ def _parse_row(cells: list[str], columns: tuple[str, ...] = TALLY_COLUMNS) -> Ta
         raise ValueError("kind is blank")
     if "count" not in fields:
         raise ValueError("count is blank")
-    fields["kind"] = TallyKind(fields["kind"])
     fields["count"] = int(fields["count"])
     return TallyRow.model_validate(fields)
 
 
 def _read_election(
     file_path: Path,
-) -> tuple[int, Source, tuple[Level, ...], dict[str, tuple[str, ...]]]:
-    """The source, levels and declared hierarchies of a bundle, after checking its
+) -> tuple[int, Source, tuple[Level, ...], dict[str, tuple[str, ...]], tuple[Kind, ...]]:
+    """The source, levels, declared hierarchies and kinds of a bundle, after checking its
     schema; the schema describes the file format, so it stays here and is not part of
     the model."""
     try:
@@ -203,6 +210,7 @@ def _read_election(
     source = raw.pop("source", None)
     levels = raw.pop("levels", None) if schema >= 2 else None
     hierarchies = raw.pop("hierarchies", {}) if schema >= 2 else {}
+    kinds = raw.pop("kinds", {})
     if raw:
         raise ValueError(f"{file_path}: unknown keys {sorted(raw)}")
     # Bad file content, not a bad argument: one exception type for every format error.
@@ -221,7 +229,28 @@ def _read_election(
         )
     except ValidationError as e:
         raise ValueError(f"{file_path}: levels: {e}") from e
-    return schema, parsed_source, parsed_levels, _declared_hierarchies(file_path, hierarchies)
+    return (
+        schema,
+        parsed_source,
+        parsed_levels,
+        _declared_hierarchies(file_path, hierarchies),
+        _declared_kinds(file_path, kinds),
+    )
+
+
+def _declared_kinds(file_path: Path, raw: object) -> tuple[Kind, ...]:
+    """Each ``[kinds.<name>]`` table as a :class:`Kind`."""
+    if not isinstance(raw, dict):
+        raise ValueError(f"{file_path}: expected [kinds.<name>] tables")  # noqa: TRY004
+    kinds = []
+    for name, table in raw.items():
+        if not isinstance(table, dict):
+            raise ValueError(f"{file_path}: kinds.{name}: expected a table")  # noqa: TRY004
+        try:
+            kinds.append(Kind.model_validate({"name": name, **table}))
+        except ValidationError as e:
+            raise ValueError(f"{file_path}: kinds.{name}: {e}") from e
+    return tuple(kinds)
 
 
 def _declared_hierarchies(file_path: Path, raw: object) -> dict[str, tuple[str, ...]]:
@@ -275,8 +304,14 @@ def _read_hierarchy(file_path: Path, name: str, levels: tuple[str, ...]) -> Hier
         raise ValueError(f"{file_path}: {e}") from e
 
 
-def _read_tally(file_path: Path, levels: tuple[Level, ...], schema: int = SCHEMA) -> Tally:
+def _read_tally(
+    file_path: Path,
+    levels: tuple[Level, ...],
+    schema: int = SCHEMA,
+    kinds: tuple[Kind, ...] = (),
+) -> Tally:
     columns = TALLY_COLUMNS if schema >= 3 else LEGACY_TALLY_COLUMNS
+    declared = {kind.name: kind for kind in kinds}
     rows = []
     with _require(file_path).open(encoding="utf-8", newline="") as f:
         reader = csv.reader(f)
@@ -293,11 +328,19 @@ def _read_tally(file_path: Path, levels: tuple[Level, ...], schema: int = SCHEMA
                     f"expected {len(columns)}"
                 )
             try:
-                rows.append(_parse_row(cells, columns))
+                row = _parse_row(cells, columns)
+                if not isinstance(row.kind, TallyKind):
+                    # Checked here as well as by the tally, so the error names the line.
+                    if row.kind not in declared:
+                        raise ValueError(
+                            f"kind {row.kind!r} is neither built in nor declared in [kinds]"
+                        )
+                    declared[row.kind].check(row)
+                rows.append(row)
             except ValueError as e:  # ValidationError is a ValueError
                 raise ValueError(f"{file_path}: line {line}: {e}") from e
     try:
-        return Tally(rows=tuple(rows), levels=levels)
+        return Tally(rows=tuple(rows), levels=levels, kinds=kinds)
     except ValidationError as e:
         raise ValueError(f"{file_path}: {e}") from e
 
@@ -313,14 +356,14 @@ def read_bundle(
     Alternative hierarchies are read from ``<name>.csv`` beside them.
 
     Raises ``ValueError`` naming the file for a missing file, an unsupported schema, an
-    unknown key, a missing or malformed ``[levels]`` or ``[hierarchies]`` table, a wrong
-    header, a row that :class:`TallyRow` rejects, a row whose level or depth
+    unknown key, a missing or malformed ``[levels]``, ``[hierarchies]`` or ``[kinds]`` table, a wrong
+    header, a row that :class:`TallyRow` rejects, a row of a kind not declared, a row whose level or depth
     ``[levels]`` does not allow, two rows that count the same thing, a hierarchy that is
     not a tree, or one that does not cover every counted unit.
     """
     dir_path = Path(dir_path)
-    schema, source, levels, declared = _read_election(dir_path / election_file_name)
-    tally = _read_tally(dir_path / tally_file_name, levels, schema)
+    schema, source, levels, declared, kinds = _read_election(dir_path / election_file_name)
+    tally = _read_tally(dir_path / tally_file_name, levels, schema, kinds)
     hierarchies = tuple(
         _read_hierarchy(dir_path / f"{name}.csv", name, hierarchy_levels)
         for name, hierarchy_levels in declared.items()

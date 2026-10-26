@@ -398,6 +398,10 @@ Built one small step at a time; each step leaves the package importable.
   Collapse (`Tally.collapse`); `SumGroupBy` is a composition of them (`operations`), and
   with `sections` counts several sections as one (Erst- and Zweitstimmen as
   Gesamtstimmen, Art. 42 (2) BayLWG)
+- Kinds are open (decision 0009): beside the built-in `TallyKind`s a tally counts any
+  kind it declares as a `Kind` (votes or people, with an option or without), from
+  `[kinds.<name>]` in `election.toml`; built-in kinds stay enum members, so existing
+  bundles and their makers are unchanged
 
 **Next**
 
@@ -413,9 +417,9 @@ The path from a popular vote to a chamber, and how it was built, is in
 
 Then, the tally (decision 0009 in `.github-private`), one point at a time:
 
-- `kind` an open slug with properties (counts votes or people, summable across sections,
-  valid under this law), and `party` out of the row into a mapping beside the tally
-  (option, list, party, alliance)
+- `party` out of the row into a mapping beside the tally (option, list, party,
+  alliance); what a law counts as valid (Spain's blank votes) as a step's setting,
+  with the first law that needs it
 - Unit ids that name the lowest unit only; every grouping a hierarchy, the law naming
   the one it counts along (bundle schema 4)
 - A profile beside the tally (each Stimmzettel across its sections, in order where the

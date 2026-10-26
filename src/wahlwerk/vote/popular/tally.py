@@ -25,19 +25,25 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import Field, PrivateAttr, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from wahlwerk.ids import LevelName, OptionId, PartyId, Slug, UnitId
 from wahlwerk.model import Count, Model
 from wahlwerk.vote.popular.hierarchy import Hierarchy
 
-__all__ = ["Level", "Tally", "TallyKind", "TallyRow"]
+__all__ = ["BUILT_IN_KINDS", "Kind", "Level", "Tally", "TallyKind", "TallyRow"]
 
 
 class TallyKind(Enum):
-    """What a :class:`TallyRow` counts.
+    """The built-in kinds of :class:`TallyRow`: what most tallies count.
+
+    A kind is open (decision 0009): a tally may count others, e.g. blank votes (valid in
+    Spain, apart from the suffrages exprimés in France) or the Wähler with a Wahlschein
+    (B1 of the Wahlniederschrift), each declared as a :class:`Kind` in
+    :attr:`Tally.kinds`. A built-in kind is always held as its member, so
+    ``row.kind is TallyKind.VOTES`` holds for a row read as ``"votes"``.
 
     Gültige is not a kind: valid votes are the sum of the ``VOTES`` rows, not a stored
     fact. ``VOTERS`` is one: voters equal valid plus invalid votes per section only under
@@ -55,6 +61,70 @@ class TallyKind(Enum):
     """People who cast a ballot (Wähler), i.e. turnout."""
 
 
+class Kind(Model):
+    """What one kind of :class:`TallyRow` counts, and so which fields its rows set.
+
+    Votes are counted in a section, people are not; votes for an option name it (and
+    its party where it has one), other rows name no option. Which kinds are *valid*,
+    and what they count towards, is a matter of law, not of the kind.
+    """
+
+    name: Slug = Field(
+        description="The kind, as rows name it in ``kind``, e.g. ``blank``.",
+    )
+    counts: Literal["votes", "people"] = Field(
+        description="Whether its rows count votes (in a section) or people (in none).",
+    )
+    has_option: bool = Field(
+        default=False,
+        description="Whether its rows name the option their votes count for; only votes can.",
+    )
+
+    @model_validator(mode="after")
+    def _check_option(self) -> Kind:
+        if self.has_option and self.counts != "votes":
+            raise ValueError(f"kind {self.name!r} counts people, so its rows name no option")
+        return self
+
+    def check(self, row: TallyRow) -> None:
+        """Raise ``ValueError`` if ``row`` does not set the fields this kind asks for."""
+        where = (
+            f"{self.name} row in unit {row.unit!r} (section={row.section!r}, "
+            f"option={row.option!r}, party={row.party!r})"
+        )
+        if self.counts == "votes" and row.section is None:
+            raise ValueError(f"{where} names no section")
+        if self.counts == "people" and row.section is not None:
+            raise ValueError(f"{where} counts people, so it must name no section")
+        if self.has_option and row.option is None:
+            raise ValueError(f"{where} names no option")
+        if not self.has_option and (row.option is not None or row.party is not None):
+            raise ValueError(f"{where} must name no option or party")
+
+
+BUILT_IN_KINDS: dict[TallyKind, Kind] = {
+    TallyKind.VOTES: Kind(name="votes", counts="votes", has_option=True),
+    TallyKind.INVALID: Kind(name="invalid", counts="votes"),
+    TallyKind.ELIGIBLE: Kind(name="eligible", counts="people"),
+    TallyKind.VOTERS: Kind(name="voters", counts="people"),
+}
+"""What each built-in kind counts."""
+
+_BUILT_IN_NAMES = {kind.value: kind for kind in TallyKind}
+
+
+def _as_kind(value: Any) -> Any:
+    """A built-in kind's name as its member; any other value as given."""
+    if isinstance(value, str) and value in _BUILT_IN_NAMES:
+        return _BUILT_IN_NAMES[value]
+    return value
+
+
+def kind_name(kind: TallyKind | str) -> str:
+    """The name of a kind, built-in or not: ``votes``, ``blank``."""
+    return kind.value if isinstance(kind, TallyKind) else kind
+
+
 class TallyRow(Model):
     """One row of the long vote table: one count in one unit.
 
@@ -70,9 +140,12 @@ class TallyRow(Model):
     level: LevelName = Field(
         description="Which kind of unit ``unit`` is.",
     )
-    kind: TallyKind = Field(
+    kind: TallyKind | Slug = Field(
         default=TallyKind.VOTES,
-        description="What this row counts: valid votes, invalid votes, or people.",
+        description=(
+            "What this row counts: a built-in :class:`TallyKind` (valid votes, invalid "
+            "votes, or people), or another kind its tally declares, e.g. ``blank``."
+        ),
     )
     section: Slug | None = Field(
         default=None,
@@ -111,22 +184,16 @@ class TallyRow(Model):
         description="The number counted in this row.",
     )
 
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _built_in_kind(cls, value: Any) -> Any:
+        return _as_kind(value)
+
     @model_validator(mode="after")
     def _check_kind(self) -> TallyRow:
-        has_option = self.option is not None
-        counts_votes = self.kind in (TallyKind.VOTES, TallyKind.INVALID)
-        where = (
-            f"{self.kind.value} row in unit {self.unit!r} (section={self.section!r}, "
-            f"option={self.option!r}, party={self.party!r})"
-        )
-        if counts_votes and self.section is None:
-            raise ValueError(f"{where} names no section")
-        if not counts_votes and self.section is not None:
-            raise ValueError(f"{where} counts people, so it must name no section")
-        if self.kind is TallyKind.VOTES and not has_option:
-            raise ValueError(f"{where} names no option")
-        if self.kind is not TallyKind.VOTES and (has_option or self.party is not None):
-            raise ValueError(f"{where} must name no option or party")
+        # A built-in kind is checked here; another one by the tally that declares it.
+        if isinstance(self.kind, TallyKind):
+            BUILT_IN_KINDS[self.kind].check(self)
         return self
 
     @property
@@ -176,7 +243,8 @@ class Tally(Model):
 
     No two rows count the same thing: rows that agree in every field but ``count``
     would be counted twice when summed, so they are rejected. When ``levels`` is given,
-    every row names a listed level, and its unit has that level's depth. Sums are
+    every row names a listed level, and its unit has that level's depth. Every row's
+    kind is built in or listed in ``kinds``, and the row sets the fields it asks for. Sums are
     derived here and never stored; :meth:`sum_to` rolls rows up into larger units,
     :meth:`sum_by` totals them by any fields.
     """
@@ -190,6 +258,13 @@ class Tally(Model):
         description=(
             "The levels of the units, broadest first, e.g. Land, Wahlkreis, Gemeinde, "
             "Wahlbezirk; empty when not recorded."
+        ),
+    )
+    kinds: tuple[Kind, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "The kinds the rows count beside the built-in ones (:class:`TallyKind`), "
+            "e.g. ``blank``; empty when there are none."
         ),
     )
 
@@ -251,6 +326,28 @@ class Tally(Model):
         return self
 
     @model_validator(mode="after")
+    def _check_kinds(self) -> Tally:
+        if self._is_checked:
+            return self
+        declared: dict[str, Kind] = {}
+        for kind in self.kinds:
+            if kind.name in _BUILT_IN_NAMES:
+                raise ValueError(f"kind {kind.name!r} is built in; it cannot be declared")
+            if kind.name in declared:
+                raise ValueError(f"kind {kind.name!r} is listed more than once")
+            declared[kind.name] = kind
+        for row in self.rows:
+            if isinstance(row.kind, TallyKind):
+                continue  # checked by the row
+            if row.kind not in declared:
+                raise ValueError(
+                    f"row in unit {row.unit!r} counts kind {row.kind!r}, which is neither "
+                    f"built in nor one of {list(declared)}"
+                )
+            declared[row.kind].check(row)
+        return self
+
+    @model_validator(mode="after")
     def _mark_checked(self) -> Tally:
         # Last of the validators: reached only when every check above has passed.
         self._checked_rows = self.rows
@@ -267,8 +364,8 @@ class Tally(Model):
         ``tally.filter(kind="votes", section="zweitstimme")``: the operation *Select*.
 
         A tuple, list or set selects rows whose field is any of its values
-        (``section=("erststimme", "zweitstimme")``). ``kind`` may be a :class:`TallyKind`
-        or its value; ``None`` selects rows where the field is absent (``channel=None``).
+        (``section=("erststimme", "zweitstimme")``). ``kind`` may be a :class:`TallyKind`,
+        its value, or a declared kind's name; ``None`` selects rows where the field is absent (``channel=None``).
         Raises ``ValueError`` for a field that is not a tally field or is ``count``.
         """
         _check_fields(list(criteria))
@@ -276,7 +373,7 @@ class Tally(Model):
         for name, value in criteria.items():
             values = value if isinstance(value, (tuple, list, set, frozenset)) else (value,)
             if name == "kind":
-                values = tuple(TallyKind(v) for v in values)
+                values = tuple(_as_kind(kind_name(v) if isinstance(v, TallyKind) else v) for v in values)
             allowed[name] = frozenset(values)
         return Tally(
             rows=tuple(
@@ -285,6 +382,7 @@ class Tally(Model):
                 if all(getattr(row, name) in values for name, values in allowed.items())
             ),
             levels=self.levels,
+            kinds=self.kinds,
         )
 
     def relabel(self, field: str, mapping: Mapping[Any, Any]) -> Tally:
@@ -435,6 +533,7 @@ class Tally(Model):
                 for key, count in counts.items()
             ),
             levels=levels,
+            kinds=self.kinds,
         )
 
     def _depth_of(self, level: str, depth: int | None) -> int:

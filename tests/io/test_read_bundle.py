@@ -367,3 +367,28 @@ def test_hierarchy_must_cover_the_tally(tmp_path):
     short = "unit,level,parent\nde.st,land,\nde.st.krs.15081,kreis,de.st\n"
     with pytest.raises(ValueError, match=r"(?s)does not cover 1 counted units"):
         read_bundle(write_2(tmp_path, hierarchy=short))
+
+
+def test_kinds_are_declared_in_the_election_file(tmp_path):
+    election = ELECTION.replace("schema = 1", "schema = 3\n\n[levels]\nwahlkreis = 4") + (
+        '\n[kinds.blank]\ncounts = "votes"\n'
+    )
+    tally = SCHEMA_3 + "de.st.wk.001,wahlkreis,blank,zweitstimme,urne,,,2\n"
+    vote = read_bundle(write(tmp_path, election, tally))
+    assert [k.name for k in vote.tally.kinds] == ["blank"]
+    assert vote.tally.filter(kind="blank").total() == 2
+
+
+def test_a_kind_not_declared_is_rejected(tmp_path):
+    election = ELECTION.replace("schema = 1", "schema = 3\n\n[levels]\nwahlkreis = 4")
+    tally = SCHEMA_3 + "de.st.wk.001,wahlkreis,blank,zweitstimme,urne,,,2\n"
+    with pytest.raises(ValueError, match="neither built in"):
+        read_bundle(write(tmp_path, election, tally))
+
+
+def test_a_malformed_kind_is_rejected(tmp_path):
+    election = ELECTION.replace("schema = 1", "schema = 3\n\n[levels]\nwahlkreis = 4") + (
+        '\n[kinds.blank]\ncounts = "ballots"\n'
+    )
+    with pytest.raises(ValueError, match="kinds.blank"):
+        read_bundle(write(tmp_path, election, SCHEMA_3))
