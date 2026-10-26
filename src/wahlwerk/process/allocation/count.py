@@ -1,10 +1,14 @@
 """Counting: the valid votes of one section grouped by the units of a level and by
 option or party, and summed (e.g. Sec. 31, 32 and 35 (2) LWG LSA: the Erststimmen per Wahlkreis,
-the Zweitstimmen in the Land)."""
+the Zweitstimmen in the Land; Art. 42 (2) BayLWG: Erst- and Zweitstimmen together).
+
+The step is a named composition of the operations on a tally (decision 0009): *Select*
+the valid votes of its sections, *RollUp* to its level, *Relabel* several sections to
+one, *Collapse* the channels, and lay the rows out as a table by option or by party."""
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from wahlwerk.ids import LevelName, Slug
 from wahlwerk.process.allocation.base import (
@@ -25,19 +29,66 @@ class SumGroupBy(AllocationStep):
     (``erststimme by wahlkreis × option``), a row per unit, a counter per column,
     channels (Urne and Brief) summed.
 
+    With ``sections``, the votes of several sections are counted together as one,
+    named ``section``: Art. 42 (2) BayLWG counts Erst- and Zweitstimmen as Gesamtstimmen,
+    ``SumGroupBy(section="gesamtstimme", sections=("erststimme", "zweitstimme"),
+    level="wahlkreis", by="party")``.
+
     Only valid votes are counted, so invalid votes and people are not in it. Grouped by
     option, each option's party is taken along, and an option recorded with two parties
     is refused; grouped by party, an option's votes go to its party, and votes for no
     party (an Einzelbewerber) are left out. Making a table again replaces it.
+
+    In terms of the operations on a tally: ``filter`` (Select), ``sum_to`` (RollUp),
+    ``relabel`` of the sections (Relabel), ``collapse`` of the channel (Collapse), see
+    :attr:`operations`.
     """
 
-    section: Slug = Field(description="The vote to count, e.g. ``erststimme``.")
+    section: Slug = Field(
+        description="The vote to count, e.g. ``erststimme``; with ``sections``, the name the votes are counted under, e.g. ``gesamtstimme``.",
+    )
+    sections: tuple[Slug, ...] | None = Field(
+        default=None,
+        description=(
+            "The sections counted together as ``section``, e.g. ``('erststimme', "
+            "'zweitstimme')``; ``None`` counts ``section`` alone."
+        ),
+    )
     level: LevelName = Field(
         description="The level to group by, as listed in the tally's levels, e.g. ``wahlkreis``.",
     )
     by: GroupBy = Field(
         description="What to count per unit: each ``option`` voted for, or each ``party``; always stated.",
     )
+
+    @model_validator(mode="after")
+    def _check_sections(self) -> SumGroupBy:
+        if self.sections is not None:
+            if len(self.sections) < 2:
+                raise ValueError(f"sections {self.sections} count one section; give it as section alone")
+            if len(set(self.sections)) != len(self.sections):
+                raise ValueError(f"sections {self.sections} list a section more than once")
+        return self
+
+    @property
+    def counted(self) -> tuple[str, ...]:
+        """The sections whose votes are counted: ``sections``, or ``section`` alone."""
+        return self.sections if self.sections is not None else (self.section,)
+
+    @property
+    def operations(self) -> tuple[tuple[str, str], ...]:
+        """The operations on the tally this step is made of, in order, each as
+        (operation, what it is applied to), e.g. ``("RollUp", "wahlkreis")``."""
+        steps = [
+            ("RollUp", self.level),
+            ("Select", f"votes of {', '.join(self.counted)}"),
+        ]
+        if self.sections is not None:
+            steps.append(("Relabel", f"{' + '.join(self.sections)} -> {self.section}"))
+        steps.append(("Collapse", "channel"))
+        if self.by == "party":
+            steps.append(("Relabel", "option -> party"))
+        return tuple(steps)
 
     @property
     def inputs(self) -> dict[str, str]:
@@ -48,9 +99,12 @@ class SumGroupBy(AllocationStep):
         return frozenset({counts_fact(self.section, self.level, self.by)})
 
     def _apply(self, allocation: Allocation) -> Allocation:
-        # Sum the whole tally to the level first: a tally keeps its sums, so every law
-        # replayed on one vote sums it once; then keep this section's votes.
-        summed = allocation.tally.sum_to(self.level).filter(kind=TallyKind.VOTES, section=self.section)
+        # RollUp first: a tally keeps its sums, so every law replayed on one vote sums it
+        # once; Select, Relabel and Collapse then work on the few rows of the level.
+        summed = allocation.tally.sum_to(self.level).filter(kind=TallyKind.VOTES, section=self.counted)
+        if self.sections is not None:
+            summed = summed.relabel("section", {name: self.section for name in self.sections})
+        summed = summed.collapse("channel")
         rows: dict[str, dict[str, int]] = {}
         parties: dict[str, str | None] = {}
         for row in summed.rows:
@@ -60,8 +114,10 @@ class SumGroupBy(AllocationStep):
                 raise ValueError(
                     f"{self!r}: option {option!r} stands for {parties[option]!r} and {row.party!r}"
                 )
+            # Relabel(option -> party) as the table is laid out: by party, a column per
+            # party, and votes for no party have no column.
             column = option if self.by == "option" else row.party
-            if column is None:  # a vote for no party, grouped by party
+            if column is None:
                 continue
             counter = rows.setdefault(row.unit, {})
             counter[column] = counter.get(column, 0) + row.count

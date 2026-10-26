@@ -393,6 +393,11 @@ Built one small step at a time; each step leaves the package importable.
 - A law file has a JSON Schema, `wahlwerk.law.schema.law_schema()`, from the models:
   every step type, method and threshold with its fields and descriptions, the ground
   for a form-based law editor
+- The way up as operations on a tally (decision 0009, point 4): Select (`Tally.filter`,
+  a tuple selecting any of its values), RollUp (`sum_to`), Relabel (`Tally.relabel`) and
+  Collapse (`Tally.collapse`); `SumGroupBy` is a composition of them (`operations`), and
+  with `sections` counts several sections as one (Erst- and Zweitstimmen as
+  Gesamtstimmen, Art. 42 (2) BayLWG)
 
 **Next**
 
@@ -405,6 +410,16 @@ The path from a popular vote to a chamber, and how it was built, is in
   M-V under which the Landtag was elected from 1994 to 2006 (bundles are in
   wahlwerk-data; the law's text is still to be obtained); Mecklenburg-Vorpommern 2026
   as a golden test once its final result is published
+
+Then, the tally (decision 0009 in `.github-private`), one point at a time:
+
+- `kind` an open slug with properties (counts votes or people, summable across sections,
+  valid under this law), and `party` out of the row into a mapping beside the tally
+  (option, list, party, alliance)
+- Unit ids that name the lowest unit only; every grouping a hierarchy, the law naming
+  the one it counts along (bundle schema 4)
+- A profile beside the tally (each Stimmzettel across its sections, in order where the
+  law needs it), with the first law that needs it (Sec. 32 S. 2 LWG LSA)
 
 Then, toward laws built by hand (decision 0004 in `.github-private`):
 

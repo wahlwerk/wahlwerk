@@ -204,3 +204,36 @@ def test_grouped_by_party_a_column_is_a_party_and_votes_for_no_party_drop_out():
     assert "de.st.wk.002.einzelbewerber" not in table.per_column()
     assert table.per_unit()["de.st.wk.001"] == {"afd": 65, "cdu": 60}
     assert table.party_of("cdu") == "cdu"
+
+
+# ===========================================================
+# Several sections counted as one (Art. 42 (2) BayLWG)
+# ===========================================================
+GESAMT = SumGroupBy(section="gesamtstimme", sections=("erststimme", "zweitstimme"), level="land", by="party")
+
+
+def test_sections_are_counted_together_under_one_name():
+    table = GESAMT(START).count("gesamtstimme", "land", "party")
+    assert table.fact == "gesamtstimme by land × party"
+    assert table.per_column() == {"afd": 65, "cdu": 80, "linke": 30, "spd": 20, "fdp": 99}
+
+
+def test_sections_by_option_keep_the_einzelbewerber():
+    step = SumGroupBy(section="gesamtstimme", sections=("erststimme", "zweitstimme"), level="wahlkreis", by="option")
+    per_unit = step(START).count("gesamtstimme", "wahlkreis").per_unit()
+    assert per_unit["de.st.wk.002"] == {"linke": 30, "de.st.wk.002.einzelbewerber": 31}
+    assert per_unit["de.st.wk.003"] == {"spd": 20, "cdu": 20, "fdp": 99}
+
+
+@pytest.mark.parametrize("sections", [("erststimme",), ("erststimme", "erststimme")])
+def test_sections_must_be_several_and_distinct(sections):
+    with pytest.raises(ValidationError, match="sections"):
+        SumGroupBy(section="gesamtstimme", sections=sections, level="land", by="party")
+
+
+def test_a_count_is_named_as_its_operations():
+    plain = SumGroupBy(section="erststimme", level="wahlkreis", by="option")
+    assert plain.counted == ("erststimme",)
+    assert [name for name, _ in plain.operations] == ["RollUp", "Select", "Collapse"]
+    assert [name for name, _ in GESAMT.operations] == ["RollUp", "Select", "Relabel", "Collapse", "Relabel"]
+    assert ("Relabel", "erststimme + zweitstimme -> gesamtstimme") in GESAMT.operations

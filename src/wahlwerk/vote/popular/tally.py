@@ -11,11 +11,19 @@ candidate or an answer such as ``ja``; ``party`` says which party, if any, the o
 stands for.
 Chamber votes, secret or named, are not tallies; they belong in
 :mod:`wahlwerk.vote.chamber`.
+
+The way up from the rows to what a law decides on is a short sequence of operations on
+the tally, each returning a tally (decision 0009): *Select* (:meth:`Tally.filter`),
+*RollUp* (:meth:`Tally.sum_to`), *Relabel* (:meth:`Tally.relabel`, members of one field
+merged or renamed, e.g. Erst- and Zweitstimmen counted as Gesamtstimmen) and *Collapse*
+(:meth:`Tally.collapse`, a field summed away, e.g. Urne and Brief). Laws differ in the
+sequence, not in the operations; what is not a sum (a threshold, an apportionment) is a
+step of the law.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from enum import Enum
 from typing import Any
 
@@ -129,6 +137,11 @@ class TallyRow(Model):
 
 _KEY_FIELDS = tuple(name for name in TallyRow.model_fields if name != "count")
 """The fields of :class:`TallyRow` that say what a row counts, i.e. all but ``count``."""
+
+
+_RELABEL_FIELDS = ("section", "channel", "option", "party")
+"""The fields :meth:`Tally.relabel` and :meth:`Tally.collapse` may change: what is
+counted, not where (units move with :meth:`Tally.sum_to`) and not of what kind."""
 
 
 def _check_fields(fields: tuple[str, ...] | list[str]) -> None:
@@ -251,23 +264,76 @@ class Tally(Model):
     # ===========================================================
     def filter(self, **criteria: Any) -> Tally:
         """The rows whose fields equal every criterion, e.g.
-        ``tally.filter(kind="votes", section="zweitstimme")``.
+        ``tally.filter(kind="votes", section="zweitstimme")``: the operation *Select*.
 
-        ``kind`` may be a :class:`TallyKind` or its value; ``None`` selects rows where
-        the field is absent (``channel=None``). Raises ``ValueError`` for a field that
-        is not a tally field or is ``count``.
+        A tuple, list or set selects rows whose field is any of its values
+        (``section=("erststimme", "zweitstimme")``). ``kind`` may be a :class:`TallyKind`
+        or its value; ``None`` selects rows where the field is absent (``channel=None``).
+        Raises ``ValueError`` for a field that is not a tally field or is ``count``.
         """
         _check_fields(list(criteria))
-        if "kind" in criteria:
-            criteria["kind"] = TallyKind(criteria["kind"])
+        allowed: dict[str, frozenset[Any]] = {}
+        for name, value in criteria.items():
+            values = value if isinstance(value, (tuple, list, set, frozenset)) else (value,)
+            if name == "kind":
+                values = tuple(TallyKind(v) for v in values)
+            allowed[name] = frozenset(values)
         return Tally(
             rows=tuple(
                 row
                 for row in self.rows
-                if all(getattr(row, name) == value for name, value in criteria.items())
+                if all(getattr(row, name) in values for name, values in allowed.items())
             ),
             levels=self.levels,
         )
+
+    def relabel(self, field: str, mapping: Mapping[Any, Any]) -> Tally:
+        """The rows with the members of ``field`` renamed by ``mapping``, and summed: the
+        operation *Relabel*. Members not in ``mapping`` keep their name; several mapped to
+        one name are merged, e.g. Erst- and Zweitstimmen counted together (Art. 42 (2)
+        BayLWG):
+
+        ``tally.relabel("section", {"erststimme": "gesamtstimme", "zweitstimme": "gesamtstimme"})``
+
+        Rows that then agree in every field but ``count`` are summed into one, kept in
+        order of first appearance, and ``levels`` are kept. Only what is counted can be
+        relabelled (``section``, ``channel``, ``option``, ``party``); units move with
+        :meth:`sum_to`. Raises ``ValueError`` for another field, or a relabelled row that
+        is no longer a valid :class:`TallyRow` (a vote mapped to no option).
+        """
+        if field not in _RELABEL_FIELDS:
+            raise ValueError(f"{field!r} cannot be relabelled; expected one of {list(_RELABEL_FIELDS)}")
+        index = _KEY_FIELDS.index(field)
+
+        def renamed(key: tuple[Any, ...]) -> tuple[Any, ...]:
+            value = key[index]
+            if value not in mapping:
+                return key
+            return (*key[:index], mapping[value], *key[index + 1 :])
+
+        return self._merge(renamed, levels=self.levels)
+
+    def collapse(self, *fields: str) -> Tally:
+        """The rows with ``fields`` summed away (made absent), e.g.
+        ``tally.collapse("channel")``, Urne and Brief together: the operation *Collapse*.
+
+        Rows that then agree in every field but ``count`` are summed into one, kept in
+        order of first appearance, and ``levels`` are kept. Only ``section``,
+        ``channel``, ``option`` and ``party`` can be collapsed. Raises ``ValueError`` for
+        no field, another field, or a row that is then no longer a valid
+        :class:`TallyRow` (a vote without its section or option).
+        """
+        if not fields:
+            raise ValueError("collapse needs at least one field")
+        unknown = [name for name in fields if name not in _RELABEL_FIELDS]
+        if unknown:
+            raise ValueError(f"{unknown} cannot be collapsed; expected some of {list(_RELABEL_FIELDS)}")
+        indices = {_KEY_FIELDS.index(name) for name in fields}
+
+        def absent(key: tuple[Any, ...]) -> tuple[Any, ...]:
+            return tuple(None if i in indices else value for i, value in enumerate(key))
+
+        return self._merge(absent, levels=self.levels)
 
     def sum_to(
         self,
@@ -343,12 +409,25 @@ class Tally(Model):
         self, level: str, unit_of: Callable[[str], str], levels: tuple[Level, ...]
     ) -> Tally:
         """The rows moved to ``unit_of(row.unit)`` at ``level``, and summed."""
+        unit_index = _KEY_FIELDS.index("unit")
+        level_index = _KEY_FIELDS.index("level")
+
+        def moved(key: tuple[Any, ...]) -> tuple[Any, ...]:
+            changed = list(key)
+            changed[unit_index] = unit_of(key[unit_index])
+            changed[level_index] = level
+            return tuple(changed)
+
+        return self._merge(moved, levels=levels)
+
+    def _merge(
+        self, new_key: Callable[[tuple[Any, ...]], tuple[Any, ...]], levels: tuple[Level, ...]
+    ) -> Tally:
+        """Each row given ``new_key(row.key)``, and rows with the same key summed, in
+        order of first appearance: the arithmetic of every operation that is a sum."""
         counts: dict[tuple[Any, ...], int] = {}
         for row in self.rows:
-            fields = dict(zip(_KEY_FIELDS, row.key))
-            fields["unit"] = unit_of(row.unit)
-            fields["level"] = level
-            key = tuple(fields.values())
+            key = new_key(row.key)
             counts[key] = counts.get(key, 0) + row.count
         return Tally(
             rows=tuple(

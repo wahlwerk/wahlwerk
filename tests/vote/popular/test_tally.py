@@ -337,3 +337,60 @@ def test_a_copy_with_other_rows_uses_no_kept_sum_or_check():
     copy = tally.model_copy(update={"rows": DEEP.rows[:1]})
     assert copy.sum_to("land").total() == 5
     assert not copy._is_checked
+
+
+# ===========================================================
+# The operations: Select, Relabel, Collapse (decision 0009)
+# ===========================================================
+def test_filter_with_several_values_selects_any_of_them():
+    both = TALLY.filter(section=("erststimme", "zweitstimme"))
+    assert len(both) == 6  # every vote row, not the people
+    assert TALLY.filter(party=["cdu"]).total() == 111
+
+
+def test_relabel_merges_sections_and_sums():
+    merged = TALLY.relabel("section", {"erststimme": "gesamtstimme", "zweitstimme": "gesamtstimme"})
+    assert merged.filter(unit=WBZ_1, party="afd").rows[0].count == 209 + 217
+    assert merged.filter(section="gesamtstimme").total() == TALLY.filter(kind="votes").total()
+    assert merged.total() == TALLY.total()
+
+
+def test_relabel_keeps_members_not_mapped_and_order():
+    renamed = TALLY.relabel("party", {"cdu": "union"})
+    assert renamed.sum_by("party") == {"afd": 566, "union": 111, None: 590}
+    assert [r.unit for r in renamed.rows] == [r.unit for r in TALLY.rows]
+
+
+def test_relabel_keeps_levels():
+    tally = Tally(rows=(row(WBZ_1, 1),), levels=(Level(name="wahlbezirk", depth=8),))
+    assert tally.relabel("channel", {"urne": "lokal"}).levels == tally.levels
+
+
+@pytest.mark.parametrize("field", ["unit", "level", "kind", "count", "candidate"])
+def test_relabel_rejects_fields_that_say_where_or_what_kind(field):
+    with pytest.raises(ValueError, match="cannot be relabelled"):
+        TALLY.relabel(field, {})
+
+
+def test_relabel_to_a_row_that_is_not_valid_is_rejected():
+    with pytest.raises(ValueError, match="names no option"):
+        TALLY.relabel("option", {"afd": None})
+
+
+def test_collapse_sums_a_field_away():
+    together = TALLY.collapse("channel")
+    assert together.filter(unit=WBZ_2).rows[0].count == 140
+    assert {r.channel for r in together.rows} == {None}
+    assert together.total() == TALLY.total()
+
+
+def test_collapse_rejects_no_field_and_fields_that_say_where():
+    with pytest.raises(ValueError, match="at least one field"):
+        TALLY.collapse()
+    with pytest.raises(ValueError, match="cannot be collapsed"):
+        TALLY.collapse("unit")
+
+
+def test_collapse_to_a_row_that_is_not_valid_is_rejected():
+    with pytest.raises(ValueError, match="names no section"):
+        TALLY.collapse("section")
