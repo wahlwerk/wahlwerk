@@ -428,8 +428,9 @@ Then, the tally (decision 0009 in `.github-private`), one point at a time:
 
 - What a law counts as valid (Spain's blank votes) as a step's setting, and options
   grouped beyond their party (lists, alliances), each with the first law that needs it
-- A profile beside the tally (each Stimmzettel across its sections, in order where the
-  law needs it), with the first law that needs it (Sec. 32 S. 2 LWG LSA)
+- Joint counts as a joint section of the tally, each combination option listing its
+  parts per section, ordered where the law ranks (decision 0010; the marginals are a
+  Relabel), with the first law that needs it (Sec. 32 S. 2 LWG LSA)
 
 Then, toward laws built by hand (decision 0004 in `.github-private`):
 
