@@ -271,3 +271,14 @@ def test_a_count_needs_its_hierarchy_or_ids_that_spell_it():
     step = SumGroupBy(section="erststimme", level="wahlkreis", by="option")
     with pytest.raises(ValueError, match="records no hierarchy 'electoral'"):
         step(Allocation(tally=FREE))
+
+
+def test_an_allocation_from_a_vote_carries_its_hierarchies():
+    from wahlwerk.vote.popular.popular_vote import PopularVote, Source
+
+    source = Source(publisher="p", title="t", url="https://example.org", licence="l", attribution="a",
+                    retrieved="2026-10-26", sha256="a" * 64)
+    vote = PopularVote(source=source, tally=FREE, hierarchies=(ELECTORAL,))
+    assert Allocation.from_vote(vote).hierarchies == (ELECTORAL,)
+    step = SumGroupBy(section="erststimme", level="wahlkreis", by="option")
+    assert step(Allocation.from_vote(vote)).count("erststimme", "wahlkreis").per_unit() == {"de.st.wk.007": {"cdu": 4, "spd": 3}}

@@ -26,7 +26,7 @@ def derive(vote: PopularVote, protocol: AllocationProtocol) -> Allocation:
     so a law in the wrong order fails before any step runs.
     """
     check_protocol(protocol)
-    allocation = Allocation(tally=vote.tally, hierarchies=vote.hierarchies)
+    allocation = Allocation.from_vote(vote)
     for step in protocol:
         allocation = step.apply(allocation)
     logger.debug("derived %s", sorted(allocation.facts))

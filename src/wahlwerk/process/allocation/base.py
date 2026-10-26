@@ -40,6 +40,7 @@ from wahlwerk.ids import LevelName, OptionId, PartyId, Slug, UnitId
 from wahlwerk.model import Count, Model, Seats
 from wahlwerk.state.chamber import Chamber
 from wahlwerk.vote.popular.hierarchy import Hierarchy
+from wahlwerk.vote.popular.popular_vote import PopularVote
 from wahlwerk.vote.popular.tally import Tally
 
 __all__ = [
@@ -292,6 +293,13 @@ class Allocation(Model):
             if result.party is not None:
                 wins[result.party] = wins.get(result.party, 0) + 1
         return wins
+
+    @classmethod
+    def from_vote(cls, vote: PopularVote) -> Allocation:
+        """The allocation a law starts from on ``vote``: its tally and its hierarchies,
+        nothing established yet. ``derive`` starts here; so does a law stepped through by
+        hand, which with only the tally would miss the hierarchies it counts along."""
+        return cls(tally=vote.tally, hierarchies=vote.hierarchies)
 
     def hierarchy(self, name: str) -> Hierarchy | None:
         """The hierarchy called ``name``; ``None`` if the vote records none of that name."""
